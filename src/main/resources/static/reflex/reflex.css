@@ -198,6 +198,13 @@ html, body {
         display: none;
     }
 
+    /* As high as the room between the mode buttons and Start: 188px is the bar, the mode buttons, Start and the gaps */
+    .mission-color {
+        --size: min(200px, calc(100dvh - 188px - max(env(safe-area-inset-top), 12px) - max(env(safe-area-inset-bottom), 16px)));
+        width: var(--size);
+        height: var(--size);
+    }
+
     .screen {
         gap: 10px;
     }
@@ -212,6 +219,19 @@ html, body {
 
     .mission .button {
         min-height: 52px;
+    }
+}
+
+/* Sideways on a tablet: the rules take fewer lines, which leaves room for a bigger color. 544px is the rest of the screen. */
+@media (orientation: landscape) and (min-height: 501px) {
+    .mission-color {
+        --size: max(19vh, min(240px, calc(100dvh - 544px)));
+        width: var(--size);
+        height: var(--size);
+    }
+
+    .mission p {
+        max-width: 560px;
     }
 }
 

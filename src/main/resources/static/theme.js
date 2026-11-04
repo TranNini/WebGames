@@ -22,13 +22,22 @@ const Theme = (() => {
         }
     }
 
-    let saved = null;
-    try {
-        saved = localStorage.getItem(KEY);
-    } catch (e) {
-        // the default then
+    function saved() {
+        try {
+            return localStorage.getItem(KEY);
+        } catch (e) {
+            return null; // the default then
+        }
     }
-    apply(saved === 'light' ? 'light' : 'dark');
+
+    apply(saved() === 'light' ? 'light' : 'dark');
+
+    // Swiping back or forward can bring back a page as it was, in the mode it had then
+    window.addEventListener('pageshow', event => {
+        if (event.persisted) {
+            apply(saved() || current());
+        }
+    });
 
     return {current, set};
 })();

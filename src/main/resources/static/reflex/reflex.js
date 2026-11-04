@@ -514,6 +514,9 @@ function setUpMenu() {
     $('menu-button').addEventListener('click', () => ($('menu').hidden ? openMenu() : closeMenu()));
     $('resume').addEventListener('click', closeMenu);
     $('dark-mode').addEventListener('change', () => Theme.set($('dark-mode').checked ? 'dark' : 'light'));
+    window.addEventListener('pageshow', () => {
+        $('dark-mode').checked = Theme.current() === 'dark'; // after theme.js, also when the page comes back as it was
+    });
     $('vibration').addEventListener('change', () => {
         settings.vibration = $('vibration').checked;
         saveSettings();

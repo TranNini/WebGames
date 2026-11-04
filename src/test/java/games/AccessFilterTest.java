@@ -46,7 +46,7 @@ class AccessFilterTest {
 
     @Test
     void otherDevicesNeedTheCode() throws Exception {
-        mvc.perform(get("/api/leaderboard/reflex").with(PHONE)).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/leaderboard/reflex-easy").with(PHONE)).andExpect(status().isUnauthorized());
         mvc.perform(get("/reflex/index.html").with(PHONE)).andExpect(redirectedUrl("/login.html"));
         mvc.perform(get("/").with(PHONE)).andExpect(redirectedUrl("/login.html"));
         for (String page : new String[]{"/login.html", "/style.css", "/theme.js", "/fredoka.woff2", "/apple-touch-icon.png"}) {
@@ -65,13 +65,13 @@ class AccessFilterTest {
                 .andExpect(cookie().secure(AccessFilter.COOKIE, true));
 
         Cookie cookie = new Cookie(AccessFilter.COOKIE, accessCode.getCookieKey());
-        mvc.perform(get("/api/leaderboard/reflex").with(PHONE).cookie(cookie)).andExpect(status().isOk());
+        mvc.perform(get("/api/leaderboard/reflex-easy").with(PHONE).cookie(cookie)).andExpect(status().isOk());
         mvc.perform(get("/reflex/index.html").with(PHONE).cookie(cookie)).andExpect(status().isOk());
     }
 
     @Test
     void theCodeItselfIsNoCookie() throws Exception {
-        mvc.perform(get("/api/leaderboard/reflex").with(PHONE).cookie(new Cookie(AccessFilter.COOKIE, accessCode.getCode())))
+        mvc.perform(get("/api/leaderboard/reflex-easy").with(PHONE).cookie(new Cookie(AccessFilter.COOKIE, accessCode.getCode())))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -86,6 +86,6 @@ class AccessFilterTest {
 
     @Test
     void thisMacNeedsNoCode() throws Exception {
-        mvc.perform(get("/api/leaderboard/reflex")).andExpect(status().isOk());
+        mvc.perform(get("/api/leaderboard/reflex-easy")).andExpect(status().isOk());
     }
 }

@@ -27,6 +27,11 @@
     </header>
 
     <main id="mission" class="mission">
+        <div class="modes" role="group" aria-label="Mode">
+            <button class="mode" data-mode="easy">Easy<small>4 colors</small></button>
+            <button class="mode" data-mode="medium">Medium<small>6 colors</small></button>
+            <button class="mode" data-mode="hard">Hard<small>8 colors</small></button>
+        </div>
         <div class="mission-text">
             <div class="mission-title">Your mission</div>
             <h1>Don't tap this color</h1>
@@ -76,7 +81,7 @@
             <div class="reason"><span id="reason-color" aria-hidden="true"></span><span id="reason"></span></div>
         </div>
         <section class="leaderboard">
-            <h2>Leaderboard</h2>
+            <h2 id="leaderboard-title">Leaderboard</h2>
             <div id="rows"></div>
             <p id="board-note" class="note" hidden></p>
         </section>

@@ -10,11 +10,33 @@ const COLORS = [
 ];
 const MAX_STRIKES = 3;
 const MAX_ENTRIES = 20;
-const API = '/api/leaderboard/reflex';
 
-// The game gets harder the longer it lasts: fields fade faster and appear more often.
-// Half of the way from slowest to fastest after about 40 seconds.
-const RAMP_MS = 60000;
+// colors: which ones the mode uses; the easier modes get those that are easiest to tell apart.
+// rampMs: how soon the game speeds up. Half of the way from slowest to fastest after 0.7 x this.
+// follow: the chance that the next field comes right after the last one, while that one is still lit,
+// at the very start and at full speed. So hard has it from the start, easy only as it speeds up.
+const MODES = {
+    easy: {
+        label: 'Easy',
+        colors: ['Sky', 'Rose', 'Mint', 'Lemon'],
+        rampMs: 60000,
+        follow: [0, 0.45]
+    },
+    medium: {
+        label: 'Medium',
+        colors: ['Sky', 'Rose', 'Mint', 'Lemon', 'Periwinkle', 'Pink'],
+        rampMs: 60000,
+        follow: [0.05, 0.5]
+    },
+    hard: {
+        label: 'Hard',
+        colors: COLORS.map(color => color.name),
+        rampMs: 45000,
+        follow: [0.35, 0.55]
+    }
+};
+const FOLLOW_MIN_MS = 150; // never at the same moment: fields don't all light up at once
+const FOLLOW_MAX_MS = 400;
 const SLOWEST_LIFE_MS = 2000;
 const FASTEST_LIFE_MS = 600;
 const SLOWEST_GAP_MS = 1100;
@@ -27,7 +49,7 @@ const cssColor = name => getComputedStyle(document.documentElement).getPropertyV
 
 const sideways = matchMedia('(orientation: landscape)');
 
-const settings = {vibration: true, sound: 70, music: 40, name: '', lastMission: ''};
+const settings = {mode: 'medium', vibration: true, sound: 70, music: 40, name: '', lastMission: ''};
 const fields = [...document.querySelectorAll('.field')].map((el, index) => ({
     el, index, fill: el.firstElementChild, color: null, life: 0, left: 0, rest: 0
 }));
@@ -118,9 +140,27 @@ function showScore() {
     $('strikes').setAttribute('aria-label', strikes + ' of ' + MAX_STRIKES + ' strikes');
 }
 
+function mode() {
+    return MODES[settings.mode];
+}
+
+function modeColors() {
+    return COLORS.filter(color => mode().colors.includes(color.name));
+}
+
+function leaderboardUrl() {
+    return '/api/leaderboard/reflex-' + settings.mode;
+}
+
+function showModes() {
+    for (const button of document.querySelectorAll('.mode')) {
+        button.setAttribute('aria-pressed', String(button.dataset.mode === settings.mode));
+    }
+}
+
 // Every game gets another color than the last one
 function newMission() {
-    const others = COLORS.filter(color => color.name !== settings.lastMission);
+    const others = modeColors().filter(color => color.name !== settings.lastMission);
     mission = others[Math.floor(Math.random() * others.length)];
     settings.lastMission = mission.name;
     saveSettings();
@@ -133,6 +173,7 @@ function newMission() {
     $('mission-color').setAttribute('aria-label', mission.name);
     $('mission-name').textContent = mission.name;
     $('mission-name').style.setProperty('--mission', mission.hex);
+    showModes();
     showScreen('mission');
 }
 
@@ -159,14 +200,14 @@ function clearField(field) {
 }
 
 function difficulty() {
-    return 1 - Math.exp(-elapsed / RAMP_MS);
+    return 1 - Math.exp(-elapsed / mode().rampMs);
 }
 
 function randomColor() {
     if (Math.random() < MISSION_CHANCE) {
         return mission;
     }
-    const others = COLORS.filter(color => color !== mission);
+    const others = modeColors().filter(color => color !== mission);
     return others[Math.floor(Math.random() * others.length)];
 }
 
@@ -184,6 +225,11 @@ function lightField() {
     field.fill.style.background = field.color.hex;
     field.fill.style.transform = 'scaleY(1)';
     field.el.setAttribute('aria-label', field.color.name);
+    const [followAtStart, followAtFullSpeed] = mode().follow;
+    if (Math.random() < followAtStart + (followAtFullSpeed - followAtStart) * hard) {
+        untilNextField = FOLLOW_MIN_MS + Math.random() * (FOLLOW_MAX_MS - FOLLOW_MIN_MS);
+        return;
+    }
     // Random times: somewhere between 65% and 135% of the current gap
     const gap = SLOWEST_GAP_MS + (FASTEST_GAP_MS - SLOWEST_GAP_MS) * hard;
     untilNextField = gap * (0.65 + Math.random() * 0.7);
@@ -270,6 +316,7 @@ async function endGame(tappedColor) {
     saved = false;
     warnedAboutLeaving = false;
     nameInput.value = settings.name;
+    $('leaderboard-title').textContent = 'Leaderboard · ' + mode().label;
     renderLeaderboard();
     state = 'over';
     showScreen('over');
@@ -277,7 +324,7 @@ async function endGame(tappedColor) {
 
 async function loadLeaderboard() {
     try {
-        const response = await fetch(API, {signal: AbortSignal.timeout(5000)});
+        const response = await fetch(leaderboardUrl(), {signal: AbortSignal.timeout(5000)});
         if (!response.ok) {
             throw new Error(response.status);
         }
@@ -385,7 +432,7 @@ async function saveScore(keepalive) {
     settings.name = name;
     saveSettings();
     try {
-        const response = await fetch(API, {
+        const response = await fetch(leaderboardUrl(), {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({name, score}),
@@ -517,6 +564,14 @@ function setUpEvents() {
         field.el.addEventListener('click', event => {
             if (event.detail === 0) {
                 tapField(field);
+            }
+        });
+    }
+    for (const button of document.querySelectorAll('.mode')) {
+        button.addEventListener('click', () => {
+            if (button.dataset.mode !== settings.mode) {
+                settings.mode = button.dataset.mode;
+                newMission();
             }
         });
     }

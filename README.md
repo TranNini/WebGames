@@ -6,8 +6,8 @@ access code that each device enters once. Works on iPhone, iPad and Android; on 
 
 ## Reflex Tap
 
-You get a mission: a color not to tap. A new one each game. Then the 8 fields light up at random times in random
-colors, and each color drains away.
+Pick a mode: **easy** has 4 colors, **medium** 6 and **hard** all 8. You get a mission: a color not to tap, a new one each
+game. Then the 8 fields light up at random times in random colors, and each color drains away.
 
 | What happens | Result |
 |---|---|
@@ -16,8 +16,8 @@ colors, and each color drains away.
 | The mission color runs out | Nothing |
 | Tap the mission color | Instant game over |
 
-The longer you last, the faster fields fade and the more often they appear (`RAMP_MS` and the values around it
-in `reflex.js`). Settings (top right) pause the game: dark mode, vibration, sound volume, music volume, back to games.
+The longer you last, the faster fields fade and the more often they appear, and a field can light up while the last
+one is still lit. Hard speeds up a little earlier and has that overlap from the start (`MODES` in `reflex.js`). Settings (top right) pause the game: dark mode, vibration, sound volume, music volume, back to games.
 The phone vibrates at game over.
 
 Turned sideways, the game goes full screen with the first tap (Android, iPad). Safari on the iPhone doesn't allow
@@ -25,7 +25,7 @@ that for web pages; there, Add to Home Screen gives the full screen.
 
 ### Leaderboard
 
-Top 20. A name is on it once, with its best score. Of two equal scores the one reached first ranks higher, and on a
+Each mode has its own top 20. A name is on it once, with its best score. Of two equal scores the one reached first ranks higher, and on a
 full list a new name needs more than last place. The game over screen shows the top 3 and your own place.
 
 ## Run locally

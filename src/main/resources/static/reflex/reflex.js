@@ -443,6 +443,7 @@ function openMenu() {
     screenBehindMenu = ['mission', 'board', 'over'].find(id => !$(id).hidden);
     if (state === 'playing') {
         state = 'paused';
+        Sound.stopMusic();
     }
     const inGame = state === 'paused';
     $('menu-title').textContent = inGame ? 'Paused' : 'Settings';
@@ -474,6 +475,7 @@ function closeMenu() {
         state = 'playing';
         lastFrame = performance.now();
         requestAnimationFrame(frame);
+        Sound.startMusic();
     } else {
         Sound.stopMusic(); // it only played to try the music volume
     }

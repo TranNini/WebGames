@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+    <meta name="theme-color" content="#17161c">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Games">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" href="/favicon.png" type="image/png">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <title>Reflex Tap</title>
+    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="reflex.css">
+</head>
+<body>
+<div class="screen">
+    <header class="bar">
+        <div id="strikes" class="strikes"><span>X</span><span>X</span><span>X</span></div>
+        <div id="score" class="score">0</div>
+        <button id="menu-button" class="icon-button" aria-label="Menu">
+            <svg id="gear" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-2.82 1.17V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-2.82-1.17l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0-1.17-2.82H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.17-2.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 2.82-1.17V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 2.82 1.17l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0 1.17 2.82H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            <svg id="close" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+        </button>
+    </header>
+
+    <main id="mission" class="mission">
+        <div class="mission-text">
+            <div class="mission-title">Your mission</div>
+            <h1>Don't tap this color</h1>
+            <div id="mission-color" class="mission-color"></div>
+            <div id="mission-name" class="mission-name"></div>
+            <p>Tap every other color before it fades. Three missed and the game ends. One tap on this color ends it right away.</p>
+        </div>
+        <button id="start" class="button primary">Start</button>
+    </main>
+
+    <main id="board" class="board" hidden>
+        <button class="field"><span></span></button>
+        <button class="field"><span></span></button>
+        <button class="field"><span></span></button>
+        <button class="field"><span></span></button>
+        <button class="field"><span></span></button>
+        <button class="field"><span></span></button>
+        <button class="field"><span></span></button>
+        <button class="field"><span></span></button>
+    </main>
+
+    <section id="menu" class="menu" hidden>
+        <h2 id="menu-title">Paused</h2>
+        <label class="setting row">
+            <span>Vibration</span>
+            <input id="vibration" type="checkbox" class="switch">
+        </label>
+        <label class="setting">
+            <span>Sound volume</span>
+            <input id="sound" type="range" min="0" max="100">
+        </label>
+        <label class="setting">
+            <span>Music volume</span>
+            <input id="music" type="range" min="0" max="100">
+        </label>
+        <button id="resume" class="button primary">Resume</button>
+        <a class="button" href="/">Back to games</a>
+    </section>
+
+    <main id="over" class="over" hidden>
+        <div class="over-title">
+            <h1>Game over</h1>
+            <div class="reason"><span id="reason-color" aria-hidden="true"></span><span id="reason"></span></div>
+        </div>
+        <section class="leaderboard">
+            <h2>Leaderboard</h2>
+            <div id="rows"></div>
+            <p id="board-note" class="note" hidden></p>
+        </section>
+        <div class="over-buttons">
+            <button id="again" class="button primary">Play again</button>
+            <a id="back" class="button" href="/">Back to games</a>
+        </div>
+    </main>
+</div>
+<!-- Native iOS switch: tapping its label from code is the only way a web page gets a haptic tap on iPhone -->
+<label id="haptic" hidden><input type="checkbox" switch></label>
+<script src="sound.js"></script>
+<script src="reflex.js"></script>
+</body>
+</html>

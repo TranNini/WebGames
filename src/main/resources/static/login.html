@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#17161c">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Games">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="favicon.png" type="image/png">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <title>Games</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="page">
+    <form class="login" method="post" action="/login" autocomplete="off">
+        <h1>Access code</h1>
+        <p>Enter the code to play. You only need to do this once on this device.</p>
+        <p id="wrong" class="error" hidden>That code didn't work. Please check it and try again.</p>
+        <input name="code" type="text" aria-label="Code" autocapitalize="off" autocorrect="off" spellcheck="false" autofocus>
+        <button type="submit" class="button primary">Continue</button>
+    </form>
+</main>
+<script>
+    document.getElementById("wrong").hidden = !location.search.includes("wrong");
+</script>
+</body>
+</html>

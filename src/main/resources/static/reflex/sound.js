@@ -1,0 +1,145 @@
+// All sounds are made in the browser (Web Audio), so there are no sound files.
+// Browsers only allow sound after a tap: call unlock() from a tap handler.
+const Sound = (() => {
+    const NOTES = [523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.66, 1318.51]; // one for each field
+    // The music: four bars of bass note + arpeggio, in Hz
+    const BARS = [
+        {bass: 110, notes: [220, 261.63, 329.63, 440, 329.63, 261.63, 220, 261.63]},
+        {bass: 87.31, notes: [174.61, 220, 261.63, 349.23, 261.63, 220, 174.61, 220]},
+        {bass: 130.81, notes: [196, 261.63, 329.63, 392, 329.63, 261.63, 196, 261.63]},
+        {bass: 98, notes: [196, 246.94, 293.66, 392, 293.66, 246.94, 196, 246.94]}
+    ];
+    const SLOW_BPM = 112;
+    const FAST_BPM = 150;
+
+    let ctx = null;
+    let soundGain = null;
+    let musicGain = null;
+    let soundLevel = 0;
+    let musicLevel = 0;
+    let musicTimer = null;
+    let nextNoteAt = 0;
+    let step = 0;
+    let speed = 0;
+
+    function unlock() {
+        if (!ctx) {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContext) {
+                return;
+            }
+            // Mix with what else is playing on the iPhone (music, a podcast) instead of stopping it
+            if (navigator.audioSession) {
+                navigator.audioSession.type = 'ambient';
+            }
+            ctx = new AudioContext();
+            soundGain = ctx.createGain();
+            musicGain = ctx.createGain();
+            soundGain.connect(ctx.destination);
+            musicGain.connect(ctx.destination);
+            setSoundVolume(soundLevel);
+            setMusicVolume(musicLevel);
+        }
+        if (ctx.state !== 'running') {
+            ctx.resume().catch(() => {});
+        }
+    }
+
+    // 0 to 100. Squared, as ears hear loudness that way: the middle of the slider sounds like the middle
+    function setSoundVolume(level) {
+        soundLevel = level;
+        if (ctx) {
+            soundGain.gain.value = (level / 100) ** 2;
+        }
+    }
+
+    function setMusicVolume(level) {
+        musicLevel = level;
+        if (ctx) {
+            musicGain.gain.value = (level / 100) ** 2 * 0.5;
+        }
+    }
+
+    function tone(output, type, frequency, at, seconds, loudness, endFrequency) {
+        const oscillator = ctx.createOscillator();
+        const gain = ctx.createGain();
+        oscillator.type = type;
+        oscillator.frequency.setValueAtTime(frequency, at);
+        if (endFrequency) {
+            oscillator.frequency.exponentialRampToValueAtTime(endFrequency, at + seconds);
+        }
+        gain.gain.setValueAtTime(0.0001, at);
+        gain.gain.exponentialRampToValueAtTime(loudness, at + 0.008);
+        gain.gain.exponentialRampToValueAtTime(0.0001, at + seconds);
+        oscillator.connect(gain).connect(output);
+        oscillator.start(at);
+        oscillator.stop(at + seconds + 0.02);
+    }
+
+    function play(makeTones) {
+        if (ctx) {
+            makeTones(ctx.currentTime);
+        }
+    }
+
+    function tap(field) {
+        play(now => tone(soundGain, 'triangle', NOTES[field], now, 0.13, 0.6));
+    }
+
+    function miss() {
+        play(now => tone(soundGain, 'square', 196, now, 0.28, 0.3, 98));
+    }
+
+    function start() {
+        play(now => [523.25, 659.25, 783.99].forEach((note, i) => tone(soundGain, 'triangle', note, now + i * 0.09, 0.18, 0.5)));
+    }
+
+    function gameOver() {
+        play(now => [392, 311.13, 233.08].forEach((note, i) => tone(soundGain, 'sawtooth', note, now + i * 0.17, 0.32, 0.3)));
+    }
+
+    function scheduleMusic() {
+        if (ctx.state !== 'running') {
+            return;
+        }
+        nextNoteAt = Math.max(nextNoteAt, ctx.currentTime);
+        while (nextNoteAt < ctx.currentTime + 0.4) {
+            const bar = BARS[Math.floor(step / 8) % BARS.length];
+            const note = step % 8;
+            if (note === 0 || note === 4) {
+                tone(musicGain, 'sine', bar.bass, nextNoteAt, 0.5, 0.8);
+            }
+            tone(musicGain, 'triangle', bar.notes[note], nextNoteAt, 0.2, 0.35);
+            step++;
+            nextNoteAt += 30 / (SLOW_BPM + (FAST_BPM - SLOW_BPM) * speed);
+        }
+    }
+
+    function startMusic() {
+        if (ctx && !musicTimer) {
+            step = 0;
+            nextNoteAt = ctx.currentTime + 0.05;
+            scheduleMusic();
+            musicTimer = setInterval(scheduleMusic, 100);
+        }
+    }
+
+    function stopMusic() {
+        clearInterval(musicTimer);
+        musicTimer = null;
+    }
+
+    // 0 = slow, 1 = fast: the music keeps up with the game
+    function setMusicSpeed(value) {
+        speed = value;
+    }
+
+    // While the page isn't visible (phone locked, other app)
+    function sleep() {
+        if (ctx) {
+            ctx.suspend().catch(() => {});
+        }
+    }
+
+    return {unlock, setSoundVolume, setMusicVolume, tap, miss, start, gameOver, startMusic, stopMusic, setMusicSpeed, sleep};
+})();

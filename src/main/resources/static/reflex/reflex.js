@@ -447,15 +447,28 @@ function openMenu() {
     const inGame = state === 'paused';
     $('menu-title').textContent = inGame ? 'Paused' : 'Settings';
     $('resume').textContent = inGame ? 'Resume' : 'Close';
+    $('restart').hidden = !inGame;
     showMenuIcon('close');
     $('menu-button').setAttribute('aria-label', 'Close menu');
     showScreen('menu');
 }
 
-function closeMenu() {
-    Sound.unlock();
+function resetMenuButton() {
     showMenuIcon('gear');
     $('menu-button').setAttribute('aria-label', 'Menu');
+}
+
+// Gives up this game, like leaving it does: the score isn't saved
+function restartGame() {
+    Sound.unlock();
+    Sound.stopMusic();
+    resetMenuButton();
+    newMission();
+}
+
+function closeMenu() {
+    Sound.unlock();
+    resetMenuButton();
     showScreen(screenBehindMenu);
     if (state === 'paused') {
         state = 'playing';
@@ -476,6 +489,7 @@ function setUpMenu() {
 
     $('menu-button').addEventListener('click', () => ($('menu').hidden ? openMenu() : closeMenu()));
     $('resume').addEventListener('click', closeMenu);
+    $('restart').addEventListener('click', restartGame);
     $('dark-mode').addEventListener('change', () => Theme.set($('dark-mode').checked ? 'dark' : 'light'));
     window.addEventListener('pageshow', () => {
         $('dark-mode').checked = Theme.current() === 'dark'; // after theme.js, also when the page comes back as it was

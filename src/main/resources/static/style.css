@@ -147,6 +147,29 @@ input[type="text"] {
     stroke-linejoin: round;
 }
 
+.player {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: 0.3em;
+    min-height: 44px;
+    color: var(--soft-text);
+    font-size: 18px;
+    text-decoration: none;
+}
+
+.player b {
+    color: var(--text);
+    font-weight: 600;
+}
+
+.player span {
+    margin-left: 0.4em;
+    color: var(--accent);
+    font-weight: 500;
+    text-decoration: underline;
+}
+
 /* The icon shows the mode a tap switches to */
 .theme-button .moon,
 :root[data-theme="light"] .theme-button .sun {

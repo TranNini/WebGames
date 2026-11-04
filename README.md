@@ -28,6 +28,8 @@ that for web pages; there, Add to Home Screen gives the full screen.
 Each mode has its own top 20. A name is on it once, with its best score. Of two equal scores the one reached first ranks higher, and on a
 full list a new name needs more than last place. The game over screen shows the top 3 and your own place.
 
+Everyone enters a name once on their device, after the access code. It applies to all games and leaderboards, and scores are saved under it automatically. The start page has a link to change it; scores already on a list stay under the old name.
+
 ## Run locally
 
     mvn spring-boot:run
@@ -44,6 +46,7 @@ and open `http://<the Mac's address>:8083`.
 | File | What it does |
 |---|---|
 | `src/main/resources/static/index.html` | the start page, lists the games |
+| `src/main/resources/static/name.html`, `name.js`, `player.js` | asks for the player's name, keeps it on the device |
 | `src/main/resources/static/style.css` | what all pages share |
 | `src/main/resources/static/reflex/reflex.js` | Reflex Tap: the game, menu and game over screen |
 | `src/main/resources/static/reflex/sound.js` | its sounds and music, made in the browser |

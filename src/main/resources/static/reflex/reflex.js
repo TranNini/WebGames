@@ -49,7 +49,7 @@ const cssColor = name => getComputedStyle(document.documentElement).getPropertyV
 
 const sideways = matchMedia('(orientation: landscape)');
 
-const settings = {mode: 'medium', vibration: true, sound: 70, music: 40, name: '', lastMission: ''};
+const settings = {mode: 'medium', vibration: true, sound: 70, music: 40, lastMission: ''};
 const fields = [...document.querySelectorAll('.field')].map((el, index) => ({
     el, index, fill: el.firstElementChild, color: null, life: 0, left: 0, rest: 0
 }));
@@ -67,8 +67,6 @@ let lastFrame = 0;
 let entries = null; // null: couldn't be loaded
 let saved = false;
 let warnedAboutLeaving = false;
-const nameForm = document.createElement('form');
-const nameInput = document.createElement('input');
 
 // Settings stay on the device. Storage can fail (private mode); the game then just doesn't remember them.
 function loadSettings() {
@@ -107,12 +105,12 @@ function vibrateGameOver() {
 }
 
 // Sideways the game takes the whole screen. Browsers only allow that from a tap, so it starts with the first
-// tap after turning. Not on the game over screen: iPad Safari warns about typing a name in full screen.
+// tap after turning.
 // Safari on the iPhone has no full screen for pages at all; there it takes Add to Home Screen.
 function enterFullscreen() {
     const page = document.documentElement;
     const enter = page.requestFullscreen || page.webkitRequestFullscreen;
-    if (enter && sideways.matches && state !== 'over' && !fullscreenElement()) {
+    if (enter && sideways.matches && !fullscreenElement()) {
         Promise.resolve(enter.call(page)).catch(() => {});
     }
 }
@@ -304,22 +302,28 @@ async function endGame(tappedColor) {
     Sound.stopMusic();
     Sound.gameOver();
     vibrateGameOver();
+    saved = false;
+    warnedAboutLeaving = false;
     // A moment to see what happened, and fingers still tapping don't press a button on the next screen
     const moment = new Promise(resolve => setTimeout(resolve, 700));
-    await Promise.all([moment, loadLeaderboard()]);
+    await Promise.all([moment, updateLeaderboard()]);
 
     $('reason').textContent = tappedColor ? 'You tapped ' + tappedColor.name : 'Three missed';
     $('reason-color').hidden = !tappedColor;
     if (tappedColor) {
         $('reason-color').style.background = tappedColor.hex;
     }
-    saved = false;
-    warnedAboutLeaving = false;
-    nameInput.value = settings.name;
     $('leaderboard-title').textContent = 'Leaderboard · ' + mode().label;
     renderLeaderboard();
     state = 'over';
     showScreen('over');
+}
+
+async function updateLeaderboard() {
+    await saveScore();
+    if (!saved) {
+        await loadLeaderboard();
+    }
 }
 
 async function loadLeaderboard() {
@@ -334,61 +338,65 @@ async function loadLeaderboard() {
     }
 }
 
-function sameName(a, b) {
-    return a.trim().toLowerCase() === b.trim().toLowerCase();
+// The server decides what happens to the score (Leaderboard.java) and answers with the new list.
+// True when there's nothing left to save.
+async function saveScore(keepalive) {
+    if (saved || score === 0) {
+        return true;
+    }
+    try {
+        const response = await fetch(leaderboardUrl(), {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({name: Player.name(), score}),
+            keepalive: Boolean(keepalive),
+            signal: AbortSignal.timeout(5000)
+        });
+        if (!response.ok) {
+            throw new Error(response.status);
+        }
+        entries = await response.json();
+        saved = true;
+        return true;
+    } catch (e) {
+        return false;
+    }
 }
 
-// Where this name is after this game. Same rules as the server (Leaderboard.java): a name is on the
-// list once with its best score, of equal scores the older one ranks higher, and 20 places is all there is.
-function place(name) {
-    const list = entries || [];
-    const own = name ? list.find(entry => sameName(entry.name, name)) : null;
-    if (own && own.score >= score) {
-        return {rank: own.rank, score: own.score, isOldBest: true};
-    }
-    const others = list.filter(entry => entry !== own);
-    const rank = others.filter(entry => entry.score >= score).length + 1;
-    return {rank, score, isOldBest: false, onList: score > 0 && rank <= MAX_ENTRIES};
+function ownEntry() {
+    const name = Player.name().toLowerCase();
+    return (entries || []).find(entry => entry.name.toLowerCase() === name);
 }
 
 // Top 3 + ... + own place. The own place is part of the top 3 when it is that high.
 function renderLeaderboard() {
-    const name = nameInput.value.trim();
-    const mine = place(name);
     const list = entries || [];
-    const typing = !saved && (mine.isOldBest || mine.onList);
-
-    const ordered = typing ? list.filter(entry => !sameName(entry.name, name)) : [...list];
-    if (typing) {
-        ordered.splice(mine.rank - 1, 0, {score: mine.score, typing: true});
-    }
-    const ownIndex = ordered.findIndex(entry => entry.typing || (saved && sameName(entry.name, settings.name)));
-
+    const own = ownEntry();
     const rows = [];
-    ordered.forEach((entry, index) => {
-        if (index >= 3 && index !== ownIndex) {
+    list.forEach((entry, index) => {
+        if (index >= 3 && entry !== own) {
             return;
         }
         if (index > 3) {
             rows.push(dotsRow());
         }
-        rows.push(entryRow(index + 1, entry, index === ownIndex));
+        rows.push(entryRow(entry, entry === own));
     });
     $('rows').replaceChildren(...rows);
-    showNote(mine, list);
+    showNote(own, list);
 }
 
-function entryRow(rank, entry, isOwn) {
+function entryRow(entry, isOwn) {
     const row = document.createElement('div');
     row.className = isOwn ? 'entry mine' : 'entry';
     const rankCell = document.createElement('b');
-    rankCell.textContent = rank;
+    rankCell.textContent = entry.rank;
     const nameCell = document.createElement('span');
     nameCell.className = 'name';
     nameCell.textContent = entry.name;
     const pointsCell = document.createElement('b');
     pointsCell.textContent = entry.score;
-    row.append(rankCell, entry.typing ? nameForm : nameCell, pointsCell);
+    row.append(rankCell, nameCell, pointsCell);
     return row;
 }
 
@@ -399,60 +407,25 @@ function dotsRow() {
     return dots;
 }
 
-function showNote(mine, list) {
+function showNote(own, list) {
     let text = '';
-    if (entries === null) {
+    if (score > 0 && !saved) {
+        text = 'Your score couldn\'t be saved. Check the connection and try again.';
+    } else if (entries === null) {
         text = 'The leaderboard can\'t be reached right now.';
-    } else if (!saved && mine.isOldBest && mine.score > score) {
-        text = 'Your best stays at ' + mine.score + '.';
-    } else if (!saved && !mine.isOldBest && !mine.onList && score > 0) {
+    } else if (score > 0 && own && own.score > score) {
+        text = 'Your best stays at ' + own.score + '.';
+    } else if (score > 0 && !own) {
         text = 'Beat ' + list[list.length - 1].score + ' to reach the top ' + MAX_ENTRIES + '.';
-    } else if (list.length === 0 && score === 0) {
+    } else if (list.length === 0) {
         text = 'No scores yet. Be the first!';
     }
     $('board-note').textContent = text;
     $('board-note').hidden = !text;
 }
 
-function setNote(text) {
-    $('board-note').textContent = text;
-    $('board-note').hidden = false;
-}
-
-// True when there's nothing left to save
-async function saveScore(keepalive) {
-    if (saved || entries === null) {
-        return true;
-    }
-    const name = nameInput.value.trim();
-    const mine = place(name);
-    if (!name || mine.isOldBest || !mine.onList) {
-        return !(mine.onList && !name);
-    }
-    settings.name = name;
-    saveSettings();
-    try {
-        const response = await fetch(leaderboardUrl(), {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({name, score}),
-            keepalive: Boolean(keepalive)
-        });
-        if (!response.ok) {
-            throw new Error(response.status);
-        }
-        entries = await response.json();
-        saved = true;
-        renderLeaderboard();
-        return true;
-    } catch (e) {
-        setNote('Your score couldn\'t be saved. Check the connection and try again.');
-        return false;
-    }
-}
-
-// Before leaving the game over screen: saves the score. If that isn't possible (no name yet, no
-// connection) it says so and stays, once; the second tap leaves anyway.
+// Before leaving the game over screen: tries once more if the score couldn't be saved. If that fails too
+// it stays, once; the second tap leaves anyway.
 async function leaveGameOver(leave) {
     const done = await saveScore();
     if (done || warnedAboutLeaving) {
@@ -460,10 +433,6 @@ async function leaveGameOver(leave) {
         return;
     }
     warnedAboutLeaving = true;
-    if (!nameInput.value.trim()) {
-        setNote('Type a name to save your score, or tap again to go on without it.');
-        nameInput.focus();
-    }
 }
 
 // Set as an attribute: svg elements have no hidden property
@@ -537,25 +506,6 @@ function setUpMenu() {
     });
 }
 
-function setUpNameForm() {
-    nameInput.type = 'text';
-    nameInput.maxLength = 16;
-    nameInput.placeholder = 'Your name';
-    nameInput.setAttribute('aria-label', 'Your name');
-    nameInput.setAttribute('autocomplete', 'off');
-    nameInput.setAttribute('autocapitalize', 'words');
-    nameInput.setAttribute('autocorrect', 'off');
-    nameInput.spellcheck = false;
-    nameForm.append(nameInput);
-    nameForm.addEventListener('submit', event => {
-        event.preventDefault();
-        nameInput.blur();
-        saveScore();
-    });
-    nameInput.addEventListener('change', renderLeaderboard);
-    nameInput.addEventListener('focus', leaveFullscreen);
-}
-
 function setUpEvents() {
     for (const field of fields) {
         // On touch, not on letting go: the fastest there is, and several fingers can tap at once
@@ -609,7 +559,7 @@ function setUpEvents() {
             leaveFullscreen();
         }
     });
-    // Closing the app on the game over screen doesn't lose a score that has a name
+    // Closing the app on the game over screen tries once more to save a score that couldn't be saved
     window.addEventListener('pagehide', () => {
         if (state === 'over' && !$('over').hidden) {
             saveScore(true);
@@ -619,6 +569,5 @@ function setUpEvents() {
 
 loadSettings();
 setUpMenu();
-setUpNameForm();
 setUpEvents();
 newMission();

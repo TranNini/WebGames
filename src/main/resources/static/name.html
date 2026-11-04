@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#17161c">
+    <script src="theme.js"></script>
+    <script src="player.js"></script>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Games">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="favicon.png" type="image/png">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <title>Games</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="page">
+    <form id="name-form" class="login" autocomplete="off" novalidate>
+        <h1>Your name</h1>
+        <p>This is your name in all games and on all leaderboards. You only need to enter it once on this device.</p>
+        <p id="name-error" class="error" hidden></p>
+        <input id="name" type="text" aria-label="Your name" maxlength="16" autocapitalize="words" autocorrect="off" spellcheck="false" autofocus>
+        <button type="submit" class="button primary">Continue</button>
+    </form>
+</main>
+<script src="name.js"></script>
+</body>
+</html>

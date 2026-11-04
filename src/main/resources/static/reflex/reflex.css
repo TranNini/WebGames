@@ -442,14 +442,6 @@ html, body {
     color: var(--on-pastel);
 }
 
-.entry.mine input {
-    width: calc(100% - 12px);
-    height: 44px;
-    -webkit-user-select: text;
-    user-select: text;
-    border-color: var(--on-pastel);
-}
-
 .dots {
     padding-left: 48px;
     color: var(--muted);

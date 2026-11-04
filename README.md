@@ -16,8 +16,21 @@ game. Then the 8 fields light up at random times in random colors, and each colo
 | The mission color runs out | Nothing |
 | Tap the mission color | Instant game over |
 
-The longer you last, the faster fields fade and the more often they appear, and a field can light up while the last
-one is still lit. Hard speeds up a little earlier and has that overlap from the start (`MODES` in `reflex.js`). Settings (top right) pause the game: dark mode, vibration, sound volume, music volume, back to games.
+The score sets the pace (`LEVELS` in `reflex.js`). A field to tap is always lit: as soon as one goes, the next comes.
+The mission color comes on top of those, on at most two fields at a time.
+
+| Score | Fields to tap, always lit | A field runs out in |
+|-------|---------------------------|---------------------|
+| 0 | 1 | 2 s |
+| 10 | 2 | 2 s |
+| 20 | 3 | 2 s |
+| 30 | 4 | 2 s |
+| 40 | 4 | 1.75 s |
+| 60 | 5 | 1.75 s |
+| 70 | 5 | 1.5 s |
+| 80 | 5 | 1.3 s |
+
+The modes differ in how many colors they use. Settings (top right) pause the game: dark mode, vibration, sound volume, music volume, back to games.
 The phone vibrates at game over.
 
 Turned sideways, the game goes full screen with the first tap on Android. On the iPhone and iPad, Add to Home Screen gives

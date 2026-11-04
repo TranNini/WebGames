@@ -12,36 +12,36 @@ const MAX_STRIKES = 3;
 const MAX_ENTRIES = 20;
 
 // colors: which ones the mode uses; the easier modes get those that are easiest to tell apart.
-// rampMs: how soon the game speeds up. Half of the way from slowest to fastest after 0.7 x this.
-// follow: the chance that the next field comes right after the last one, while that one is still lit,
-// at the very start and at full speed. So hard has it from the start, easy only as it speeds up.
 const MODES = {
     easy: {
         label: 'Easy',
-        colors: ['Sky', 'Rose', 'Mint', 'Lemon'],
-        rampMs: 60000,
-        follow: [0, 0.45]
+        colors: ['Sky', 'Rose', 'Mint', 'Lemon']
     },
     medium: {
         label: 'Medium',
-        colors: ['Sky', 'Rose', 'Mint', 'Lemon', 'Periwinkle', 'Pink'],
-        rampMs: 60000,
-        follow: [0.05, 0.5]
+        colors: ['Sky', 'Rose', 'Mint', 'Lemon', 'Periwinkle', 'Pink']
     },
     hard: {
         label: 'Hard',
-        colors: COLORS.map(color => color.name),
-        rampMs: 45000,
-        follow: [0.35, 0.55]
+        colors: COLORS.map(color => color.name)
     }
 };
-const FOLLOW_MIN_MS = 150; // never at the same moment: fields don't all light up at once
-const FOLLOW_MAX_MS = 400;
-const SLOWEST_LIFE_MS = 2000;
-const FASTEST_LIFE_MS = 600;
-const SLOWEST_GAP_MS = 1100;
-const FASTEST_GAP_MS = 280;
+// What the score changes. from: the score this starts at. lit: how many fields to tap are always lit, as soon as one
+// goes another comes. The mission color comes on top of those, or it would leave nothing to do until it runs out.
+// lifeMs: how long a field takes to run out.
+const LEVELS = [
+    {from: 0, lit: 1, lifeMs: 2000},
+    {from: 10, lit: 2, lifeMs: 2000},
+    {from: 20, lit: 3, lifeMs: 2000},
+    {from: 30, lit: 4, lifeMs: 2000},
+    {from: 40, lit: 4, lifeMs: 1750},
+    {from: 60, lit: 5, lifeMs: 1750},
+    {from: 70, lit: 5, lifeMs: 1500},
+    {from: 80, lit: 5, lifeMs: 1300}
+];
+const FIRST_FIELD_MS = 600;
 const MISSION_CHANCE = 0.2; // how often a new field has the color not to tap
+const MAX_MISSION_FIELDS = 2; // the faster the tapping, the more would come, until they fill the board
 const FIELD_REST_MS = 250;  // an emptied field stays empty this long, so a new color is seen as new
 
 const $ = id => document.getElementById(id);
@@ -62,8 +62,7 @@ let screenBehindMenu = null;
 let mission = null;
 let score = 0;
 let strikes = 0;
-let elapsed = 0;
-let untilNextField = 0;
+let untilFirstField = 0;
 let lastFrame = 0;
 
 // Leaderboard on the game over screen
@@ -185,8 +184,7 @@ function startGame() {
     Sound.startMusic();
     fields.forEach(clearField);
     fields.forEach(field => field.el.classList.remove('fatal'));
-    elapsed = 0;
-    untilNextField = 600;
+    untilFirstField = FIRST_FIELD_MS;
     state = 'playing';
     showScreen('board');
     lastFrame = performance.now();
@@ -200,12 +198,17 @@ function clearField(field) {
     field.el.setAttribute('aria-label', 'Empty field');
 }
 
-function difficulty() {
-    return 1 - Math.exp(-elapsed / mode().rampMs);
+function level() {
+    return LEVELS.findLast(level => score >= level.from);
+}
+
+function fieldsToTap() {
+    return fields.filter(field => field.color && field.color !== mission).length;
 }
 
 function randomColor() {
-    if (Math.random() < MISSION_CHANCE) {
+    const missionFields = fields.filter(field => field.color === mission).length;
+    if (missionFields < MAX_MISSION_FIELDS && Math.random() < MISSION_CHANCE) {
         return mission;
     }
     const others = modeColors().filter(color => color !== mission);
@@ -213,27 +216,19 @@ function randomColor() {
 }
 
 function lightField() {
-    const free = fields.filter(field => !field.color && field.rest === 0);
+    const empty = fields.filter(field => !field.color);
+    const rested = empty.filter(field => field.rest === 0);
+    const free = rested.length > 0 ? rested : empty; // a full board doesn't wait for a field to rest
     if (free.length === 0) {
-        untilNextField = 50;
         return;
     }
     const field = free[Math.floor(Math.random() * free.length)];
-    const hard = difficulty();
     field.color = randomColor();
-    field.life = SLOWEST_LIFE_MS + (FASTEST_LIFE_MS - SLOWEST_LIFE_MS) * hard;
+    field.life = level().lifeMs;
     field.left = field.life;
     field.fill.style.background = field.color.hex;
     field.fill.style.transform = 'scaleY(1)';
     field.el.setAttribute('aria-label', field.color.name);
-    const [followAtStart, followAtFullSpeed] = mode().follow;
-    if (Math.random() < followAtStart + (followAtFullSpeed - followAtStart) * hard) {
-        untilNextField = FOLLOW_MIN_MS + Math.random() * (FOLLOW_MAX_MS - FOLLOW_MIN_MS);
-        return;
-    }
-    // Random times: somewhere between 65% and 135% of the current gap
-    const gap = SLOWEST_GAP_MS + (FASTEST_GAP_MS - SLOWEST_GAP_MS) * hard;
-    untilNextField = gap * (0.65 + Math.random() * 0.7);
 }
 
 function frame(now) {
@@ -242,8 +237,6 @@ function frame(now) {
     }
     const passed = Math.min(now - lastFrame, 100); // a long gap (the page was hidden) doesn't count
     lastFrame = now;
-    elapsed += passed;
-    Sound.setMusicSpeed(difficulty());
 
     for (const field of fields) {
         if (!field.color) {
@@ -265,8 +258,8 @@ function frame(now) {
         }
     }
 
-    untilNextField -= passed;
-    if (untilNextField <= 0) {
+    untilFirstField -= passed;
+    if (untilFirstField <= 0 && fieldsToTap() < level().lit) {
         lightField();
     }
     requestAnimationFrame(frame);
@@ -294,6 +287,7 @@ function tapField(field) {
     const color = field.color.hex;
     clearField(field);
     score++;
+    Sound.setMusicSpeed(Math.min(score / LEVELS.at(-1).from, 1));
     showScore();
     field.el.animate({backgroundColor: [color, cssColor('--field')]}, 180);
     Sound.tap(field.index);

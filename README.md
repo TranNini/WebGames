@@ -20,8 +20,8 @@ The longer you last, the faster fields fade and the more often they appear, and 
 one is still lit. Hard speeds up a little earlier and has that overlap from the start (`MODES` in `reflex.js`). Settings (top right) pause the game: dark mode, vibration, sound volume, music volume, back to games.
 The phone vibrates at game over.
 
-Turned sideways, the game goes full screen with the first tap (Android, iPad). Safari on the iPhone doesn't allow
-that for web pages; there, Add to Home Screen gives the full screen.
+Turned sideways, the game goes full screen with the first tap on Android. On the iPhone and iPad, Add to Home Screen gives
+the full screen: the iPhone's Safari doesn't allow it for web pages, and the iPad's keeps warning about a fake keyboard when tapping quickly.
 
 ### Leaderboard
 

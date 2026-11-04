@@ -48,6 +48,9 @@ const $ = id => document.getElementById(id);
 const cssColor = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
 const sideways = matchMedia('(orientation: landscape)');
+// An iPad says it is a Mac, but a Mac has no touch screen
+const isIphoneOrIpad = /iPhone|iPad|iPod/.test(navigator.userAgent)
+    || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
 
 const settings = {mode: 'medium', vibration: true, sound: 70, music: 40, lastMission: ''};
 const fields = [...document.querySelectorAll('.field')].map((el, index) => ({
@@ -105,12 +108,12 @@ function vibrateGameOver() {
 }
 
 // Sideways the game takes the whole screen. Browsers only allow that from a tap, so it starts with the first
-// tap after turning.
-// Safari on the iPhone has no full screen for pages at all; there it takes Add to Home Screen.
+// tap after turning. On the iPhone and iPad it takes Add to Home Screen instead: the iPhone's Safari has no full
+// screen for pages, and the iPad's takes quick tapping for typing on a fake keyboard and keeps warning about it.
 function enterFullscreen() {
     const page = document.documentElement;
     const enter = page.requestFullscreen || page.webkitRequestFullscreen;
-    if (enter && sideways.matches && !fullscreenElement()) {
+    if (enter && !isIphoneOrIpad && sideways.matches && !fullscreenElement()) {
         Promise.resolve(enter.call(page)).catch(() => {});
     }
 }

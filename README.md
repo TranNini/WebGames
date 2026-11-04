@@ -16,19 +16,21 @@ game. Then the 8 fields light up at random times in random colors, and each colo
 | The mission color runs out | Nothing |
 | Tap the mission color | Instant game over |
 
-The score sets the pace (`LEVELS` in `reflex.js`). A field to tap is always lit: as soon as one goes, the next comes.
-The mission color comes on top of those, on at most two fields at a time.
+The score sets the pace (`LEVELS` in `reflex.js`). As soon as a field goes, the next one comes. The mission color counts as
+a lit field, on at most half of them. Several fingers can tap at once: each tap counts, and if one is on the mission color
+the game is over.
 
-| Score | Fields to tap, always lit | A field runs out in |
-|-------|---------------------------|---------------------|
-| 0 | 1 | 2 s |
-| 10 | 2 | 2 s |
-| 20 | 3 | 2 s |
-| 30 | 4 | 2 s |
-| 40 | 4 | 1.75 s |
-| 60 | 5 | 1.75 s |
-| 70 | 5 | 1.5 s |
-| 80 | 5 | 1.3 s |
+| Score | Fields always lit | A field runs out in |
+|-------|-------------------|---------------------|
+| 0-10 | 1 | 2 s |
+| 11-30 | 2 | 2 s |
+| 31-40 | 3 | 2 s |
+| 41-50 | 3 | 1.75 s |
+| 51-70 | 4 | 1.75 s |
+| 71-80 | 5 | 1.5 s |
+| 81-90 | 5 | 1.3 s |
+| 91-110 | 6 | 1.3 s |
+| 111 and up | 7 | 1.3 s |
 
 The modes differ in how many colors they use. Settings (top right) pause the game: dark mode, vibration, sound volume, music volume, back to games.
 The phone vibrates at game over.

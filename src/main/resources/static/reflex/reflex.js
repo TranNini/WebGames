@@ -1,5 +1,5 @@
 const COLORS = [
-    {name: 'Lilac', hex: '#f4c2ff'},
+    {name: 'Purple', hex: '#bf5fe0'},
     {name: 'Pink', hex: '#ffc2ec'},
     {name: 'Sky', hex: '#c2e6ff'},
     {name: 'Rose', hex: '#ff9696'},
@@ -26,22 +26,21 @@ const MODES = {
         colors: COLORS.map(color => color.name)
     }
 };
-// What the score changes. from: the score this starts at. lit: how many fields to tap are always lit, as soon as one
-// goes another comes. The mission color comes on top of those, or it would leave nothing to do until it runs out.
-// lifeMs: how long a field takes to run out.
+// What the score changes. from: the score this starts at. lit: how many fields are always lit, the mission color
+// included; as soon as one goes another comes. lifeMs: how long a field takes to run out.
 const LEVELS = [
     {from: 0, lit: 1, lifeMs: 2000},
-    {from: 10, lit: 2, lifeMs: 2000},
-    {from: 20, lit: 3, lifeMs: 2000},
-    {from: 30, lit: 4, lifeMs: 2000},
-    {from: 40, lit: 4, lifeMs: 1750},
-    {from: 60, lit: 5, lifeMs: 1750},
-    {from: 70, lit: 5, lifeMs: 1500},
-    {from: 80, lit: 5, lifeMs: 1300}
+    {from: 11, lit: 2, lifeMs: 2000},
+    {from: 31, lit: 3, lifeMs: 2000},
+    {from: 41, lit: 3, lifeMs: 1750},
+    {from: 51, lit: 4, lifeMs: 1750},
+    {from: 71, lit: 5, lifeMs: 1500},
+    {from: 81, lit: 5, lifeMs: 1300},
+    {from: 91, lit: 6, lifeMs: 1300},
+    {from: 111, lit: 7, lifeMs: 1300}
 ];
 const FIRST_FIELD_MS = 600;
 const MISSION_CHANCE = 0.2; // how often a new field has the color not to tap
-const MAX_MISSION_FIELDS = 2; // the faster the tapping, the more would come, until they fill the board
 const FIELD_REST_MS = 250;  // an emptied field stays empty this long, so a new color is seen as new
 
 const $ = id => document.getElementById(id);
@@ -202,13 +201,11 @@ function level() {
     return LEVELS.findLast(level => score >= level.from);
 }
 
-function fieldsToTap() {
-    return fields.filter(field => field.color && field.color !== mission).length;
-}
 
 function randomColor() {
+    // At most half of what is lit, so from two fields on there is always one to tap
     const missionFields = fields.filter(field => field.color === mission).length;
-    if (missionFields < MAX_MISSION_FIELDS && Math.random() < MISSION_CHANCE) {
+    if (missionFields < Math.ceil(level().lit / 2) && Math.random() < MISSION_CHANCE) {
         return mission;
     }
     const others = modeColors().filter(color => color !== mission);
@@ -218,7 +215,7 @@ function randomColor() {
 function lightField() {
     const empty = fields.filter(field => !field.color);
     const rested = empty.filter(field => field.rest === 0);
-    const free = rested.length > 0 ? rested : empty; // a full board doesn't wait for a field to rest
+    const free = rested.length > 0 ? rested : empty; // the next field doesn't wait for one to rest
     if (free.length === 0) {
         return;
     }
@@ -259,7 +256,7 @@ function frame(now) {
     }
 
     untilFirstField -= passed;
-    if (untilFirstField <= 0 && fieldsToTap() < level().lit) {
+    if (untilFirstField <= 0 && fields.filter(field => field.color).length < level().lit) {
         lightField();
     }
     requestAnimationFrame(frame);

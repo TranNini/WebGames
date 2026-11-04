@@ -118,6 +118,45 @@ input[type="text"] {
 }
 
 /* The start page */
+/* In the corner of the screen, also where the page is narrower than the screen. Its icon lines up with the edge
+   of the page: the button is 8px wider than the icon on each side. */
+.theme-button {
+    position: absolute;
+    top: max(env(safe-area-inset-top), 32px);
+    right: calc(max(env(safe-area-inset-right), 16px) - 8px);
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    background: transparent;
+    color: var(--text);
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.theme-button svg {
+    width: 28px;
+    height: 28px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* The icon shows the mode a tap switches to */
+.theme-button .moon,
+:root[data-theme="light"] .theme-button .sun {
+    display: none;
+}
+
+:root[data-theme="light"] .theme-button .moon {
+    display: block;
+}
+
 .game-card {
     display: flex;
     align-items: center;

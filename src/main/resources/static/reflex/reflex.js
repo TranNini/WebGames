@@ -23,6 +23,7 @@ const MISSION_CHANCE = 0.2; // how often a new field has the color not to tap
 const FIELD_REST_MS = 250;  // an emptied field stays empty this long, so a new color is seen as new
 
 const $ = id => document.getElementById(id);
+const cssColor = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
 const sideways = matchMedia('(orientation: landscape)');
 
@@ -131,7 +132,7 @@ function newMission() {
     $('mission-color').style.background = mission.hex;
     $('mission-color').setAttribute('aria-label', mission.name);
     $('mission-name').textContent = mission.name;
-    $('mission-name').style.color = mission.hex;
+    $('mission-name').style.setProperty('--mission', mission.hex);
     showScreen('mission');
 }
 
@@ -227,7 +228,7 @@ function frame(now) {
 function addStrike(field) {
     strikes++;
     showScore();
-    field.el.animate({backgroundColor: ['#ff5a5a', '#26252e']}, 320);
+    field.el.animate({backgroundColor: [cssColor('--red'), cssColor('--field')]}, 320);
     Sound.miss();
     if (strikes >= MAX_STRIKES) {
         endGame(null);
@@ -247,7 +248,7 @@ function tapField(field) {
     clearField(field);
     score++;
     showScore();
-    field.el.animate({backgroundColor: [color, '#26252e']}, 180);
+    field.el.animate({backgroundColor: [color, cssColor('--field')]}, 180);
     Sound.tap(field.index);
 }
 
@@ -456,6 +457,7 @@ function closeMenu() {
 }
 
 function setUpMenu() {
+    $('dark-mode').checked = Theme.current() === 'dark';
     $('vibration').checked = settings.vibration;
     $('sound').value = settings.sound;
     $('music').value = settings.music;
@@ -464,6 +466,7 @@ function setUpMenu() {
 
     $('menu-button').addEventListener('click', () => ($('menu').hidden ? openMenu() : closeMenu()));
     $('resume').addEventListener('click', closeMenu);
+    $('dark-mode').addEventListener('change', () => Theme.set($('dark-mode').checked ? 'dark' : 'light'));
     $('vibration').addEventListener('change', () => {
         settings.vibration = $('vibration').checked;
         saveSettings();

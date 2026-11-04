@@ -108,11 +108,18 @@ html, body {
     width: min(200px, 24vh);
     height: min(200px, 24vh);
     border-radius: 32px;
+    box-shadow: inset 0 0 0 2px var(--edge);
 }
 
 .mission-name {
+    color: var(--mission);
     font-size: 28px;
     font-weight: 600;
+}
+
+/* A pastel name can't be read on a light ground */
+:root[data-theme="light"] .mission-name {
+    color: var(--text);
 }
 
 .mission p {
@@ -151,7 +158,7 @@ html, body {
     padding: 0;
     border: 0;
     border-radius: 24px;
-    background: var(--card);
+    background: var(--field);
     outline: none;
     cursor: pointer;
     touch-action: none;
@@ -164,6 +171,7 @@ html, body {
     transform: scaleY(0);
     transform-origin: bottom;
     will-change: transform;
+    box-shadow: inset 0 0 0 2px var(--edge);
 }
 
 /* The tapped mission color, on top of the color itself */
@@ -220,7 +228,7 @@ html, body {
     width: 100%;
     height: 44px;
     margin: 0;
-    accent-color: var(--sky);
+    accent-color: var(--accent);
 }
 
 .switch {
@@ -243,16 +251,16 @@ html, body {
     width: 30px;
     height: 30px;
     border-radius: 50%;
-    background: var(--text);
+    background: #f6f5f8;
 }
 
 .switch:checked {
-    background: #c2ffe1;
+    background: var(--switch-on);
 }
 
 .switch:checked::after {
     left: 30px;
-    background: var(--bg);
+    background: var(--switch-knob);
 }
 
 /* Game over */
@@ -288,6 +296,7 @@ html, body {
     width: 24px;
     height: 24px;
     border-radius: 8px;
+    box-shadow: inset 0 0 0 2px var(--edge);
 }
 
 .leaderboard {
@@ -329,7 +338,7 @@ html, body {
     padding: 0 12px 0 8px;
     border-radius: 16px;
     background: var(--sky);
-    color: var(--bg);
+    color: var(--on-pastel);
 }
 
 .entry.mine input {
@@ -337,7 +346,7 @@ html, body {
     height: 44px;
     -webkit-user-select: text;
     user-select: text;
-    border-color: var(--bg);
+    border-color: var(--on-pastel);
 }
 
 .dots {

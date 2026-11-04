@@ -1,4 +1,4 @@
-/* What all pages share: the dark ground the pastel colors stand out on, the font and the buttons */
+/* What all pages share: the colors of dark and light mode (theme.js picks one), the font and the buttons */
 @font-face {
     font-family: "Fredoka";
     src: url("/fredoka.woff2") format("woff2");
@@ -9,13 +9,38 @@
 :root {
     --bg: #17161c;
     --card: #26252e;
+    --field: #26252e;
     --text: #f6f5f8;
     --soft-text: #d3d1da;
     --muted: #b9b7c2;
     --grey: #8a8894;
     --red: #ff5a5a;
+    --accent: #c2e6ff;
+    --switch-on: #c2ffe1;
+    --switch-knob: #17161c;
+    --edge: transparent;
+    /* The same in both modes: your own place on the leaderboard, and text on pastel or white */
     --sky: #c2e6ff;
+    --on-pastel: #17161c;
     color-scheme: dark;
+}
+
+/* The pastel colors are very light, so here the empty fields are darker than the colors that appear on them,
+   and everything pastel has a thin edge */
+:root[data-theme="light"] {
+    --bg: #f4f3f7;
+    --card: #ffffff;
+    --field: #bdbbc8;
+    --text: #17161c;
+    --soft-text: #45434f;
+    --muted: #5e5c69;
+    --grey: #7a7884;
+    --red: #d92d2d;
+    --accent: #2f7fb5;
+    --switch-on: #2a8f63;
+    --switch-knob: #ffffff;
+    --edge: rgb(0 0 0 / 0.16);
+    color-scheme: light;
 }
 
 * {
@@ -86,7 +111,7 @@ input[type="text"] {
     border: 2px solid var(--grey);
     border-radius: 14px;
     background: #ffffff;
-    color: var(--bg);
+    color: var(--on-pastel);
     font: inherit;
     /* 16px or more: iOS doesn't zoom in on the field */
     font-size: 20px;
@@ -126,6 +151,7 @@ input[type="text"] {
 .tiles i {
     height: 26px;
     border-radius: 8px;
+    box-shadow: inset 0 0 0 2px var(--edge);
 }
 
 /* The login page */

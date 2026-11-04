@@ -17,7 +17,7 @@ colors, and each color drains away.
 | Tap the mission color | Instant game over |
 
 The longer you last, the faster fields fade and the more often they appear (`RAMP_MS` and the values around it
-in `reflex.js`). Settings (top right) pause the game: vibration, sound volume, music volume, back to games.
+in `reflex.js`). Settings (top right) pause the game: dark mode, vibration, sound volume, music volume, back to games.
 The phone vibrates at game over.
 
 Turned sideways, the game goes full screen with the first tap (Android, iPad). Safari on the iPhone doesn't allow

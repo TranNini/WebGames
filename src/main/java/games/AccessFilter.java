@@ -19,7 +19,7 @@ public class AccessFilter extends OncePerRequestFilter {
     public static final String COOKIE = "games_access";
     // What the login page itself needs, plus what iOS fetches for the home screen icon
     private static final Set<String> PUBLIC_PATHS = Set.of(
-            "/login", "/login.html", "/style.css", "/fredoka.woff2", "/manifest.webmanifest",
+            "/login", "/login.html", "/style.css", "/theme.js", "/fredoka.woff2", "/manifest.webmanifest",
             "/favicon.png", "/icon-192.png", "/icon-512.png", "/apple-touch-icon.png", "/favicon.ico");
 
     private final AccessCode accessCode;

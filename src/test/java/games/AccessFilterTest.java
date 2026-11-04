@@ -49,7 +49,7 @@ class AccessFilterTest {
         mvc.perform(get("/api/leaderboard/reflex").with(PHONE)).andExpect(status().isUnauthorized());
         mvc.perform(get("/reflex/index.html").with(PHONE)).andExpect(redirectedUrl("/login.html"));
         mvc.perform(get("/").with(PHONE)).andExpect(redirectedUrl("/login.html"));
-        for (String page : new String[]{"/login.html", "/style.css", "/fredoka.woff2", "/apple-touch-icon.png"}) {
+        for (String page : new String[]{"/login.html", "/style.css", "/theme.js", "/fredoka.woff2", "/apple-touch-icon.png"}) {
             mvc.perform(get(page).with(PHONE)).andExpect(status().isOk());
         }
     }

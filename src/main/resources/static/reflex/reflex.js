@@ -8,9 +8,6 @@ const COLORS = [
     {name: 'Peach', hex: '#ffdac2'},
     {name: 'Periwinkle', hex: '#9691f2'}
 ];
-const MAX_STRIKES = 3;
-const MAX_ENTRIES = 20;
-
 // colors: which ones the mode uses; the easier modes get those that are easiest to tell apart.
 const MODES = {
     easy: {
@@ -43,104 +40,17 @@ const FIRST_FIELD_MS = 600;
 const MISSION_CHANCE = 0.2; // how often a new field has the color not to tap
 const FIELD_REST_MS = 250;  // an emptied field stays empty this long, so a new color is seen as new
 
-const $ = id => document.getElementById(id);
-const cssColor = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-
-const sideways = matchMedia('(orientation: landscape)');
-// An iPad says it is a Mac, but a Mac has no touch screen
-const isIphoneOrIpad = /iPhone|iPad|iPod/.test(navigator.userAgent)
-    || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
-
-const settings = {mode: 'medium', vibration: true, sound: 70, music: 40, lastMission: ''};
+const reflexSettings = {mode: 'medium', lastMission: '', ...remembered('reflex-settings')};
 const fields = [...document.querySelectorAll('.field')].map((el, index) => ({
     el, index, fill: el.firstElementChild, color: null, life: 0, left: 0, rest: 0
 }));
 
-let state = 'mission'; // mission, playing, paused, over
-let screenBehindMenu = null;
 let mission = null;
-let score = 0;
-let strikes = 0;
 let untilFirstField = 0;
 let lastFrame = 0;
 
-// Leaderboard on the game over screen
-let entries = null; // null: couldn't be loaded
-let saved = false;
-let warnedAboutLeaving = false;
-
-// Settings stay on the device. Storage can fail (private mode); the game then just doesn't remember them.
-function loadSettings() {
-    try {
-        Object.assign(settings, JSON.parse(localStorage.getItem('reflex-settings')) || {});
-    } catch (e) {
-        // keep the defaults
-    }
-}
-
-function saveSettings() {
-    try {
-        localStorage.setItem('reflex-settings', JSON.stringify(settings));
-    } catch (e) {
-        // not remembered
-    }
-}
-
-function vibrate(pattern) {
-    if (!settings.vibration) {
-        return;
-    }
-    if (navigator.vibrate) {
-        navigator.vibrate(pattern);
-    } else {
-        $('haptic').click();
-    }
-}
-
-function vibrateGameOver() {
-    vibrate([200, 100, 300]);
-    // The iPhone may only give its haptic tap when a finger lets go, so also on the finger still on the screen
-    if (!navigator.vibrate) {
-        document.addEventListener('touchend', () => vibrate(0), {once: true, signal: AbortSignal.timeout(1000)});
-    }
-}
-
-// Sideways the game takes the whole screen. Browsers only allow that from a tap, so it starts with the first
-// tap after turning. On the iPhone and iPad it takes Add to Home Screen instead: the iPhone's Safari has no full
-// screen for pages, and the iPad's takes quick tapping for typing on a fake keyboard and keeps warning about it.
-function enterFullscreen() {
-    const page = document.documentElement;
-    const enter = page.requestFullscreen || page.webkitRequestFullscreen;
-    if (enter && !isIphoneOrIpad && sideways.matches && !fullscreenElement()) {
-        Promise.resolve(enter.call(page)).catch(() => {});
-    }
-}
-
-function leaveFullscreen() {
-    const exit = document.exitFullscreen || document.webkitExitFullscreen;
-    if (exit && fullscreenElement()) {
-        Promise.resolve(exit.call(document)).catch(() => {});
-    }
-}
-
-function fullscreenElement() {
-    return document.fullscreenElement || document.webkitFullscreenElement;
-}
-
-function showScreen(screen) {
-    for (const id of ['mission', 'board', 'menu', 'over']) {
-        $(id).hidden = id !== screen;
-    }
-}
-
-function showScore() {
-    $('score').textContent = score;
-    [...$('strikes').children].forEach((x, i) => x.classList.toggle('on', i < strikes));
-    $('strikes').setAttribute('aria-label', strikes + ' of ' + MAX_STRIKES + ' strikes');
-}
-
 function mode() {
-    return MODES[settings.mode];
+    return MODES[reflexSettings.mode];
 }
 
 function modeColors() {
@@ -148,21 +58,21 @@ function modeColors() {
 }
 
 function leaderboardUrl() {
-    return '/api/leaderboard/reflex-' + settings.mode;
+    return '/api/leaderboard/reflex-' + reflexSettings.mode;
 }
 
 function showModes() {
     for (const button of document.querySelectorAll('.mode')) {
-        button.setAttribute('aria-pressed', String(button.dataset.mode === settings.mode));
+        button.setAttribute('aria-pressed', String(button.dataset.mode === reflexSettings.mode));
     }
 }
 
 // Every game gets another color than the last one
 function newMission() {
-    const others = modeColors().filter(color => color.name !== settings.lastMission);
+    const others = modeColors().filter(color => color.name !== reflexSettings.lastMission);
     mission = others[Math.floor(Math.random() * others.length)];
-    settings.lastMission = mission.name;
-    saveSettings();
+    reflexSettings.lastMission = mission.name;
+    remember('reflex-settings', reflexSettings);
 
     state = 'mission';
     score = 0;
@@ -291,229 +201,8 @@ function tapField(field) {
 }
 
 // tappedColor: the mission color when that ended the game, otherwise null (three misses)
-async function endGame(tappedColor) {
-    state = 'ending';
-    Sound.stopMusic();
-    Sound.gameOver();
-    vibrateGameOver();
-    saved = false;
-    warnedAboutLeaving = false;
-    // A moment to see what happened, and fingers still tapping don't press a button on the next screen
-    const moment = new Promise(resolve => setTimeout(resolve, 700));
-    await Promise.all([moment, updateLeaderboard()]);
-
-    $('reason').textContent = tappedColor ? 'You tapped ' + tappedColor.name : 'Three missed';
-    $('reason-color').hidden = !tappedColor;
-    if (tappedColor) {
-        $('reason-color').style.background = tappedColor.hex;
-    }
-    $('leaderboard-title').textContent = 'Leaderboard · ' + mode().label;
-    renderLeaderboard();
-    state = 'over';
-    showScreen('over');
-}
-
-async function updateLeaderboard() {
-    await saveScore();
-    if (!saved) {
-        await loadLeaderboard();
-    }
-}
-
-async function loadLeaderboard() {
-    try {
-        const response = await fetch(leaderboardUrl(), {signal: AbortSignal.timeout(5000)});
-        if (!response.ok) {
-            throw new Error(response.status);
-        }
-        entries = await response.json();
-    } catch (e) {
-        entries = null;
-    }
-}
-
-// The server decides what happens to the score (Leaderboard.java) and answers with the new list.
-// True when there's nothing left to save.
-async function saveScore(keepalive) {
-    if (saved || score === 0) {
-        return true;
-    }
-    try {
-        const response = await fetch(leaderboardUrl(), {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({name: Player.name(), score}),
-            keepalive: Boolean(keepalive),
-            signal: AbortSignal.timeout(5000)
-        });
-        if (!response.ok) {
-            throw new Error(response.status);
-        }
-        entries = await response.json();
-        saved = true;
-        return true;
-    } catch (e) {
-        return false;
-    }
-}
-
-function ownEntry() {
-    const name = Player.name().toLowerCase();
-    return (entries || []).find(entry => entry.name.toLowerCase() === name);
-}
-
-// Top 3 + ... + own place. The own place is part of the top 3 when it is that high.
-function renderLeaderboard() {
-    const list = entries || [];
-    const own = ownEntry();
-    const rows = [];
-    list.forEach((entry, index) => {
-        if (index >= 3 && entry !== own) {
-            return;
-        }
-        if (index > 3) {
-            rows.push(dotsRow());
-        }
-        rows.push(entryRow(entry, entry === own));
-    });
-    $('rows').replaceChildren(...rows);
-    showNote(own, list);
-}
-
-function entryRow(entry, isOwn) {
-    const row = document.createElement('div');
-    row.className = isOwn ? 'entry mine' : 'entry';
-    const rankCell = document.createElement('b');
-    rankCell.textContent = entry.rank;
-    const nameCell = document.createElement('span');
-    nameCell.className = 'name';
-    nameCell.textContent = entry.name;
-    const pointsCell = document.createElement('b');
-    pointsCell.textContent = entry.score;
-    row.append(rankCell, nameCell, pointsCell);
-    return row;
-}
-
-function dotsRow() {
-    const dots = document.createElement('div');
-    dots.className = 'dots';
-    dots.textContent = '...';
-    return dots;
-}
-
-function showNote(own, list) {
-    let text = '';
-    if (score > 0 && !saved) {
-        text = 'Your score couldn\'t be saved. Check the connection and try again.';
-    } else if (entries === null) {
-        text = 'The leaderboard can\'t be reached right now.';
-    } else if (score > 0 && own && own.score > score) {
-        text = 'Your best stays at ' + own.score + '.';
-    } else if (score > 0 && !own) {
-        text = 'Beat ' + list[list.length - 1].score + ' to reach the top ' + MAX_ENTRIES + '.';
-    } else if (list.length === 0) {
-        text = 'No scores yet. Be the first!';
-    }
-    $('board-note').textContent = text;
-    $('board-note').hidden = !text;
-}
-
-// Before leaving the game over screen: tries once more if the score couldn't be saved. If that fails too
-// it stays, once; the second tap leaves anyway.
-async function leaveGameOver(leave) {
-    const done = await saveScore();
-    if (done || warnedAboutLeaving) {
-        leave();
-        return;
-    }
-    warnedAboutLeaving = true;
-}
-
-// Set as an attribute: svg elements have no hidden property
-function showMenuIcon(icon) {
-    $('gear').toggleAttribute('hidden', icon !== 'gear');
-    $('close').toggleAttribute('hidden', icon !== 'close');
-}
-
-function openMenu() {
-    if (state === 'ending') {
-        return;
-    }
-    Sound.unlock();
-    screenBehindMenu = ['mission', 'board', 'over'].find(id => !$(id).hidden);
-    if (state === 'playing') {
-        state = 'paused';
-        Sound.stopMusic();
-    }
-    const inGame = state === 'paused';
-    $('menu-title').textContent = inGame ? 'Paused' : 'Settings';
-    $('resume').textContent = inGame ? 'Resume' : 'Close';
-    $('restart').hidden = !inGame;
-    showMenuIcon('close');
-    $('menu-button').setAttribute('aria-label', 'Close menu');
-    showScreen('menu');
-}
-
-function resetMenuButton() {
-    showMenuIcon('gear');
-    $('menu-button').setAttribute('aria-label', 'Menu');
-}
-
-// Gives up this game, like leaving it does: the score isn't saved
-function restartGame() {
-    Sound.unlock();
-    Sound.stopMusic();
-    resetMenuButton();
-    newMission();
-}
-
-function closeMenu() {
-    Sound.unlock();
-    resetMenuButton();
-    showScreen(screenBehindMenu);
-    if (state === 'paused') {
-        state = 'playing';
-        lastFrame = performance.now();
-        requestAnimationFrame(frame);
-        Sound.startMusic();
-    } else {
-        Sound.stopMusic(); // it only played to try the music volume
-    }
-}
-
-function setUpMenu() {
-    $('dark-mode').checked = Theme.current() === 'dark';
-    $('vibration').checked = settings.vibration;
-    $('sound').value = settings.sound;
-    $('music').value = settings.music;
-    Sound.setSoundVolume(settings.sound);
-    Sound.setMusicVolume(settings.music);
-
-    $('menu-button').addEventListener('click', () => ($('menu').hidden ? openMenu() : closeMenu()));
-    $('resume').addEventListener('click', closeMenu);
-    $('restart').addEventListener('click', restartGame);
-    $('dark-mode').addEventListener('change', () => Theme.set($('dark-mode').checked ? 'dark' : 'light'));
-    window.addEventListener('pageshow', () => {
-        $('dark-mode').checked = Theme.current() === 'dark'; // after theme.js, also when the page comes back as it was
-    });
-    $('vibration').addEventListener('change', () => {
-        settings.vibration = $('vibration').checked;
-        saveSettings();
-        vibrate(40);
-    });
-    $('sound').addEventListener('input', () => {
-        settings.sound = Number($('sound').value);
-        Sound.setSoundVolume(settings.sound);
-        saveSettings();
-    });
-    // Let go of the slider: a tap to hear the volume
-    $('sound').addEventListener('change', () => Sound.tap(4));
-    $('music').addEventListener('input', () => {
-        settings.music = Number($('music').value);
-        Sound.setMusicVolume(settings.music);
-        saveSettings();
-        Sound.startMusic();
-    });
+function endGame(tappedColor) {
+    finishGame(tappedColor ? 'You tapped ' + tappedColor.name : 'Three missed', tappedColor && tappedColor.hex);
 }
 
 function setUpEvents() {
@@ -532,52 +221,23 @@ function setUpEvents() {
     }
     for (const button of document.querySelectorAll('.mode')) {
         button.addEventListener('click', () => {
-            if (button.dataset.mode !== settings.mode) {
-                settings.mode = button.dataset.mode;
+            if (button.dataset.mode !== reflexSettings.mode) {
+                reflexSettings.mode = button.dataset.mode;
                 newMission();
             }
         });
     }
     $('start').addEventListener('click', startGame);
-    $('again').addEventListener('click', () => leaveGameOver(newMission));
-    $('back').addEventListener('click', event => {
-        event.preventDefault();
-        leaveGameOver(() => {
-            location.href = '/';
-        });
-    });
-    document.addEventListener('contextmenu', event => event.preventDefault());
-    // Double tap and pinch zoom, which iOS allows whatever the page says
-    document.addEventListener('gesturestart', event => event.preventDefault());
-
-    // Phone locked or another app: the game waits in the menu, nothing is missed meanwhile
-    document.addEventListener('visibilitychange', () => {
-        if (document.hidden) {
-            if (state === 'playing') {
-                openMenu();
-            }
-            Sound.sleep();
-        }
-    });
-    // iOS can stop sound on its own (a call, the page was hidden); the next tap brings it back
-    document.addEventListener('pointerdown', () => Sound.unlock());
-    document.addEventListener('touchend', () => Sound.unlock());
-    document.addEventListener('touchend', enterFullscreen);
-    document.addEventListener('click', enterFullscreen);
-    sideways.addEventListener('change', () => {
-        if (!sideways.matches) {
-            leaveFullscreen();
-        }
-    });
-    // Closing the app on the game over screen tries once more to save a score that couldn't be saved
-    window.addEventListener('pagehide', () => {
-        if (state === 'over' && !$('over').hidden) {
-            saveScore(true);
-        }
-    });
 }
 
-loadSettings();
-setUpMenu();
 setUpEvents();
-newMission();
+setUpGame({
+    screens: ['mission', 'board'],
+    newGame: newMission,
+    resume() {
+        lastFrame = performance.now();
+        requestAnimationFrame(frame);
+    },
+    leaderboardUrl,
+    leaderboardTitle: () => 'Leaderboard · ' + mode().label
+});

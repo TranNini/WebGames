@@ -32,16 +32,22 @@ the game is over.
 | 91-110 | 6 | 1.3 s |
 | 111 and up | 7 | 1.3 s |
 
-The modes differ in how many colors they use. Settings (top right) pause the game: dark mode, vibration, sound volume, music volume, restart, back to games. Restarting or
+The modes differ in how many colors they use. Settings (top right, in all games) pause the game: dark mode, vibration, sound volume, music volume, restart, back to games. Restarting or
 leaving during a game doesn't save its score.
 The phone vibrates at game over.
 
 Turned sideways, the game goes full screen with the first tap on Android. On the iPhone and iPad, Add to Home Screen gives
 the full screen: the iPhone's Safari doesn't allow it for web pages, and the iPad's keeps warning about a fake keyboard when tapping quickly.
 
-### Leaderboard
+## Lane Dodge
 
-Each mode has its own top 20. A name is on it once, with its best score. Of two equal scores the one reached first ranks higher, and on a
+Blocks fall down three lanes. Tap the left or right side, or swipe, to change lanes (arrow keys without a touch screen). A row you pass without a
+hit is a point, and a hit turns an X red; the third ends the game. As the score rises the blocks fall faster, the rows
+come sooner and more rows block two lanes (`LEVELS` in `dodge.js`). There is always a free lane.
+
+## Leaderboards
+
+Each mode of Reflex Tap has its own top 20, and Lane Dodge has one. A name is on it once, with its best score. Of two equal scores the one reached first ranks higher, and on a
 full list a new name needs more than last place. The game over screen shows the top 3 and your own place.
 
 Everyone enters a name once on their device, after the access code. It applies to all games and leaderboards, and scores are saved under it automatically. The start page has a link to change it; scores already on a list stay under the old name.
@@ -64,8 +70,10 @@ and open `http://<the Mac's address>:8083`.
 | `src/main/resources/static/index.html` | the start page, lists the games |
 | `src/main/resources/static/name.html`, `name.js`, `player.js` | asks for the player's name, keeps it on the device |
 | `src/main/resources/static/style.css` | what all pages share |
-| `src/main/resources/static/reflex/reflex.js` | Reflex Tap: the game, menu and game over screen |
-| `src/main/resources/static/reflex/sound.js` | its sounds and music, made in the browser |
+| `src/main/resources/static/game.js`, `game.css` | what the games share: top bar, settings menu, leaderboard, game over screen |
+| `src/main/resources/static/sound.js` | the sounds and music, made in the browser |
+| `src/main/resources/static/reflex/` | Reflex Tap |
+| `src/main/resources/static/dodge/` | Lane Dodge |
 | `src/main/java/games/Leaderboard.java` | the rules of the list, in SQLite (`games.db`) |
 | `src/main/java/games/LeaderboardController.java` | `GET`/`POST /api/leaderboard/{game}` |
 | `src/main/java/games/AccessCode.java`, `AccessFilter.java`, `LoginController.java` | the access code |

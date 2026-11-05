@@ -88,4 +88,10 @@ class AccessFilterTest {
     void thisMacNeedsNoCode() throws Exception {
         mvc.perform(get("/api/leaderboard/reflex-easy")).andExpect(status().isOk());
     }
+
+    @Test
+    void laneDodgeHasALeaderboard() throws Exception {
+        mvc.perform(get("/api/leaderboard/dodge")).andExpect(status().isOk());
+        mvc.perform(get("/api/leaderboard/no-such-game")).andExpect(status().isNotFound());
+    }
 }

@@ -43,7 +43,7 @@ the full screen: the iPhone's Safari doesn't allow it for web pages, and the iPa
 
 Blocks fall down three lanes. Tap the left or right side, or swipe, to change lanes (arrow keys without a touch screen). A row you pass without a
 hit is a point, and a hit turns an X red; the third ends the game. As the score rises the blocks fall faster, the rows
-come sooner and more rows block two lanes (`LEVELS` in `dodge.js`). There is always a free lane.
+come sooner and more rows block two lanes (`LEVELS` in `dodge.js`). There is always a free lane. It has its own music (`TUNES` in `sound.js`).
 
 ## Leaderboards
 

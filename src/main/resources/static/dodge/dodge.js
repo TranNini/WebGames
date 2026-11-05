@@ -267,6 +267,7 @@ function setUpEvents() {
     });
 }
 
+Sound.setTune('road');
 setUpEvents();
 setUpGame({
     screens: ['intro', 'road'],

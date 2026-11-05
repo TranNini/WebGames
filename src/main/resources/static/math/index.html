@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+    <meta name="theme-color" content="#17161c">
+    <script src="/theme.js"></script>
+    <script src="/player.js"></script>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Games">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" href="/favicon.png" type="image/png">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <title>Scribble Math</title>
+    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="/game.css">
+    <link rel="stylesheet" href="math.css">
+</head>
+<body>
+<div class="screen">
+    <main id="intro" class="intro">
+        <div class="intro-text">
+            <span class="sum-icon" aria-hidden="true">7×8</span>
+            <h1>Scribble Math</h1>
+            <p>Solve the sum on the left and write the answer on the right with your finger or a pen. The next sum comes right away. If the time runs out three times, the game ends.</p>
+        </div>
+        <button id="start" class="button primary">Start</button>
+    </main>
+
+    <main id="sums" class="sums" hidden>
+        <div class="time"><div id="time-left" class="time-left"></div></div>
+        <section class="column">
+            <div id="now" class="now"></div>
+            <div id="answer" class="answer"></div>
+            <div id="next" class="next" aria-hidden="true"></div>
+        </section>
+        <div class="writing">
+            <canvas id="pad" class="pad" aria-label="Write the answer here"></canvas>
+            <div id="hint" class="hint">Write here</div>
+        </div>
+    </main>
+</div>
+<script src="/sound.js"></script>
+<script src="/game.js"></script>
+<script src="digit-model.js"></script>
+<script src="digits.js"></script>
+<script src="math.js"></script>
+</body>
+</html>

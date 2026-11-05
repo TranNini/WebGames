@@ -94,4 +94,9 @@ class AccessFilterTest {
         mvc.perform(get("/api/leaderboard/dodge")).andExpect(status().isOk());
         mvc.perform(get("/api/leaderboard/no-such-game")).andExpect(status().isNotFound());
     }
+
+    @Test
+    void scribbleMathHasALeaderboard() throws Exception {
+        mvc.perform(get("/api/leaderboard/math")).andExpect(status().isOk());
+    }
 }

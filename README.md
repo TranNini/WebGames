@@ -45,9 +45,19 @@ change lanes (arrow keys without a touch screen). A row you pass without a hit i
 score rises everything comes faster, the free road between rows gets shorter and more rows block two lanes (`LEVELS` in `dodge.js`). There is always a
 free lane. It has its own music (`TUNES` in `sound.js`) and its own look, all drawn in code (`scene.js`).
 
+## Scribble Math
+
+Sums on the left, and you write the answer on the right with a finger or pen (the number keys without a touch screen). A right answer brings the next sum
+right away and is a point. A wrong one turns red and clears, so you can try again while the time runs, because it could be a misread digit. If the time
+for a sum runs out an X turns red; the third ends the game. As the score rises there is less time, and + and - grow into x and / and bigger numbers (`LEVELS` in
+`math.js`). All answers are whole numbers from 1 to 99.
+
+The digits are read on the device (`digits.js`) by a small network (`digit-model.js`), trained on the [Pen-Based Recognition of Handwritten
+Digits](https://archive.ics.uci.edu/dataset/81) data by E. Alpaydin and F. Alimoglu (CC BY 4.0). It read 98.3% of the digits of 14 writers it wasn't trained on.
+
 ## Leaderboards
 
-Each mode of Reflex Tap has its own top 20, and Lane Dodge has one. A name is on it once, with its best score. Of two equal scores the one reached first ranks higher, and on a
+Each mode of Reflex Tap has its own top 20, and Lane Dodge and Scribble Math have one each. A name is on it once, with its best score. Of two equal scores the one reached first ranks higher, and on a
 full list a new name needs more than last place. The game over screen shows the top 3 and your own place.
 
 Everyone enters a name once on their device, after the access code. It applies to all games and leaderboards, and scores are saved under it automatically. The start page has a link to change it; scores already on a list stay under the old name.
@@ -74,6 +84,7 @@ and open `http://<the Mac's address>:8083`.
 | `src/main/resources/static/sound.js` | the sounds and music, made in the browser |
 | `src/main/resources/static/reflex/` | Reflex Tap |
 | `src/main/resources/static/dodge/` | Lane Dodge |
+| `src/main/resources/static/math/` | Scribble Math |
 | `src/main/java/games/Leaderboard.java` | the rules of the list, in SQLite (`games.db`) |
 | `src/main/java/games/LeaderboardController.java` | `GET`/`POST /api/leaderboard/{game}` |
 | `src/main/java/games/AccessCode.java`, `AccessFilter.java`, `LoginController.java` | the access code |

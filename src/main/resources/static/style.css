@@ -224,6 +224,21 @@ input[type="text"] {
     border-radius: 12px;
 }
 
+/* Scribble Math's picture, on the start page and on its first screen */
+.sum-icon {
+    flex: none;
+    width: 58px;
+    height: 58px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    background: var(--sky);
+    color: var(--on-pastel);
+    font-size: 21px;
+    font-weight: 600;
+}
+
 /* The login page */
 .login {
     display: flex;

@@ -55,9 +55,18 @@ for a sum runs out an X turns red; the third ends the game. As the score rises t
 The digits are read on the device (`digits.js`) by a small network (`digit-model.js`), trained on the [Pen-Based Recognition of Handwritten
 Digits](https://archive.ics.uci.edu/dataset/81) data by E. Alpaydin and F. Alimoglu (CC BY 4.0). It read 98.3% of the digits of 14 writers it wasn't trained on.
 
+## Mission: Meow
+
+Kittens have been abducted, and a girl with small wings flies through the lab to save them; the score is how far she gets. Hold to rise, let go to sink (Space or the up arrow on a computer). Flying uses energy, and stars in lines, waves
+and arcs fill it up. A warning comes when it runs low; with none left she walks and jumps until she has collected a full bar. Touching spikes or a laser costs a heart; the third ends the game. The pace stays the same.
+
+Each glass tube she reaches frees a kitten. Every 5 kittens a big star comes, worth much more energy; every 10 give a boost in a bubble, faster and safe, that blinks before it goes; every 20 give a heart back.
+
+The look is the user's picture: `mission/art` holds its pieces, cut out by script, and `mission/scene.js` puts them together.
+
 ## Leaderboards
 
-Each mode of Reflex Tap has its own top 20, and Lane Dodge and Scribble Math have one each. A name is on it once, with its best score. Of two equal scores the one reached first ranks higher, and on a
+Each mode of Reflex Tap has its own top 20, and Lane Dodge, Scribble Math and Mission: Meow have one each. A name is on it once, with its best score. Of two equal scores the one reached first ranks higher, and on a
 full list a new name needs more than last place. The game over screen shows the top 3 and your own place.
 
 Everyone enters a name once on their device, after the access code. It applies to all games and leaderboards, and scores are saved under it automatically. The start page has a link to change it; scores already on a list stay under the old name.
@@ -85,6 +94,7 @@ and open `http://<the Mac's address>:8083`.
 | `src/main/resources/static/reflex/` | Reflex Tap |
 | `src/main/resources/static/dodge/` | Lane Dodge |
 | `src/main/resources/static/math/` | Scribble Math |
+| `src/main/resources/static/mission/` | Mission: Meow |
 | `src/main/java/games/Leaderboard.java` | the rules of the list, in SQLite (`games.db`) |
 | `src/main/java/games/LeaderboardController.java` | `GET`/`POST /api/leaderboard/{game}` |
 | `src/main/java/games/AccessCode.java`, `AccessFilter.java`, `LoginController.java` | the access code |

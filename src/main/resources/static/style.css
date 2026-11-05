@@ -224,6 +224,14 @@ input[type="text"] {
     border-radius: 12px;
 }
 
+/* Mission: Meow's picture on the start page */
+.game-picture {
+    flex: none;
+    width: 58px;
+    height: 58px;
+    border-radius: 12px;
+}
+
 /* Scribble Math's picture, on the start page and on its first screen */
 .sum-icon {
     flex: none;

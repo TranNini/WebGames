@@ -3,7 +3,7 @@
 const Sound = (() => {
     const NOTES = [523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.66, 1318.51]; // one for each field
     // The music: bars of a bass note + eight notes in Hz (null: a rest). wave and noteLoudness: the sound of those notes.
-    // bassEvery: a bass note every so many notes.
+    // bassEvery: a bass note every so many notes. beat: a drum under it.
     const TUNES = {
         calm: {
             slowBpm: 112,
@@ -58,6 +58,27 @@ const Sound = (() => {
                 {bass: 110, notes: [659.25, null, 523.25, null, 659.25, 783.99, 659.25, null]},
                 {bass: 87.31, notes: [698.46, 659.25, 587.33, null, 523.25, 587.33, 659.25, null]},
                 {bass: 98, notes: [587.33, null, 493.88, null, 392, null, 493.88, 587.33]}
+            ]
+        },
+        // Mission: Meow: action, but cute. A steady beat and a bouncing bass under high, bright notes. The same speed all the way.
+        mission: {
+            slowBpm: 160,
+            fastBpm: 160,
+            wave: 'triangle',
+            noteSeconds: 0.16,
+            noteLoudness: 0.26,
+            bassEvery: 2,
+            bassSeconds: 0.17,
+            beat: true,
+            bars: [
+                {bass: 146.83, notes: [587.33, 698.46, 880, 698.46, 1174.66, 880, 698.46, 880]},
+                {bass: 116.54, notes: [587.33, 698.46, 932.33, 698.46, 1174.66, 932.33, 698.46, 932.33]},
+                {bass: 174.61, notes: [523.25, 698.46, 880, 698.46, 1046.5, 880, 698.46, 880]},
+                {bass: 130.81, notes: [523.25, 659.25, 783.99, 659.25, 1046.5, 783.99, 659.25, 587.33]},
+                {bass: 146.83, notes: [1174.66, null, 880, 1046.5, 1174.66, 1396.91, 1174.66, null]},
+                {bass: 116.54, notes: [1174.66, 1046.5, 932.33, null, 880, 932.33, 1046.5, null]},
+                {bass: 174.61, notes: [1046.5, 880, 1046.5, 1174.66, 1396.91, null, 1174.66, 1046.5]},
+                {bass: 110, notes: [880, null, 1108.73, null, 1318.51, 1108.73, 880, 659.25]}
             ]
         }
     };
@@ -137,6 +158,20 @@ const Sound = (() => {
         play(now => tone(soundGain, 'triangle', NOTES[field], now, 0.13, 0.6));
     }
 
+    function warn() {
+        play(now => {
+            tone(soundGain, 'square', 880, now, 0.09, 0.22);
+            tone(soundGain, 'square', 660, now + 0.13, 0.12, 0.22);
+        });
+    }
+
+    function meow() {
+        play(now => {
+            tone(soundGain, 'triangle', 640, now, 0.13, 0.5, 980);
+            tone(soundGain, 'triangle', 980, now + 0.11, 0.2, 0.42, 560);
+        });
+    }
+
     function miss() {
         play(now => tone(soundGain, 'square', 196, now, 0.28, 0.3, 98));
     }
@@ -162,6 +197,12 @@ const Sound = (() => {
             }
             if (bar.notes[note]) {
                 tone(musicGain, tune.wave, bar.notes[note], nextNoteAt, tune.noteSeconds, tune.noteLoudness);
+            }
+            if (tune.beat && note % 4 === 0) {
+                tone(musicGain, 'sine', 170, nextNoteAt, 0.12, 0.7, 50);
+            }
+            if (tune.beat && note % 4 === 2) {
+                tone(musicGain, 'triangle', 330, nextNoteAt, 0.09, 0.35, 150);
             }
             step++;
             nextNoteAt += 30 / (tune.slowBpm + (tune.fastBpm - tune.slowBpm) * speed);
@@ -198,5 +239,5 @@ const Sound = (() => {
         }
     }
 
-    return {unlock, setSoundVolume, setMusicVolume, tap, miss, start, gameOver, startMusic, stopMusic, setMusicSpeed, setTune, sleep};
+    return {unlock, setSoundVolume, setMusicVolume, tap, meow, warn, miss, start, gameOver, startMusic, stopMusic, setMusicSpeed, setTune, sleep};
 })();

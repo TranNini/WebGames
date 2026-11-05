@@ -1,0 +1,315 @@
+/* The lab is dark, in dark and light mode alike, so what is on it is light */
+.intro {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.intro-text {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: min(24px, 2.8vh);
+    text-align: center;
+}
+
+.mission-picture {
+    flex: none;
+    width: min(180px, 24vh);
+    height: min(180px, 24vh);
+    margin-top: auto;
+    border-radius: 18%;
+}
+
+.intro-text h1 {
+    font-size: min(44px, 6vh);
+}
+
+.intro-text p {
+    max-width: 440px;
+    margin: 0 0 auto;
+    color: var(--soft-text);
+    font-size: 18px;
+    line-height: 1.4;
+}
+
+.intro .button {
+    flex: none;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+    .intro-text {
+        display: grid;
+        grid-template-columns: auto minmax(0, 440px);
+        justify-content: center;
+        align-content: center;
+        column-gap: 24px;
+        text-align: left;
+    }
+
+    .mission-picture {
+        grid-row: 1 / span 2;
+        width: min(120px, 34vh);
+        height: min(120px, 34vh);
+        margin: 0;
+    }
+
+    .intro-text h1 {
+        align-self: end;
+        font-size: 28px;
+    }
+
+    .intro-text p {
+        margin: 0;
+        align-self: start;
+        font-size: 16px;
+    }
+
+    .intro .button {
+        min-height: 52px;
+    }
+}
+
+/* Hearts instead of X's, from the picture: all there at first, grey when lost */
+.strikes {
+    gap: 2px;
+}
+
+.strikes span {
+    width: 30px;
+    height: 28px;
+    font-size: 0;
+    background: url("/mission/art/heart.png") center / contain no-repeat;
+}
+
+.strikes span.on {
+    filter: grayscale(1) brightness(0.6);
+}
+
+/* The score: the distance, in a soft pill */
+.score {
+    display: flex;
+    align-items: baseline;
+    padding: 2px 14px 4px;
+    border: 2px solid rgb(255 255 255 / 0.55);
+    border-radius: 16px;
+    background: rgb(26 20 30 / 0.6);
+    color: #ffffff;
+    font-size: 26px;
+    font-weight: 600;
+}
+
+.score::after {
+    content: " m";
+    margin-left: 4px;
+    font-size: 18px;
+}
+
+.icon-button {
+    border: 2px solid rgb(255 255 255 / 0.55);
+    border-radius: 12px;
+    background: rgb(26 20 30 / 0.6);
+    color: #ffffff;
+}
+
+/* The game: the whole screen, upright a strip wide enough to see what is coming */
+.stage {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 16px;
+    touch-action: none;
+    cursor: pointer;
+}
+
+.stage > canvas {
+    display: block;
+    width: 100%;
+    aspect-ratio: 3 / 2;
+    border-radius: 18px;
+    background: #2a2230;
+}
+
+.turn {
+    margin: 0;
+    color: var(--muted);
+    font-size: 16px;
+    text-align: center;
+}
+
+.hud {
+    order: -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    pointer-events: none;
+}
+
+.portrait {
+    display: none;
+}
+
+/* The bar as in the picture: its fill is rounded inside the rounded frame */
+.wings {
+    position: relative;
+    width: 200px;
+    aspect-ratio: 232 / 52;
+}
+
+.wings img {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.energy {
+    position: absolute;
+    left: 16.8%;
+    top: 28.8%;
+    width: 80.6%;
+    height: 59.6%;
+    background: url("/mission/art/wing-fill.png") center / 100% 100% no-repeat;
+}
+
+.wings.low {
+    animation: warn 500ms steps(2, jump-none) infinite;
+}
+
+.wings.empty .energy {
+    filter: saturate(0.6) brightness(1.15);
+}
+
+@keyframes warn {
+    from {
+        opacity: 1;
+    }
+
+    to {
+        opacity: 0.35;
+    }
+}
+
+.saved {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 12px 3px 8px;
+    border: 2px solid rgb(255 255 255 / 0.55);
+    border-radius: 16px;
+    background: rgb(26 20 30 / 0.6);
+    color: #ffffff;
+    font-size: 20px;
+    pointer-events: none;
+}
+
+.saved img {
+    width: 26px;
+    height: 23px;
+}
+
+.saved b {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.notice {
+    position: absolute;
+    left: 50%;
+    top: calc(50% + 40px);
+    transform: translateX(-50%);
+    z-index: 1;
+    padding: 6px 18px 8px;
+    border: 2px solid rgb(255 255 255 / 0.6);
+    border-radius: 18px;
+    background: rgb(40 22 44 / 0.82);
+    color: #ffffff;
+    font-size: 20px;
+    font-weight: 600;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.notice.warning {
+    border-color: #ff8fb5;
+    color: #ffd1e1;
+    animation: warn 500ms steps(2, jump-none) infinite;
+}
+
+/* Sideways the lab fills the screen with the top bar and her picture on top of it */
+@media (orientation: landscape) {
+    .screen:has(.stage:not([hidden])) {
+        padding: 0;
+        --text: #ffffff;
+    }
+
+    .screen:has(.stage:not([hidden])) .bar {
+        position: absolute;
+        z-index: 2;
+        top: 0;
+        left: 0;
+        right: 0;
+        padding: max(env(safe-area-inset-top), 8px) max(env(safe-area-inset-right), 12px) 0 calc(max(env(safe-area-inset-left), 12px) + 76px);
+        pointer-events: none;
+    }
+
+    .screen:has(.stage:not([hidden])) .bar button {
+        pointer-events: auto;
+    }
+
+    .stage {
+        display: block;
+    }
+
+    .stage > canvas {
+        position: absolute;
+        inset: 0;
+        height: 100%;
+        aspect-ratio: auto;
+        border-radius: 0;
+    }
+
+    .turn {
+        display: none;
+    }
+
+    .hud {
+        position: absolute;
+        left: max(env(safe-area-inset-left), 12px);
+        top: max(env(safe-area-inset-top), 8px);
+        display: grid;
+        grid-template-columns: 68px auto;
+        column-gap: 8px;
+        align-items: start;
+    }
+
+    .portrait {
+        display: block;
+        grid-row: 1 / span 2;
+        width: 68px;
+        height: 68px;
+    }
+
+    .wings {
+        grid-column: 2;
+        margin-top: 36px;
+        width: 170px;
+    }
+
+    .saved {
+        position: fixed;
+        top: max(env(safe-area-inset-top), 10px);
+        right: calc(max(env(safe-area-inset-right), 12px) + 56px);
+    }
+
+    .notice {
+        top: 76px;
+    }
+}

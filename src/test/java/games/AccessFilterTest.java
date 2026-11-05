@@ -99,4 +99,9 @@ class AccessFilterTest {
     void scribbleMathHasALeaderboard() throws Exception {
         mvc.perform(get("/api/leaderboard/math")).andExpect(status().isOk());
     }
+
+    @Test
+    void missionMeowHasALeaderboard() throws Exception {
+        mvc.perform(get("/api/leaderboard/mission")).andExpect(status().isOk());
+    }
 }

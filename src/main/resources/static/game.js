@@ -11,7 +11,7 @@ const sideways = matchMedia('(orientation: landscape)');
 const isIphoneOrIpad = /iPhone|iPad|iPod/.test(navigator.userAgent)
     || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
 
-const settings = {vibration: true, sound: 70, music: 40};
+const settings = {sound: 70, music: 40};
 
 let game = null;
 let state = ''; // the game's own first state, then playing, paused, ending, over
@@ -38,10 +38,6 @@ gameScreen.insertAdjacentHTML('beforeend', `<section id="menu" class="menu" hidd
     <label class="setting row">
         <span>Dark mode</span>
         <input id="dark-mode" type="checkbox" class="switch">
-    </label>
-    <label class="setting row">
-        <span>Vibration</span>
-        <input id="vibration" type="checkbox" class="switch">
     </label>
     <label class="setting">
         <span>Sound volume</span>
@@ -70,8 +66,6 @@ gameScreen.insertAdjacentHTML('beforeend', `<section id="menu" class="menu" hidd
         <a id="back" class="button" href="/">Back to games</a>
     </div>
 </main>`);
-// Native iOS switch: tapping its label from code is the only way a web page gets a haptic tap on iPhone
-document.body.insertAdjacentHTML('beforeend', '<label id="haptic" hidden><input type="checkbox" switch></label>');
 
 // Storage can fail (private mode); a game then just doesn't remember
 function remembered(key) {
@@ -102,25 +96,6 @@ function loadSettings() {
 
 function saveSettings() {
     remember('games-settings', settings);
-}
-
-function vibrate(pattern) {
-    if (!settings.vibration) {
-        return;
-    }
-    if (navigator.vibrate) {
-        navigator.vibrate(pattern);
-    } else {
-        $('haptic').click();
-    }
-}
-
-function vibrateGameOver() {
-    vibrate([200, 100, 300]);
-    // The iPhone may only give its haptic tap when a finger lets go, so also on the finger still on the screen
-    if (!navigator.vibrate) {
-        document.addEventListener('touchend', () => vibrate(0), {once: true, signal: AbortSignal.timeout(1000)});
-    }
 }
 
 // Sideways the game takes the whole screen. Browsers only allow that from a tap, so it starts with the first
@@ -162,7 +137,6 @@ async function finishGame(reason, reasonColor) {
     state = 'ending';
     Sound.stopMusic();
     Sound.gameOver();
-    vibrateGameOver();
     saved = false;
     warnedAboutLeaving = false;
     // A moment to see what happened, and fingers still tapping don't press a button on the next screen
@@ -349,7 +323,6 @@ function closeMenu() {
 
 function setUpMenu() {
     $('dark-mode').checked = Theme.current() === 'dark';
-    $('vibration').checked = settings.vibration;
     $('sound').value = settings.sound;
     $('music').value = settings.music;
     Sound.setSoundVolume(settings.sound);
@@ -361,11 +334,6 @@ function setUpMenu() {
     $('dark-mode').addEventListener('change', () => Theme.set($('dark-mode').checked ? 'dark' : 'light'));
     window.addEventListener('pageshow', () => {
         $('dark-mode').checked = Theme.current() === 'dark'; // after theme.js, also when the page comes back as it was
-    });
-    $('vibration').addEventListener('change', () => {
-        settings.vibration = $('vibration').checked;
-        saveSettings();
-        vibrate(40);
     });
     $('sound').addEventListener('input', () => {
         settings.sound = Number($('sound').value);

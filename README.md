@@ -32,9 +32,8 @@ the game is over.
 | 91-110 | 6 | 1.3 s |
 | 111 and up | 7 | 1.3 s |
 
-The modes differ in how many colors they use. Settings (top right, in all games) pause the game: dark mode, vibration, sound volume, music volume, restart, back to games. Restarting or
+The modes differ in how many colors they use. Settings (top right, in all games) pause the game: dark mode, sound volume, music volume, restart, back to games. Restarting or
 leaving during a game doesn't save its score.
-The phone vibrates at game over.
 
 Turned sideways, the game goes full screen with the first tap on Android. On the iPhone and iPad, Add to Home Screen gives
 the full screen: the iPhone's Safari doesn't allow it for web pages, and the iPad's keeps warning about a fake keyboard when tapping quickly.

@@ -1,35 +1,34 @@
 // What the score changes. from: the score this starts at. speed: how many screen heights a block falls per second.
-// spacing: the distance between two rows, in screen heights. doubleChance: how often a row blocks two of the lanes,
-// which leaves one free lane. The time between two rows, spacing / speed, leaves room for two lane changes.
+// gap: the free road between two rows, in screen heights, however long what comes is. doubleChance: how often a row blocks
+// two of the lanes, which leaves one free lane. The time for a gap, gap / speed, leaves room for two lane changes.
 const LEVELS = [
-    {from: 0, speed: 0.45, spacing: 0.55, doubleChance: 0},
-    {from: 11, speed: 0.5, spacing: 0.5, doubleChance: 0},
-    {from: 21, speed: 0.55, spacing: 0.5, doubleChance: 0.3},
-    {from: 31, speed: 0.62, spacing: 0.48, doubleChance: 0.4},
-    {from: 51, speed: 0.72, spacing: 0.46, doubleChance: 0.5},
-    {from: 71, speed: 0.85, spacing: 0.44, doubleChance: 0.6},
-    {from: 101, speed: 1, spacing: 0.42, doubleChance: 0.7},
-    {from: 151, speed: 1.15, spacing: 0.46, doubleChance: 0.7}
+    {from: 0, speed: 0.45, gap: 0.46, doubleChance: 0},
+    {from: 11, speed: 0.5, gap: 0.41, doubleChance: 0},
+    {from: 21, speed: 0.55, gap: 0.41, doubleChance: 0.3},
+    {from: 31, speed: 0.62, gap: 0.39, doubleChance: 0.4},
+    {from: 51, speed: 0.72, gap: 0.37, doubleChance: 0.5},
+    {from: 71, speed: 0.85, gap: 0.35, doubleChance: 0.6},
+    {from: 101, speed: 1, gap: 0.33, doubleChance: 0.7},
+    {from: 151, speed: 1.15, gap: 0.37, doubleChance: 0.7}
 ];
 const LANES = 3;
-const BLOCK_COLORS = ['#c2e6ff', '#ffc2ec', '#c2ffe1', '#fff7c2', '#ffdac2', '#9691f2']; // not red: that is for a hit
-// Heights and places are in screen heights, so a game takes the same time on any screen, upright or sideways
-const BLOCK_HEIGHT = 0.09;
+// Places are in screen heights, so a game takes the same time on any screen, upright or sideways. What counts as hitting the
+// cat is the middle of her, so ears or a tail just touching don't.
 const PLAYER_TOP = 0.87;
 const PLAYER_BOTTOM = 0.96;
 const FIRST_ROW_AFTER = 0.2;
 const SWIPE_PX = 24; // further than this before letting go is a swipe, not a tap
-const LANE_CHANGE_SPEED = 30; // how quickly the player's block catches up with its lane
+const LANE_CHANGE_SPEED = 20; // how quickly the cat catches up with her lane
 const HIT_FLASH_MS = 300;
 
 const canvas = $('canvas');
 const paint = canvas.getContext('2d');
 const touches = new Map();
-let colors = {};
 let rows = [];
 let lane = 1;
 let shownLane = 1;
 let travelled = 0;
+let stride = 0;
 let untilNextRow = 0;
 let hitFlash = 0;
 let lastFrame = 0;
@@ -60,35 +59,31 @@ function startGame() {
 }
 
 function goOn() {
-    readColors(); // dark mode may have changed in the menu
     fitCanvas();
     lastFrame = performance.now();
     requestAnimationFrame(frame);
-}
-
-function readColors() {
-    colors = {
-        player: cssColor('--text'),
-        hit: cssColor('--red'),
-        edge: cssColor('--edge'),
-        line: cssColor('--grey')
-    };
 }
 
 function level() {
     return LEVELS.findLast(level => score >= level.from);
 }
 
-// At most two blocks in a row, so there is always a free lane
+// At most two things in a row, so there is always a free lane. row.y is the front of the row.
 function addRow() {
     const free = [0, 1, 2];
     const count = Math.random() < level().doubleChance ? 2 : 1;
     const blocks = [];
     while (blocks.length < count) {
         const [blocked] = free.splice(Math.floor(Math.random() * free.length), 1);
-        blocks.push({lane: blocked, color: BLOCK_COLORS[Math.floor(Math.random() * BLOCK_COLORS.length)]});
+        blocks.push({lane: blocked, ...Scene.newThing()});
     }
-    rows.push({y: -BLOCK_HEIGHT, blocks, hit: false});
+    const row = {y: 0, blocks, hit: false, passed: false};
+    rows.push(row);
+    return row;
+}
+
+function rowLength(row) {
+    return Math.max(...row.blocks.map(block => Scene.length(block.kind)));
 }
 
 function frame(now) {
@@ -99,13 +94,13 @@ function frame(now) {
     lastFrame = now;
     const fall = level().speed * passed / 1000;
     travelled += fall;
+    stride += (11 + 8 * level().speed) * passed / 1000; // her legs go faster with the road
     shownLane += (lane - shownLane) * (1 - Math.exp(-LANE_CHANGE_SPEED * passed / 1000));
     hitFlash = Math.max(0, hitFlash - passed);
 
     untilNextRow -= fall;
     if (untilNextRow <= 0) {
-        addRow();
-        untilNextRow += level().spacing;
+        untilNextRow += level().gap + rowLength(addRow());
     }
     for (const row of rows) {
         row.y += fall;
@@ -120,10 +115,10 @@ function frame(now) {
 
 function checkHits() {
     for (const row of rows) {
-        const reachesPlayer = row.y + BLOCK_HEIGHT > PLAYER_TOP && row.y < PLAYER_BOTTOM;
-        const block = reachesPlayer && row.blocks.find(block => block.lane === lane);
+        const block = row.blocks.find(block => block.lane === lane && !block.hit
+            && row.y > PLAYER_TOP && row.y - Scene.length(block.kind) < PLAYER_BOTTOM);
         if (block) {
-            row.blocks.splice(row.blocks.indexOf(block), 1);
+            block.hit = true;
             row.hit = true;
             addStrike();
             if (state !== 'playing') {
@@ -148,17 +143,17 @@ function countPassedRows() {
     if (state !== 'playing') {
         return;
     }
-    rows = rows.filter(row => {
-        if (row.y < PLAYER_BOTTOM) {
-            return true;
+    for (const row of rows) {
+        if (!row.passed && row.y - rowLength(row) >= PLAYER_BOTTOM) {
+            row.passed = true;
+            if (!row.hit) {
+                score++;
+                Sound.setMusicSpeed(Math.min(score / LEVELS.at(-1).from, 1));
+                showScore();
+            }
         }
-        if (!row.hit) {
-            score++;
-            Sound.setMusicSpeed(Math.min(score / LEVELS.at(-1).from, 1));
-            showScore();
-        }
-        return false;
-    });
+    }
+    rows = rows.filter(row => row.y - rowLength(row) < 1);
 }
 
 function changeLane(direction) {
@@ -170,59 +165,19 @@ function changeLane(direction) {
 }
 
 function fitCanvas() {
-    const ratio = window.devicePixelRatio || 1;
+    const ratio = Math.min(window.devicePixelRatio || 1, 2); // more isn't seen, and costs a lot on a phone
     const width = Math.round(canvas.clientWidth * ratio);
     const height = Math.round(canvas.clientHeight * ratio);
     if (width > 0 && height > 0 && (canvas.width !== width || canvas.height !== height)) {
         canvas.width = width;
         canvas.height = height;
+        Scene.fit(width, height);
         draw();
     }
 }
 
-function fillBlock(x, y, width, height, color) {
-    const edge = Math.min(width, height) * 0.22;
-    paint.fillStyle = color;
-    paint.beginPath();
-    paint.roundRect(x, y, width, height, edge);
-    paint.fill();
-    paint.strokeStyle = colors.edge;
-    paint.lineWidth = 2 * (window.devicePixelRatio || 1);
-    paint.stroke();
-}
-
 function draw() {
-    const {width, height} = canvas;
-    const laneWidth = width / LANES;
-    const margin = laneWidth * 0.08;
-    paint.clearRect(0, 0, width, height);
-
-    // Lines between the lanes, moving with the road
-    const dash = height * 0.05;
-    paint.strokeStyle = colors.line;
-    paint.lineWidth = 2 * (window.devicePixelRatio || 1);
-    paint.setLineDash([dash, dash]);
-    paint.lineDashOffset = -travelled * height;
-    paint.globalAlpha = 0.5;
-    paint.beginPath();
-    for (let i = 1; i < LANES; i++) {
-        paint.moveTo(i * laneWidth, 0);
-        paint.lineTo(i * laneWidth, height);
-    }
-    paint.stroke();
-    paint.setLineDash([]);
-    paint.globalAlpha = 1;
-
-    for (const row of rows) {
-        for (const block of row.blocks) {
-            fillBlock(block.lane * laneWidth + margin, row.y * height, laneWidth - 2 * margin, BLOCK_HEIGHT * height, block.color);
-        }
-    }
-
-    const playerHeight = (PLAYER_BOTTOM - PLAYER_TOP) * height;
-    const playerWidth = Math.min(laneWidth * 0.62, playerHeight * 1.5);
-    const playerX = (shownLane + 0.5) * laneWidth - playerWidth / 2;
-    fillBlock(playerX, PLAYER_TOP * height, playerWidth, playerHeight, hitFlash > 0 ? colors.hit : colors.player);
+    Scene.draw(paint, {rows, lane, shownLane, travelled, stride, hurt: hitFlash});
 }
 
 function setUpEvents() {

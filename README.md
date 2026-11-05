@@ -40,9 +40,10 @@ the full screen: the iPhone's Safari doesn't allow it for web pages, and the iPa
 
 ## Lane Dodge
 
-Blocks fall down three lanes. Tap the left or right side, or swipe, to change lanes (arrow keys without a touch screen). A row you pass without a
-hit is a point, and a hit turns an X red; the third ends the game. As the score rises the blocks fall faster, the rows
-come sooner and more rows block two lanes (`LEVELS` in `dodge.js`). There is always a free lane. It has its own music (`TUNES` in `sound.js`).
+A cat runs up a three-lane road while cars and kids on bikes, roller skates and skateboards come towards her. Tap the left or right side, or swipe, to
+change lanes (arrow keys without a touch screen). A row you pass without a hit is a point, and a hit turns an X red; the third ends the game. As the
+score rises everything comes faster, the free road between rows gets shorter and more rows block two lanes (`LEVELS` in `dodge.js`). There is always a
+free lane. It has its own music (`TUNES` in `sound.js`) and its own look, all drawn in code (`scene.js`).
 
 ## Leaderboards
 

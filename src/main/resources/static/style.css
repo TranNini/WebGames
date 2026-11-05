@@ -216,32 +216,12 @@ input[type="text"] {
     box-shadow: inset 0 0 0 2px var(--edge);
 }
 
-/* Lane Dodge's picture, on the start page and on its first screen */
-.lanes-icon {
+/* Lane Dodge's picture on the start page */
+.dodge-icon {
     flex: none;
     width: 58px;
     height: 58px;
-}
-
-.lanes-icon .lane {
-    fill: var(--field);
-}
-
-/* On a card the lanes need another color than the card itself */
-.game-card .lanes-icon .lane {
-    fill: var(--bg);
-}
-
-:root[data-theme="light"] .game-card .lanes-icon .lane {
-    fill: var(--field);
-}
-
-.lanes-icon .block {
-    stroke: var(--edge);
-}
-
-.lanes-icon .you {
-    fill: var(--text);
+    border-radius: 12px;
 }
 
 /* The login page */

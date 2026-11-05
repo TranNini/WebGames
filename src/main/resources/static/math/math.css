@@ -167,6 +167,29 @@
     pointer-events: none;
 }
 
+/* Typing: no pad, so the sum takes the middle of the screen */
+.sums.typing {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.sums.typing .writing {
+    display: none;
+}
+
+.sums.typing .column {
+    align-items: center;
+}
+
+.sums.typing .now,
+.sums.typing .answer {
+    font-size: clamp(44px, 13vh, 120px);
+}
+
+.sums.typing .next {
+    font-size: clamp(22px, 6vh, 52px);
+    text-align: center;
+}
+
 .score.right {
     animation: right 300ms ease-out;
 }

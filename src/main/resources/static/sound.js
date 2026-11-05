@@ -39,6 +39,26 @@ const Sound = (() => {
                 {bass: 98, notes: [493.88, null, 392, 293.66, 493.88, 523.25, 587.33, null]},
                 {bass: 146.83, notes: [440, null, 369.99, 293.66, 440, 493.88, 587.33, null]}
             ]
+        },
+        // Scribble Math: slow, soft and bright like a music box, with room between the notes to think
+        think: {
+            slowBpm: 92,
+            fastBpm: 116,
+            wave: 'sine',
+            noteSeconds: 0.5,
+            noteLoudness: 0.4,
+            bassEvery: 8,
+            bassSeconds: 1.2,
+            bars: [
+                {bass: 130.81, notes: [523.25, null, 659.25, 783.99, null, 659.25, 523.25, null]},
+                {bass: 110, notes: [440, null, 523.25, 659.25, null, 880, 659.25, null]},
+                {bass: 87.31, notes: [440, null, 523.25, 698.46, null, 880, 698.46, null]},
+                {bass: 98, notes: [493.88, null, 587.33, 783.99, 587.33, null, 493.88, null]},
+                {bass: 130.81, notes: [783.99, null, 659.25, null, 783.99, 880, 783.99, null]},
+                {bass: 110, notes: [659.25, null, 523.25, null, 659.25, 783.99, 659.25, null]},
+                {bass: 87.31, notes: [698.46, 659.25, 587.33, null, 523.25, 587.33, 659.25, null]},
+                {bass: 98, notes: [587.33, null, 493.88, null, 392, null, 493.88, 587.33]}
+            ]
         }
     };
 

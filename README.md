@@ -47,10 +47,10 @@ free lane. It has its own music (`TUNES` in `sound.js`) and its own look, all dr
 
 ## Scribble Math
 
-Sums on the left, and you write the answer on the right with a finger or pen (the number keys without a touch screen). A right answer brings the next sum
+Sums on the left, and you write the answer on the right with a finger or pen. A laptop or PC without a touch screen has no pad: you type the answer, and Enter starts a game and Esc pauses it. A right answer brings the next sum
 right away and is a point. A wrong one turns red and clears, so you can try again while the time runs, because it could be a misread digit. If the time
 for a sum runs out an X turns red; the third ends the game. As the score rises there is less time, and + and - grow into x and / and bigger numbers (`LEVELS` in
-`math.js`). All answers are whole numbers from 1 to 99.
+`math.js`). All answers are whole numbers from 1 to 99. It has its own music (`TUNES` in `sound.js`).
 
 The digits are read on the device (`digits.js`) by a small network (`digit-model.js`), trained on the [Pen-Based Recognition of Handwritten
 Digits](https://archive.ics.uci.edu/dataset/81) data by E. Alpaydin and F. Alimoglu (CC BY 4.0). It read 98.3% of the digits of 14 writers it wasn't trained on.

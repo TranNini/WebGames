@@ -12,14 +12,16 @@ const LEVELS = [
     {from: 151, seconds: 4.5, plusMinus: 99, timesDivide: 9}
 ];
 const NEXT_SHOWN = 2;
-const FIRST_READ_MS = 250; // after lifting the pen: enough for a right answer to go on
-const LAST_READ_MS = 900; // and then it counts as what was meant, unless digits are still missing
-const MISSING_DIGIT_MS = 1400;
-const WRONG_SHOWN_MS = 350;
+const FIRST_READ_MS = 80; // after lifting the pen: enough for a right answer to go on
+const LAST_READ_MS = 450; // and then it counts as what was meant: a second stroke of a digit comes sooner than this
+const MISSING_DIGIT_MS = 800; // a next digit may take longer
+const WRONG_SHOWN_MS = 150;
 const TIME_UP_SHOWN_MS = 1100;
 const LOW_TIME = 0.25;
 const SMALLEST_STROKE = 0.02; // shorter than this share of the pad, it is a slip and not writing
 
+// Without a touch screen the answers are typed, and there is nothing to write on
+const typing = navigator.maxTouchPoints === 0;
 const pad = $('pad');
 const paint = pad.getContext('2d');
 let sum = null;
@@ -172,9 +174,7 @@ function readWhatWasWritten(passed) {
     if (wrongLeft > 0) {
         wrongLeft -= passed;
         if (wrongLeft <= 0) {
-            clearWriting();
-            showAnswer('?');
-            $('answer').className = 'answer';
+            startOver();
         }
         return;
     }
@@ -284,9 +284,19 @@ function liftPen() {
     sinceLifted = 0;
 }
 
+function canType() {
+    return state === 'playing' && timeUpLeft <= 0;
+}
+
+function startOver() {
+    clearWriting();
+    showAnswer('?');
+    $('answer').className = 'answer';
+}
+
 function typeDigit(digit) {
-    if (state !== 'playing' || timeUpLeft > 0) {
-        return;
+    if (wrongLeft > 0) {
+        startOver();
     }
     const expected = String(sum.answer);
     typed += digit;
@@ -295,6 +305,37 @@ function typeDigit(digit) {
         rightAnswer();
     } else if (typed.length >= expected.length) {
         wrongAnswer(typed);
+    }
+}
+
+function eraseDigit() {
+    if (wrongLeft <= 0 && typed) {
+        typed = typed.slice(0, -1);
+        showAnswer(typed || '?');
+    }
+}
+
+function pressKey(event) {
+    if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) {
+        return;
+    }
+    // The number pad also with Num Lock off, when its keys say they are arrows
+    const digit = /^Numpad[0-9]$/.test(event.code) ? event.code.at(-1) : event.key;
+    if (event.key === 'Escape') {
+        $('menu-button').click();
+    } else if (canType() && /^[0-9]$/.test(digit)) {
+        typeDigit(digit);
+    } else if (canType() && event.key === 'Backspace') {
+        eraseDigit();
+    } else if (canType() && event.key === 'Enter' && typed && wrongLeft <= 0) {
+        wrongAnswer(typed); // a right one has already gone on
+    } else if (event.key === 'Enter' && $('menu').hidden && event.target.tagName !== 'BUTTON' && event.target.tagName !== 'A') {
+        // From the first screen into a game, and from its end to the first screen
+        if (state === 'intro') {
+            startGame();
+        } else if (state === 'over') {
+            $('again').click();
+        }
     }
 }
 
@@ -313,9 +354,7 @@ function setUpEvents() {
             return;
         }
         if (wrongLeft > 0) {
-            clearWriting();
-            showAnswer('?');
-            $('answer').className = 'answer';
+            startOver();
         }
         pad.setPointerCapture(event.pointerId);
         $('hint').hidden = true;
@@ -340,14 +379,14 @@ function setUpEvents() {
             }
         });
     }
-    // No touch screen: the keys
-    document.addEventListener('keydown', event => {
-        if (/^[0-9]$/.test(event.key)) {
-            typeDigit(event.key);
-        }
-    });
+    document.addEventListener('keydown', pressKey);
 }
 
+Sound.setTune('think');
+if (typing) {
+    $('sums').classList.add('typing');
+    $('how').textContent = 'Solve the sum and type the answer. The next sum comes right away. If the time runs out three times, the game ends. Enter starts, Esc pauses.';
+}
 setUpEvents();
 setUpGame({
     screens: ['intro', 'sums'],

@@ -13,9 +13,9 @@ const GRAVITY = 280;
 const JUMP_SPEED = 141;
 const SHORT_JUMP_SPEED = 55; // letting go early cuts a jump to this
 const MOST_FALL = 115;
-// What can hurt her: her body, around her middle, smaller than her hair and wings. What collects stars is much wider.
-const HIT_FLYING = {left: -8, right: 10, top: -17, bottom: 13};
-const HIT_WALKING = {left: -5, right: 6, top: -17, bottom: 13};
+// What can hurt her: only the core of her body, around her middle, not her hair, wings or trailing feet. What collects stars is much wider.
+const HIT_FLYING = {left: -5, right: 7, top: -12, bottom: 6};
+const HIT_WALKING = {left: -4, right: 5, top: -13, bottom: 12};
 const STAR_REACH = {left: -20, right: 19, top: -24, bottom: 19};
 const JUMP_MEMORY_MS = 110; // a press just before landing still jumps
 const AFTER_EDGE_MS = 80; // and one just after running off a platform
@@ -207,7 +207,7 @@ function addNext() {
 // Where something that can hurt her is
 function hitBoxOf(thing, at) {
     if (thing.kind === 'spikes') {
-        return {left: thing.x + 2.4, right: thing.x + thing.width - 2.4, top: GROUND - thing.height + 4, bottom: GROUND};
+        return {left: thing.x + 3, right: thing.x + thing.width - 3, top: GROUND - thing.height + 5, bottom: GROUND};
     }
     if (thing.kind === 'post' || thing.kind === 'fence') {
         return {left: thing.x, right: thing.x + thing.width, top: GROUND - thing.height, bottom: GROUND};
@@ -507,7 +507,7 @@ function frame(now) {
 }
 
 function fitCanvas() {
-    const ratio = Math.min(window.devicePixelRatio || 1, 2); // more isn't seen, and costs a lot on a phone
+    const ratio = Math.min(window.devicePixelRatio || 1, 3); // every pixel the screen has, so it stays sharp
     const width = Math.round(canvas.clientWidth * ratio);
     const height = Math.round(canvas.clientHeight * ratio);
     if (width > 0 && height > 0 && (canvas.width !== width || canvas.height !== height)) {

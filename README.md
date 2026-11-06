@@ -62,7 +62,7 @@ and arcs fill it up. A warning comes when it runs low; with none left she walks 
 
 Each glass tube she reaches frees a kitten. Every 5 kittens a big star comes, worth much more energy; every 10 give a boost in a bubble, faster and safe, that blinks before it goes; every 20 give a heart back.
 
-The look is the user's picture: `mission/art` holds its pieces, cut out by script, and `mission/scene.js` puts them together.
+The look is the user's picture: `mission/art` holds its pieces, cut out and upscaled, and `mission/scene.js` puts them together with the lab it draws behind them.
 
 ## Leaderboards
 

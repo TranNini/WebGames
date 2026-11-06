@@ -13,9 +13,9 @@ const LEVELS = [
 ];
 const NEXT_SHOWN = 2;
 const FIRST_READ_MS = 80; // after lifting the pen: enough for a right answer to go on
-const LAST_READ_MS = 450; // and then it counts as what was meant: a second stroke of a digit comes sooner than this
-const MISSING_DIGIT_MS = 800; // a next digit may take longer
-const WRONG_SHOWN_MS = 150;
+const LAST_READ_MS = 250; // and then it counts as what was meant: a second stroke of a digit comes sooner than this
+const MISSING_DIGIT_MS = 450; // a next digit may take longer
+const WRONG_SHOWN_MS = 100;
 const TIME_UP_SHOWN_MS = 1100;
 const LOW_TIME = 0.25;
 const SMALLEST_STROKE = 0.02; // shorter than this share of the pad, it is a slip and not writing

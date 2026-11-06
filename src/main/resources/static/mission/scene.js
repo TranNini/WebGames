@@ -1,5 +1,6 @@
 // Mission: Meow's look. She, the kittens and what is in her way are cut from the user's picture (mission/art), at the picture's own scale and
-// upscaled three times; she is four pieces, so that she can flap her wing and walk. The lab behind them is drawn here, as the user preferred it.
+// upscaled three times. Flying she is four pieces, from the first picture, and walking eight, from the second, so that she can flap and take steps.
+// The lab behind them is drawn here, as the user preferred it.
 // A world is 100 units high; the rules are in mission.js.
 const Scene = (() => {
     const FLOOR = 84; // in units from the top, as in mission.js
@@ -12,19 +13,33 @@ const Scene = (() => {
     const SHARPEST_BACK = 14; // pixels per unit: the far walls need no more
     const SPIKE_SCALE = 1.7;
     const BIG_STAR_SCALE = 2.1;
-    const WALK_LEAN = 28 * Math.PI / 180; // flying she lies forward as in the picture; walking she is upright
     // Her pieces as they lie in the picture: x, y, width, height. Each turns around its pivot.
     const CENTER = {x: 385, y: 400};
     const BODY = {name: 'girl-body', x: 204, y: 228, width: 303, height: 234};
     const WING = {name: 'girl-wing', x: 275, y: 320, width: 96, height: 82, pivotX: 368, pivotY: 388};
     const FAR_LEG = {name: 'girl-far', x: 293, y: 420, width: 112, height: 94, pivotX: 368, pivotY: 436};
     const NEAR_LEG = {name: 'girl-near', x: 293, y: 430, width: 120, height: 83, pivotX: 385, pivotY: 447};
+    // Walking: pieces as they lie in the second picture, where she is larger. All turn around their pivots; shoes around the ankles.
+    const WALK_SCALE = 0.48;
+    const WALK_CENTER = {x: 880, y: 462};
+    const LEG_ANGLE = 30 * Math.PI / 180; // how far each leg is from straight down in the picture
+    const LEG_LENGTH = 196; // from the hip to the ground, in pixels of the second picture
+    const WALK = {
+        body: {name: 'walk-body', x: 512, y: 92, width: 551, height: 497},
+        wing: {name: 'walk-wing', x: 649, y: 350, width: 161, height: 138, pivotX: 800, pivotY: 440},
+        nearArm: {name: 'walk-arm-near', x: 744, y: 414, width: 151, height: 169, pivotX: 868, pivotY: 440},
+        farArm: {name: 'walk-arm-far', x: 921, y: 458, width: 116, height: 112, pivotX: 945, pivotY: 490},
+        backLeg: {name: 'walk-leg-back', x: 766, y: 546, width: 127, height: 129, pivotX: 858, pivotY: 575},
+        frontLeg: {name: 'walk-leg-front', x: 864, y: 546, width: 123, height: 159, pivotX: 905, pivotY: 575},
+        backShoe: {name: 'walk-shoe-back', x: 710, y: 635, width: 101, height: 115, pivotX: 785, pivotY: 660},
+        frontShoe: {name: 'walk-shoe-front', x: 941, y: 668, width: 116, height: 82, pivotX: 962, pivotY: 690}
+    };
     const SIZES = {
         'tube-empty-orange': [178, 239], 'tube-empty-grey': [179, 224], 'kitten-orange': [76, 88], 'kitten-grey': [77, 78], 'slab-long': [300, 72], 'emitter-top': [116, 98], 'emitter-bottom': [77, 59], 'emitter-hang': [83, 60], 'rail-left': [68, 73], 'rail-right': [72, 73],
         column: [76, 195], spike: [48, 54], star: [60, 58], sparkle: [42, 46]
     };
     const KITTEN_IN_TUBE = {orange: [53, 116], grey: [53, 114]};
-    const GIRL = [BODY, WING, FAR_LEG, NEAR_LEG];
+    const GIRL = [BODY, WING, FAR_LEG, NEAR_LEG, ...Object.values(WALK)];
     const FILES = [...Object.keys(SIZES), ...GIRL.map(piece => piece.name)];
     const images = {};
     let scaled = {};
@@ -301,7 +316,8 @@ const Scene = (() => {
             scaled[name] = sized(images[name], pieceWidth * picturePixel, pieceHeight * picturePixel);
         }
         for (const piece of GIRL) {
-            scaled[piece.name] = sized(images[piece.name], piece.width * picturePixel, piece.height * picturePixel);
+            const scale = piece.name.startsWith('walk') ? WALK_SCALE : 1;
+            scaled[piece.name] = sized(images[piece.name], piece.width * picturePixel * scale, piece.height * picturePixel * scale);
         }
         scaled.bigStar = sized(images.star, SIZES.star[0] * picturePixel * BIG_STAR_SCALE, SIZES.star[1] * picturePixel * BIG_STAR_SCALE);
         scaled.bigSpike = sized(images.spike, SIZES.spike[0] * picturePixel * SPIKE_SCALE, SIZES.spike[1] * picturePixel * SPIKE_SCALE);
@@ -324,21 +340,91 @@ const Scene = (() => {
         ctx.restore();
     }
 
-    // Around her middle (x, y). Flying: the wing beats and the legs trail. Walking: upright, the legs swinging.
-    function drawGirl(ctx, x, y, girl, step) {
-        const walking = !girl.flying;
-        const walkAmount = girl.upright;
+    // Around her middle (x, y): the wing beats and the legs trail
+    function drawFlying(ctx, x, y, step) {
         ctx.save();
         ctx.translate(x, y);
-        ctx.rotate(-WALK_LEAN * walkAmount + Math.sin(step * 0.5) * 0.02 * (1 - walkAmount));
+        ctx.rotate(Math.sin(step * 0.5) * 0.02);
         ctx.scale(UNIT, UNIT);
         ctx.translate(-CENTER.x, -CENTER.y);
-        const swing = walking ? Math.sin(step) * 0.46 : Math.sin(step * 0.7) * 0.09;
-        drawPiece(ctx, FAR_LEG, walking ? swing : swing * 0.8);
-        drawPiece(ctx, NEAR_LEG, walking ? -swing : -swing * 0.8);
+        const swing = Math.sin(step * 0.7) * 0.07;
+        drawPiece(ctx, FAR_LEG, swing);
+        drawPiece(ctx, NEAR_LEG, -swing);
         drawPiece(ctx, BODY, 0);
-        drawPiece(ctx, WING, walking ? -0.04 : Math.sin(step * 1.5) * 0.17);
+        drawPiece(ctx, WING, Math.sin(step * 1.5) * 0.17);
         ctx.restore();
+    }
+
+    // A leg and its shoe. forward: how far the leg points forward now (radians), rest: how far it does in the picture.
+    // A leg swinging through the air is shorter, as if its knee bends, and its shoe follows the ankle and lies as it should for that moment.
+    function drawLegAndShoe(ctx, leg, shoe, rest, forward, shorter, shoeTurn) {
+        const turn = rest - forward; // clockwise on the screen brings the foot back
+        ctx.save();
+        ctx.translate(leg.pivotX, leg.pivotY);
+        ctx.rotate(turn);
+        ctx.scale(1, 1 - shorter);
+        ctx.translate(-leg.pivotX, -leg.pivotY);
+        ctx.drawImage(scaled[leg.name], leg.x, leg.y, leg.width, leg.height);
+        // The shoe goes where the ankle goes, not stretched or turned along with the leg
+        const ankleX = shoe.pivotX - leg.pivotX;
+        const ankleY = (shoe.pivotY - leg.pivotY) * (1 - shorter);
+        ctx.restore();
+        const cos = Math.cos(turn);
+        const sin = Math.sin(turn);
+        ctx.save();
+        ctx.translate(leg.pivotX + ankleX * cos - ankleY * sin, leg.pivotY + ankleX * sin + ankleY * cos);
+        ctx.rotate(shoeTurn);
+        ctx.translate(-shoe.pivotX, -shoe.pivotY);
+        ctx.drawImage(scaled[shoe.name], shoe.x, shoe.y, shoe.width, shoe.height);
+        ctx.restore();
+    }
+
+    // One leg's moment in a step. phase 0: reaching forward, on its heel; then down flat and back along the ground; at pi: pushing off its toes; then through the air.
+    function legAt(phase) {
+        const onGround = Math.sin(phase) >= 0;
+        return {
+            forward: LEG_ANGLE * Math.cos(phase),
+            shorter: onGround ? 0 : -Math.sin(phase) * 0.2,
+            onGround
+        };
+    }
+
+    // Her shoe's tilt for the moment: its toes up on the heel, flat, its heel up on the toes. Positive turns clockwise on the screen.
+    function shoeTilt(phase) {
+        const forward = Math.cos(phase);
+        return forward > 0 ? -0.2 * forward : 0.55 * -forward;
+    }
+
+    // Around her middle (x, y), in the air the stride of the picture
+    function drawWalking(ctx, x, y, step, onGround) {
+        const front = onGround ? legAt(step) : {forward: LEG_ANGLE, shorter: 0};
+        const back = onGround ? legAt(step + Math.PI) : {forward: -LEG_ANGLE, shorter: 0};
+        const planted = onGround ? (front.onGround ? front : back) : null;
+        const lift = planted ? LEG_LENGTH * (Math.cos(planted.forward) - Math.cos(LEG_ANGLE)) : 0; // her hips rise over the planted leg
+        const arm = onGround ? Math.cos(step) * 0.22 : 0;
+        const pictureScale = UNIT * WALK_SCALE;
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.scale(pictureScale, pictureScale);
+        ctx.translate(-WALK_CENTER.x, -WALK_CENTER.y - lift);
+        const {body, wing, nearArm, farArm, backLeg, frontLeg, backShoe, frontShoe} = WALK;
+        const frontTilt = onGround ? shoeTilt(step) : 0;
+        const backTilt = onGround ? shoeTilt(step + Math.PI) : 0;
+        drawLegAndShoe(ctx, backLeg, backShoe, -LEG_ANGLE, back.forward, back.shorter, backTilt - shoeTilt(Math.PI));
+        drawLegAndShoe(ctx, frontLeg, frontShoe, LEG_ANGLE, front.forward, front.shorter, frontTilt - shoeTilt(0));
+        drawPiece(ctx, farArm, arm * 0.7);
+        ctx.drawImage(scaled[body.name], body.x, body.y, body.width, body.height);
+        drawPiece(ctx, wing, Math.sin(step * 0.5) * 0.05);
+        drawPiece(ctx, nearArm, -arm);
+        ctx.restore();
+    }
+
+    function drawGirl(ctx, x, y, girl, step) {
+        if (girl.flying) {
+            drawFlying(ctx, x, y, step);
+        } else {
+            drawWalking(ctx, x, y, step, girl.onGround);
+        }
     }
 
     function drawBubble(ctx, x, y, left, warnFrom) {

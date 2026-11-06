@@ -13,16 +13,17 @@ const GRAVITY = 280;
 const JUMP_SPEED = 141;
 const SHORT_JUMP_SPEED = 55; // letting go early cuts a jump to this
 const MOST_FALL = 115;
-// What can hurt her: only the core of her body, around her middle, not her hair, wings or trailing feet. What collects stars is much wider.
-const HIT_FLYING = {left: -5, right: 7, top: -12, bottom: 6};
+// What can hurt her: only the core of her body, around her middle, not her hair, wings or trailing feet. It reaches low enough that nothing on the
+// floor goes under her. What collects stars is a little wider than that: her body, not the tips of her hair.
+const HIT_FLYING = {left: -5, right: 7, top: -12, bottom: 11};
 const HIT_WALKING = {left: -4, right: 5, top: -13, bottom: 12};
-const STAR_REACH = {left: -20, right: 19, top: -24, bottom: 19};
+const STAR_REACH = {left: -9, right: 11, top: -14, bottom: 11};
 const JUMP_MEMORY_MS = 110; // a press just before landing still jumps
 const AFTER_EDGE_MS = 80; // and one just after running off a platform
 
 const ENERGY_PER_SECOND = 8.5; // flying
 const ENERGY_PER_STAR = 3.5;
-const ENERGY_PER_STAR_WALKING = 6; // so that a walk doesn't last long: she mainly flies
+const ENERGY_PER_STAR_WALKING = 7; // so that a walk doesn't last long: she mainly flies
 const ENERGY_PER_BIG_STAR = 30;
 const LOW_ENERGY = 25;
 const KITTEN_EVERY = 190; // a kitten about every 5 seconds
@@ -65,7 +66,7 @@ let lastFrame = 0;
 let shownEnergy = -1;
 
 function newGirl() {
-    return {y: 50, vy: 0, onGround: false, flying: true, walking: false, upright: 0, rising: false, pressedAgo: Infinity, leftEdgeAgo: Infinity};
+    return {y: 50, vy: 0, onGround: false, flying: true, walking: false, rising: false, pressedAgo: Infinity, leftEdgeAgo: Infinity};
 }
 
 function newGame() {
@@ -169,10 +170,10 @@ const CHUNKS = [
     {from: 0, name: 'stars in a line', make: x => { line(x, starHeight(), 8); return 58; }},
     {from: 0, name: 'stars in a wave', make: x => { wave(x, starHeight(), 9, 8); return 66; }},
     {from: 1, name: 'laser from the floor', make: x => { post(x + 16); arc(x, 6, 42); return 36; }},
-    {from: 2, name: 'laser from the ceiling', make: x => { hanging(x + 24); line(x, 12, 7); return 52; }},
+    {from: 2, name: 'laser from the ceiling', make: x => { hanging(x + 24); line(x, 12, 7); spikes(x + 74, 2); return 96; }},
     {from: 3, name: 'a high gap', flyingOnly: true, make: x => { post(x + 18, 34); hanging(x + 18, GROUND - 74); wave(x, 54, 6, 3); return 56; }},
-    {from: 4, name: 'a platform with stars', make: x => { platforms.push({x: x + 16, width: 68, top: GROUND - 25}); line(x + 24, 38, 7); return 86; }},
-    {from: 5, name: 'a moving laser', make: x => { mover(x + 10, 0.25); line(x + 38, starHeight(), 4); return 66; }},
+    {from: 4, name: 'a platform with stars', make: x => { platforms.push({x: x + 16, width: 68, top: GROUND - 25}); spikes(x + 40, 3); line(x + 24, 38, 7); return 86; }},
+    {from: 5, name: 'a moving laser', make: x => { mover(x + 10, 0.75); line(x + 38, starHeight(), 4); return 66; }},
     {from: 6, name: 'a low gap', flyingOnly: true, make: x => { post(x + 18, 8); hanging(x + 18, GROUND - 50); line(x, 22, 5); return 42; }},
     {from: 7, name: 'a gate', make: x => { post(x + 12, 9); hanging(x + 12, GROUND - 60); line(x + 2, 22, 3); return 28; }},
     {from: 9, name: 'a moving beam', make: x => { beam(x + 8, 0.75); wave(x + 40, 16, 4, 4); return 72; }},
@@ -183,8 +184,8 @@ const CHUNKS = [
         return 92;
     }},
     {from: 13, name: 'two lasers', make: x => { post(x + 8); post(x + 66); return 76; }},
-    {from: 15, name: 'a laser and spikes', make: x => { hanging(x + 8); spikes(x + 62, 3); arc(x + 50, 6); return 92; }},
-    {from: 18, name: 'two moving lasers', make: x => { mover(x + 10, 0.25); mover(x + 76, 0.25); return 96; }}
+    {from: 15, name: 'a laser and spikes', make: x => { hanging(x + 8); spikes(x + 62, 3); arc(x + 52, 6); return 92; }},
+    {from: 18, name: 'two moving lasers', make: x => { mover(x + 10, 0.75); mover(x + 76, 0.75); return 96; }}
 ];
 
 function between(lowest, highest) {
@@ -201,13 +202,16 @@ function addNext() {
     const possible = CHUNKS.filter(chunk => kittens >= chunk.from && chunk !== lastChunk && (wingsLast || !chunk.flyingOnly));
     lastChunk = possible[Math.floor(Math.random() * possible.length)];
     nextX += lastChunk.make(nextX);
+    if (girl.walking || energy < LOW_ENERGY) {
+        line(nextX + 8, 10, 5); // something to refill on, so that a walk doesn't last
+    }
     nextX += between(GAP.shortest, GAP.longest);
 }
 
 // Where something that can hurt her is
 function hitBoxOf(thing, at) {
     if (thing.kind === 'spikes') {
-        return {left: thing.x + 3, right: thing.x + thing.width - 3, top: GROUND - thing.height + 5, bottom: GROUND};
+        return {left: thing.x + 3, right: thing.x + thing.width - 3, top: GROUND - thing.height + 3, bottom: GROUND};
     }
     if (thing.kind === 'post' || thing.kind === 'fence') {
         return {left: thing.x, right: thing.x + thing.width, top: GROUND - thing.height, bottom: GROUND};
@@ -240,11 +244,9 @@ function moveGirl(body, seconds, holding, canFly, at, floors) {
         body.flying = true;
         body.onGround = false;
         body.rising = false;
-        body.upright = Math.max(0, body.upright - seconds * 4);
         return;
     }
     body.flying = false;
-    body.upright = Math.min(1, body.upright + seconds * 4);
     if (body.pressedAgo <= JUMP_MEMORY_MS && (body.onGround || body.leftEdgeAgo <= AFTER_EDGE_MS)) {
         body.vy = -JUMP_SPEED;
         body.onGround = false;

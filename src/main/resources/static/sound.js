@@ -165,6 +165,13 @@ const Sound = (() => {
         });
     }
 
+    function siren() {
+        play(now => {
+            tone(soundGain, 'sawtooth', 560, now, 0.26, 0.14, 860);
+            tone(soundGain, 'sawtooth', 860, now + 0.28, 0.26, 0.14, 560);
+        });
+    }
+
     function meow() {
         play(now => {
             tone(soundGain, 'triangle', 640, now, 0.13, 0.5, 980);
@@ -239,5 +246,5 @@ const Sound = (() => {
         }
     }
 
-    return {unlock, setSoundVolume, setMusicVolume, tap, meow, warn, miss, start, gameOver, startMusic, stopMusic, setMusicSpeed, setTune, sleep};
+    return {unlock, setSoundVolume, setMusicVolume, tap, meow, warn, siren, miss, start, gameOver, startMusic, stopMusic, setMusicSpeed, setTune, sleep};
 })();

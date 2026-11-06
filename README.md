@@ -60,7 +60,9 @@ Digits](https://archive.ics.uci.edu/dataset/81) data by E. Alpaydin and F. Alimo
 Kittens have been abducted, and a girl with small wings flies through the lab to save them; the score is how far she gets. Hold to rise, let go to sink (Space or the up arrow on a computer). Flying uses energy, and stars in lines, waves
 and arcs fill it up. A warning comes when it runs low; with none left she walks and jumps until she has collected a full bar. Touching spikes or a laser costs a heart; the third ends the game. The pace stays the same.
 
-Each glass tube she reaches frees a kitten. Every 5 kittens a big star comes, worth much more energy; every 10 give a boost in a bubble, faster and safe, that blinks before it goes; every 20 give a heart back.
+She frees a kitten by touching its glass tube. Kittens in a row bring rewards: every 5 a big star, worth much more energy; every 10 a boost in a bubble, faster and safe, that blinks before it goes; every 25 a heart back.
+
+A kitten missed breaks the streak and sets off a security alert of 10 seconds. The first also breaks her wings, so she has to go on foot; the second brings more lasers and obstacles; the third is maximum security, to survive until it is over, after which the count starts again.
 
 The look is the user's picture: `mission/art` holds its pieces, cut out and upscaled, and `mission/scene.js` puts them together with the lab it draws behind them.
 

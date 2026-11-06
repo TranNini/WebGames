@@ -215,6 +215,12 @@
     height: 23px;
 }
 
+.saved small {
+    margin-left: 4px;
+    font-size: 14px;
+    opacity: 0.85;
+}
+
 .saved b {
     font-weight: 600;
     font-variant-numeric: tabular-nums;

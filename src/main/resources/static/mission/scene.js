@@ -526,9 +526,8 @@ const Scene = (() => {
             const y = (box.top + box.bottom) / 2;
             drawRailBeam(ctx, x, thing.width, y, time);
         } else if (kind === 'fence') {
-            const row = SIZES['rail-left'][1] * UNIT;
             for (let i = 0; i < 3; i++) {
-                drawRailBeam(ctx, x, thing.width, FLOOR - row * (i + 0.5), time + i * 60);
+                drawRailBeam(ctx, x, thing.width, FLOOR - SIZES['rail-left'][1] * UNIT * (i + 0.5), time + i * 60);
             }
         }
     }
@@ -538,6 +537,17 @@ const Scene = (() => {
         drawBeam(ctx, x + 2, y, x + width - 2, y, time);
         sprite(ctx, 'rail-left', x - leftWidth * UNIT + 3, y - height * UNIT / 2);
         sprite(ctx, 'rail-right', x + width - 3, y - height * UNIT / 2);
+    }
+
+    // The lab's lights go red, more with each alert
+    function drawAlarm(ctx, level, time) {
+        const pulse = (Math.sin(time * 0.008) + 1) / 2;
+        const middleX = viewWidth / 2;
+        const glow = ctx.createRadialGradient(middleX, 50, 45, middleX, 50, Math.max(viewWidth * 0.6, 70));
+        glow.addColorStop(0, 'rgba(255, 20, 60, 0)');
+        glow.addColorStop(1, 'rgba(255, 20, 60, ' + (0.16 + level * 0.1 + pulse * 0.2) + ')');
+        ctx.fillStyle = glow;
+        ctx.fillRect(0, 0, viewWidth, 100);
     }
 
     function drawRepeating(ctx, image, speed, width, camera, y, height) {
@@ -583,6 +593,9 @@ const Scene = (() => {
         ctx.globalAlpha = 1;
         if (view.boostLeft > 0) {
             drawBubble(ctx, view.girlX, view.girl.y, view.boostLeft, view.boostWarnFrom);
+        }
+        if (view.alert > 0) {
+            drawAlarm(ctx, view.alert, time);
         }
     }
 

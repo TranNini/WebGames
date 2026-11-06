@@ -10,14 +10,21 @@ const FLY_RISE = 62;
 const FLY_SINK = 34;
 const FLY_TURN = 520; // how quickly she changes between the two
 const GRAVITY = 280;
-const JUMP_SPEED = 141;
+const JUMP_SPEED = 150;
 const SHORT_JUMP_SPEED = 55; // letting go early cuts a jump to this
 const MOST_FALL = 115;
-// What can hurt her: only the core of her body, around her middle, not her hair, wings or trailing feet. It reaches low enough that nothing on the
-// floor goes under her. What collects stars is a little wider than that: her body, not the tips of her hair.
-const HIT_FLYING = {left: -5, right: 7, top: -12, bottom: 11};
-const HIT_WALKING = {left: -4, right: 5, top: -13, bottom: 12};
+// What can hurt her: circles {x, y, size} around her head, body, legs and shoes as they are drawn, around her middle, not her hair or wing.
+// So an obstacle hurts when it visibly touches her.
+const BODY_FLYING = [
+    {x: 7.3, y: -7, size: 5.8}, {x: 1, y: 1.5, size: 4.2}, {x: -3.2, y: 6, size: 2.6}, {x: -7.2, y: 9, size: 2.8}
+];
+const BODY_WALKING = [
+    {x: 3.5, y: -9.6, size: 5.2}, {x: 0.5, y: 2, size: 4.4}, {x: 0, y: 9, size: 3}, {x: -4.5, y: 13.2, size: 2}, {x: 5, y: 13.2, size: 2}
+];
+const FEET = {left: -4, right: 5}; // what lands on a platform
+// What collects stars and frees kittens: a little wider than her body, not the tips of her hair.
 const STAR_REACH = {left: -9, right: 11, top: -14, bottom: 11};
+const RAIL_HEIGHT = 8.2; // between the beams of a fence
 const JUMP_MEMORY_MS = 110; // a press just before landing still jumps
 const AFTER_EDGE_MS = 80; // and one just after running off a platform
 
@@ -27,9 +34,16 @@ const ENERGY_PER_STAR_WALKING = 7; // so that a walk doesn't last long: she main
 const ENERGY_PER_BIG_STAR = 30;
 const LOW_ENERGY = 25;
 const KITTEN_EVERY = 190; // a kitten about every 5 seconds
-const BIG_STAR_EVERY = 5; // saved kittens
+const BIG_STAR_EVERY = 5; // kittens in a row
 const BOOST_EVERY = 10;
-const HEART_EVERY = 20;
+const HEART_EVERY = 25;
+const TUBE_HALF_WIDTH = 9;
+const TUBE_HEIGHT = 25;
+// Missed kittens: each brings a security alert, up to the third, after which it starts over. The first also breaks her wings.
+const ALERT_MS = 10000;
+const LAST_ALERT = 3;
+const SIREN_MS = 2500;
+const ALERT_GAPS = [null, null, {shortest: 54, longest: 72}, {shortest: 50, longest: 60}];
 const BOOST_SPEED = 1.9;
 const BOOST_MS = 4500;
 const BOOST_WARNING_MS = 1400; // the bubble blinks for this long before it goes
@@ -47,6 +61,11 @@ let time = 0;
 let step = 0;
 let energy = 100;
 let kittens = 0;
+let streak = 0;
+let misses = 0; // since the last maximum security
+let alertLeft = 0;
+let brokenWingsLeft = 0;
+let sirenLeft = 0;
 let girl = newGirl();
 let things = [];
 let platforms = [];
@@ -74,6 +93,7 @@ function newGame() {
     score = 0;
     strikes = 0;
     kittens = 0;
+    streak = 0;
     showScore();
     showKittens();
     showScreen('intro');
@@ -89,6 +109,10 @@ function startGame() {
     step = 0;
     energy = 100;
     kittens = 0;
+    streak = 0;
+    misses = 0;
+    alertLeft = 0;
+    brokenWingsLeft = 0;
     girl = newGirl();
     things = [];
     platforms = [];
@@ -160,15 +184,15 @@ function mover(x, phase) {
 }
 
 function beam(x, phase) {
-    things.push({kind: 'beam', x, width: 14, length: 2, middle: 26, reach: 20, wavelength: 120, phase});
+    things.push({kind: 'beam', x, width: 10, length: 2, middle: 24, reach: 18, wavelength: 170, phase});
 }
 
 // from: from how many kittens on. flyingOnly: not to be got past on foot, so it only comes when her wings are sure to last.
 const CHUNKS = [
     {from: 0, name: 'small spikes', make: x => { spikes(x + 12, 2); arc(x, 6); return 36; }},
     {from: 0, name: 'wide spikes', make: x => { spikes(x + 14, 3); arc(x, 7, 44); return 44; }},
-    {from: 0, name: 'stars in a line', make: x => { line(x, starHeight(), 8); return 58; }},
-    {from: 0, name: 'stars in a wave', make: x => { wave(x, starHeight(), 9, 8); return 66; }},
+    {from: 0, name: 'stars in a line', onlyStars: true, make: x => { line(x, starHeight(), 8); return 58; }},
+    {from: 0, name: 'stars in a wave', onlyStars: true, make: x => { wave(x, starHeight(), 9, 8); return 66; }},
     {from: 1, name: 'laser from the floor', make: x => { post(x + 16); arc(x, 6, 42); return 36; }},
     {from: 2, name: 'laser from the ceiling', make: x => { hanging(x + 24); line(x, 12, 7); spikes(x + 74, 2); return 96; }},
     {from: 3, name: 'a high gap', flyingOnly: true, make: x => { post(x + 18, 34); hanging(x + 18, GROUND - 74); wave(x, 54, 6, 3); return 56; }},
@@ -198,20 +222,30 @@ function addNext() {
         nextX += 28;
         nextKittenAt = nextX + KITTEN_EVERY * 0.75;
     }
-    const wingsLast = !girl.walking && energy >= 55;
-    const possible = CHUNKS.filter(chunk => kittens >= chunk.from && chunk !== lastChunk && (wingsLast || !chunk.flyingOnly));
+    const level = alertLeft > 0 ? misses : 0;
+    const wingsLast = !girl.walking && energy >= 55 && brokenWingsLeft === 0;
+    // From the second alert on, all there is, and only what is in her way
+    const seen = level >= 2 ? Infinity : kittens;
+    const possible = CHUNKS.filter(chunk => seen >= chunk.from && chunk !== lastChunk && (wingsLast || !chunk.flyingOnly) && (level < 2 || !chunk.onlyStars));
     lastChunk = possible[Math.floor(Math.random() * possible.length)];
+    const before = things.length;
     nextX += lastChunk.make(nextX);
-    if (girl.walking || energy < LOW_ENERGY) {
+    if (lastChunk.flyingOnly) {
+        things.slice(before).forEach(thing => {
+            thing.flyingOnly = true;
+        });
+    }
+    if (girl.walking || energy < LOW_ENERGY || brokenWingsLeft > 0) {
         line(nextX + 8, 10, 5); // something to refill on, so that a walk doesn't last
     }
-    nextX += between(GAP.shortest, GAP.longest);
+    const gap = ALERT_GAPS[level] || GAP;
+    nextX += between(gap.shortest, gap.longest);
 }
 
 // Where something that can hurt her is
 function hitBoxOf(thing, at) {
     if (thing.kind === 'spikes') {
-        return {left: thing.x + 3, right: thing.x + thing.width - 3, top: GROUND - thing.height + 3, bottom: GROUND};
+        return {left: thing.x, right: thing.x + thing.width, top: GROUND - thing.height, bottom: GROUND};
     }
     if (thing.kind === 'post' || thing.kind === 'fence') {
         return {left: thing.x, right: thing.x + thing.width, top: GROUND - thing.height, bottom: GROUND};
@@ -225,10 +259,66 @@ function hitBoxOf(thing, at) {
     return {left: thing.x, right: thing.x + thing.width, top: y - thing.length / 2, bottom: y + thing.length / 2};
 }
 
-function touches(box, body, at) {
+function circleTouchesBox(circle, left, right, top, bottom) {
+    const nearX = Math.max(left, Math.min(right, circle.x));
+    const nearY = Math.max(top, Math.min(bottom, circle.y));
+    return Math.hypot(circle.x - nearX, circle.y - nearY) < circle.size;
+}
+
+// A spike is a triangle: along its sides, and inside
+function circleTouchesSpike(circle, left, width, height) {
+    const middle = left + width / 2;
+    const top = GROUND - height;
+    if (circle.y >= top && circle.y <= GROUND && Math.abs(circle.x - middle) < width / 2 * (circle.y - top) / height) {
+        return true;
+    }
+    for (let along = 0; along <= 1; along += 0.1) {
+        const y = top + height * along;
+        if (Math.hypot(circle.x - (middle - width / 2 * along), circle.y - y) < circle.size || Math.hypot(circle.x - (middle + width / 2 * along), circle.y - y) < circle.size) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function circleTouchesLaser(circle, x, top, bottom) {
+    return circleTouchesBox(circle, x + 0.2, x + 1.8, top, bottom);
+}
+
+// What can be seen of it: the beams, and the holders they come out of
+function circleTouchesThing(circle, thing, box) {
+    if (thing.kind === 'spikes') {
+        const each = Scene.spikeWidth(1);
+        for (let at = 0; at < thing.width - 0.1; at += each) {
+            if (circleTouchesSpike(circle, thing.x + at + each * 0.06, each * 0.88, thing.height)) {
+                return true;
+            }
+        }
+        return false;
+    }
+    if (thing.kind === 'post' || thing.kind === 'mover') {
+        const middle = thing.x + 1;
+        return circleTouchesLaser(circle, thing.x, box.top, box.bottom)
+            || circleTouchesBox(circle, middle - 3.4, middle + 3.4, box.top, box.top + 5.5)
+            || circleTouchesBox(circle, middle - 3.4, middle + 3.4, box.bottom - 5, box.bottom);
+    }
+    if (thing.kind === 'hanging') {
+        const middle = thing.x + 1;
+        return circleTouchesLaser(circle, thing.x, 0, thing.bottom) || circleTouchesBox(circle, middle - 3.4, middle + 3.4, thing.bottom - 5, thing.bottom);
+    }
+    const rows = thing.kind === 'fence' ? [0, 1, 2].map(row => GROUND - RAIL_HEIGHT * (row + 0.5)) : [(box.top + box.bottom) / 2];
+    return rows.some(y => circleTouchesBox(circle, box.left, box.right, y - 0.9, y + 0.9)
+        || circleTouchesBox(circle, box.left - 5, box.left + 1, y - 3.6, y + 3.6)
+        || circleTouchesBox(circle, box.right - 1, box.right + 5, y - 3.6, y + 3.6));
+}
+
+function touches(thing, body, at) {
+    const box = hitBoxOf(thing, at);
     const x = at + GIRL_X;
-    const hit = body.flying ? HIT_FLYING : HIT_WALKING;
-    return box.left < x + hit.right && box.right > x + hit.left && box.top < body.y + hit.bottom && box.bottom > body.y + hit.top;
+    if (box.left > x + 20 || box.right + 6 < x - 20) {
+        return false;
+    }
+    return (body.flying ? BODY_FLYING : BODY_WALKING).some(part => circleTouchesThing({x: x + part.x, y: body.y + part.y, size: part.size}, thing, box));
 }
 
 // Moves her a moment on. Also used to try out what can be passed.
@@ -264,7 +354,7 @@ function moveGirl(body, seconds, holding, canFly, at, floors) {
     const before = body.y;
     body.y += body.vy * seconds;
     const x = at + GIRL_X;
-    const landing = body.vy >= 0 && floors.find(floor => x + HIT_WALKING.right > floor.x && x + HIT_WALKING.left < floor.x + floor.width
+    const landing = body.vy >= 0 && floors.find(floor => x + FEET.right > floor.x && x + FEET.left < floor.x + floor.width
         && before <= floor.top - WALK_HEIGHT + 0.5 && body.y >= floor.top - WALK_HEIGHT);
     const wasOnGround = body.onGround;
     if (landing) {
@@ -299,7 +389,8 @@ function update(milliseconds) {
     }
     safeLeft = Math.max(0, safeLeft - milliseconds);
     hurtLeft = Math.max(0, hurtLeft - milliseconds);
-    moveGirl(girl, seconds, held.size > 0, !girl.walking || boosting, camera, platforms);
+    tickAlert(milliseconds);
+    moveGirl(girl, seconds, held.size > 0, (!girl.walking && brokenWingsLeft === 0) || boosting, camera, platforms);
     spendEnergy(seconds, boosting);
     dropStarDust(milliseconds);
 
@@ -321,7 +412,7 @@ function update(milliseconds) {
 }
 
 function spendEnergy(seconds, boosting) {
-    if (boosting || girl.walking) {
+    if (boosting || girl.walking || brokenWingsLeft > 0) {
         return;
     }
     energy = Math.max(0, energy - ENERGY_PER_SECOND * seconds);
@@ -379,14 +470,24 @@ function collectStars() {
     });
 }
 
+// A kitten is only saved when she touches its tube. One she goes past sets off the alarm.
 function saveKittens() {
+    const x = camera + GIRL_X;
     for (const tube of tubes) {
-        if (!tube.saved && tube.x < camera + GIRL_X) {
-            tube.saved = true;
-            kittens++;
-            showKittens();
-            Sound.meow();
-            giveReward();
+        if (!tube.saved && !tube.missed) {
+            const touching = tube.x + TUBE_HALF_WIDTH > x + STAR_REACH.left && tube.x - TUBE_HALF_WIDTH < x + STAR_REACH.right
+                && girl.y + STAR_REACH.bottom > GROUND - TUBE_HEIGHT;
+            if (touching) {
+                tube.saved = true;
+                kittens++;
+                streak++;
+                showKittens();
+                Sound.meow();
+                giveReward();
+            } else if (tube.x + TUBE_HALF_WIDTH < x + STAR_REACH.left) {
+                tube.missed = true;
+                missKitten();
+            }
         }
         if (tube.saved) {
             tube.opened = Math.min(1, tube.opened + 0.022);
@@ -394,26 +495,75 @@ function saveKittens() {
     }
 }
 
-// What saved kittens bring. The biggest news is shown.
+function missKitten() {
+    streak = 0;
+    showKittens();
+    if (misses >= LAST_ALERT) {
+        return; // it is at its worst already: she only has to survive until it is over
+    }
+    misses++;
+    alertLeft = ALERT_MS;
+    sirenLeft = SIREN_MS;
+    Sound.siren();
+    if (misses === 1) {
+        brokenWingsLeft = ALERT_MS;
+        // Nothing ahead of her that can't be passed on foot
+        things = things.filter(thing => !thing.flyingOnly || thing.x < camera + GIRL_X);
+    }
+    clearWhatIsComing();
+    showNotice(['', 'Kitten missed! Your wings are failing!', 'Kitten missed! More lasers!', 'Kitten missed! Maximum security!'][misses]);
+}
+
+// So that the alert is felt right away: what she can't see yet is replaced by what comes with it
+function clearWhatIsComing() {
+    const edge = camera + Scene.viewWidth();
+    things = things.filter(thing => thing.x < edge);
+    platforms = platforms.filter(platform => platform.x < edge);
+    stars = stars.filter(star => star.x < edge);
+    tubes = tubes.filter(tube => tube.x < edge);
+    const lastInView = Math.max(edge, ...things.map(thing => thing.x + thing.width + GAP.shortest), ...platforms.map(platform => platform.x + platform.width + GAP.shortest));
+    nextX = lastInView + 2;
+}
+
+function tickAlert(milliseconds) {
+    brokenWingsLeft = Math.max(0, brokenWingsLeft - milliseconds);
+    if (alertLeft === 0) {
+        return;
+    }
+    alertLeft = Math.max(0, alertLeft - milliseconds);
+    sirenLeft -= milliseconds;
+    if (sirenLeft <= 0 && alertLeft > 0) {
+        sirenLeft = SIREN_MS;
+        Sound.siren();
+    }
+    if (alertLeft === 0) {
+        if (misses >= LAST_ALERT) {
+            misses = 0;
+        }
+        showNotice('Alert over');
+    }
+}
+
+// What kittens in a row bring: a miss starts this over, so it also delays them. The biggest news is shown.
 function giveReward() {
     const rewards = [];
-    if (kittens % BIG_STAR_EVERY === 0) {
+    if (streak % BIG_STAR_EVERY === 0) {
         stars.push({x: camera + GIRL_X + 62, y: Math.max(CEILING + 8, Math.min(GROUND - 16, girl.y)), big: true});
         rewards.push('a big star');
     }
-    if (kittens % BOOST_EVERY === 0) {
+    if (streak % BOOST_EVERY === 0) {
         boostLeft = BOOST_MS;
         safeLeft = 0;
         Sound.start();
         rewards.push('boost');
     }
-    if (kittens % HEART_EVERY === 0) {
+    if (streak % HEART_EVERY === 0) {
         strikes = Math.max(0, strikes - 1);
         showScore();
         rewards.push('a heart');
     }
     if (rewards.length) {
-        showNotice(kittens + ' kittens: ' + rewards.join(', ') + '!');
+        showNotice(streak + ' in a row: ' + rewards.join(', ') + '!');
     }
 }
 
@@ -421,7 +571,7 @@ function checkHits() {
     if (boostLeft > 0 || safeLeft > 0 || hurtLeft > 0) {
         return;
     }
-    if (things.some(thing => touches(hitBoxOf(thing, camera), girl, camera))) {
+    if (things.some(thing => touches(thing, girl, camera))) {
         strikes++;
         showScore();
         hurtLeft = AFTER_HIT_MS;
@@ -452,6 +602,7 @@ function showDistance() {
 
 function showKittens() {
     $('kittens').textContent = kittens;
+    $('streak').textContent = streak;
 }
 
 function showEnergy() {
@@ -460,8 +611,8 @@ function showEnergy() {
         shownEnergy = rounded;
         $('energy').style.clipPath = 'inset(0 ' + (100 - rounded) + '% 0 0 round 6px)';
     }
-    $('wings').classList.toggle('low', energy <= LOW_ENERGY && !girl.walking);
-    $('wings').classList.toggle('empty', girl.walking);
+    $('wings').classList.toggle('low', energy <= LOW_ENERGY && !girl.walking && brokenWingsLeft === 0);
+    $('wings').classList.toggle('empty', girl.walking || brokenWingsLeft > 0);
 }
 
 function showNotice(text) {
@@ -480,7 +631,13 @@ function showWarnings(milliseconds) {
         }
         return;
     }
-    const warning = girl.walking && boostLeft === 0 ? 'Collect stars to fly again!' : energy <= LOW_ENERGY && boostLeft === 0 ? 'Low energy!' : '';
+    let warning = '';
+    if (alertLeft > 0) {
+        const name = misses >= LAST_ALERT ? 'Maximum security' : 'Security alert ' + misses;
+        warning = name + ': ' + Math.ceil(alertLeft / 1000) + ' s' + (brokenWingsLeft > 0 ? ', no wings' : '');
+    } else if (boostLeft === 0) {
+        warning = girl.walking ? 'Collect stars to fly again!' : energy <= LOW_ENERGY ? 'Low energy!' : '';
+    }
     if ($('notice').textContent !== warning) {
         $('notice').textContent = warning;
     }
@@ -491,7 +648,7 @@ function showWarnings(milliseconds) {
 function draw() {
     Scene.draw(paint, {
         camera, time, things, platforms, tubes, stars, sparkles, girl, step, hitBoxOf, girlX: GIRL_X,
-        boostLeft, boostWarnFrom: BOOST_WARNING_MS, blink: hurtLeft > 0
+        boostLeft, boostWarnFrom: BOOST_WARNING_MS, blink: hurtLeft > 0, alert: alertLeft > 0 ? misses : 0
     });
 }
 
@@ -567,7 +724,7 @@ function setUpEvents() {
 }
 
 if (navigator.maxTouchPoints === 0) {
-    $('how').textContent = 'Kittens have been abducted! Hold Space or the up arrow to rise, let go to sink. Flying uses energy, and stars fill it up. With none left she walks, and Space jumps, until she has collected a full bar. Go as far as you can. Enter starts, Esc pauses.';
+    $('how').textContent = 'Kittens have been abducted! Hold Space or the up arrow to rise, let go to sink. Stars fill her energy; with none left she walks, and Space jumps. Touch the tubes to free the kittens, as a miss sets off the alarm. Go as far as you can. Enter starts, Esc pauses.';
 }
 Sound.setTune('mission');
 setUpEvents();

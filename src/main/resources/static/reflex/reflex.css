@@ -155,6 +155,43 @@
     }
 }
 
+/* The color not to tap: in the top bar beside the score, only while the fields are on screen. It isn't a button.
+   It shares the last cell of the bar with the menu button, which would otherwise move to a new row. */
+.bar .icon-button {
+    grid-area: 1 / 3;
+}
+
+.mission-reminder {
+    grid-area: 1 / 3;
+    justify-self: start;
+    width: 40px;
+    height: 40px;
+    margin-left: 12px;
+    border-radius: 12px;
+    box-shadow: inset 0 0 0 2px var(--edge);
+    pointer-events: none;
+}
+
+.screen:has(#board[hidden]) .mission-reminder {
+    display: none;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+    .mission-reminder {
+        width: 36px;
+        height: 36px;
+    }
+}
+
+@media (min-width: 700px) and (min-height: 600px) {
+    .mission-reminder {
+        width: 56px;
+        height: 56px;
+        margin-left: 20px;
+        border-radius: 16px;
+    }
+}
+
 /* The fields: 2 columns upright, 4 columns sideways */
 .board {
     flex: 1;

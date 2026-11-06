@@ -26,15 +26,15 @@ const MODES = {
 // What the score changes. from: the score this starts at. lit: how many fields are always lit, the mission color
 // included; as soon as one goes another comes. lifeMs: how long a field takes to run out.
 const LEVELS = [
-    {from: 0, lit: 1, lifeMs: 2000},
-    {from: 11, lit: 2, lifeMs: 2000},
-    {from: 31, lit: 3, lifeMs: 2000},
-    {from: 41, lit: 3, lifeMs: 1750},
-    {from: 51, lit: 4, lifeMs: 1750},
-    {from: 71, lit: 5, lifeMs: 1500},
-    {from: 81, lit: 5, lifeMs: 1300},
-    {from: 91, lit: 6, lifeMs: 1300},
-    {from: 111, lit: 7, lifeMs: 1300}
+    {from: 0, lit: 2, lifeMs: 2000},
+    {from: 16, lit: 2, lifeMs: 1825},
+    {from: 25, lit: 3, lifeMs: 1825},
+    {from: 46, lit: 3, lifeMs: 1650},
+    {from: 60, lit: 4, lifeMs: 1650},
+    {from: 86, lit: 4, lifeMs: 1475},
+    {from: 100, lit: 5, lifeMs: 1475},
+    {from: 116, lit: 5, lifeMs: 1300},
+    {from: 136, lit: 6, lifeMs: 1300}
 ];
 const FIRST_FIELD_MS = 600;
 const MISSION_CHANCE = 0.2; // how often a new field has the color not to tap
@@ -44,6 +44,12 @@ const reflexSettings = {mode: 'medium', lastMission: '', ...remembered('reflex-s
 const fields = [...document.querySelectorAll('.field')].map((el, index) => ({
     el, index, fill: el.firstElementChild, color: null, life: 0, left: 0, rest: 0
 }));
+
+// The color not to tap, in the top bar during a game
+const missionReminder = document.createElement('div');
+missionReminder.className = 'mission-reminder';
+missionReminder.setAttribute('role', 'img');
+document.querySelector('.bar').append(missionReminder);
 
 let mission = null;
 let untilFirstField = 0;
@@ -82,6 +88,8 @@ function newMission() {
     $('mission-color').setAttribute('aria-label', mission.name);
     $('mission-name').textContent = mission.name;
     $('mission-name').style.setProperty('--mission', mission.hex);
+    missionReminder.style.background = mission.hex;
+    missionReminder.setAttribute('aria-label', 'Don\'t tap ' + mission.name);
     showModes();
     showScreen('mission');
 }

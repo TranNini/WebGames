@@ -22,15 +22,17 @@ the game is over.
 
 | Score | Fields always lit | A field runs out in |
 |-------|-------------------|---------------------|
-| 0-10 | 1 | 2 s |
-| 11-30 | 2 | 2 s |
-| 31-40 | 3 | 2 s |
-| 41-50 | 3 | 1.75 s |
-| 51-70 | 4 | 1.75 s |
-| 71-80 | 5 | 1.5 s |
-| 81-90 | 5 | 1.3 s |
-| 91-110 | 6 | 1.3 s |
-| 111 and up | 7 | 1.3 s |
+| 0-15 | 2 | 2 s |
+| 16-24 | 2 | 1.825 s |
+| 25-45 | 3 | 1.825 s |
+| 46-59 | 3 | 1.65 s |
+| 60-85 | 4 | 1.65 s |
+| 86-99 | 4 | 1.475 s |
+| 100-115 | 5 | 1.475 s |
+| 116-135 | 5 | 1.3 s |
+| 136 and up | 6 | 1.3 s |
+
+During a game the mission color stays in the top bar, beside the score.
 
 The modes differ in how many colors they use. Settings (top right, in all games) pause the game: dark mode, sound volume, music volume, restart, back to games. Restarting or
 leaving during a game doesn't save its score.

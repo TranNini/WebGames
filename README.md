@@ -62,9 +62,11 @@ and arcs fill it up. A warning comes when it runs low; with none left she walks 
 
 She frees a kitten by touching its glass tube. Kittens in a row bring rewards: every 5 a big star, worth much more energy; every 10 a boost in a bubble, faster and safe, that blinks before it goes; every 25 a heart back.
 
-A kitten missed breaks the streak and sets off a security alert of 10 seconds. The first also breaks her wings, so she has to go on foot; the second brings more lasers and obstacles; the third is maximum security, to survive until it is over, after which the count starts again.
+A kitten missed breaks the streak and sets off a security alert of 10 seconds. The first shows a warning cat screen and breaks her wings, so she has to go on foot; the second flashes an alert banner and brings more lasers, obstacles and security drones; the third is maximum security with all of that, to survive until it is over. Misses stay counted until she has saved 5 kittens in a row.
 
-The look is the user's picture: `mission/art` holds its pieces, cut out and upscaled, and `mission/scene.js` puts them together with the lab it draws behind them.
+For trying it out, the settings have **Unlimited hearts** (such a run doesn't go on the leaderboard) and **Show touch areas**.
+
+She comes from the user's sprite sheet (`frames.js`), the kittens and obstacles from their picture, and the drones, cat screen and banner from their warning sheet: `mission/art` holds the pieces, upscaled, and `mission/scene.js` puts them together with the lab it draws behind them.
 
 ## Leaderboards
 

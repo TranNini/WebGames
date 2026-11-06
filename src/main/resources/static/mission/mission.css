@@ -75,6 +75,26 @@
     }
 }
 
+/* The explanation under the switch in the settings */
+.touch-legend {
+    margin: -10px 0 0;
+    color: var(--soft-text);
+    font-size: 15px;
+    line-height: 1.35;
+}
+
+.touch-legend .green {
+    color: #12a860;
+}
+
+.touch-legend .red {
+    color: #ff2d55;
+}
+
+.touch-legend .yellow {
+    color: #c9a800;
+}
+
 /* Hearts instead of X's, from the picture: all there at first, grey when lost */
 .strikes {
     gap: 2px;

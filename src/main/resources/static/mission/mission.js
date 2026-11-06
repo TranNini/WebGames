@@ -5,26 +5,20 @@ const UNITS_PER_METER = 10;
 const GROUND = 84;
 const GIRL_X = 42;
 const CEILING = 20; // the highest her middle gets
-const WALK_HEIGHT = 15; // from her middle to the floor when she walks
+const WALK_HEIGHT = 8.5; // from her middle to the floor when she walks
 const FLY_RISE = 62;
-const FLY_SINK = 34;
+const FLY_SINK = 50;
 const FLY_TURN = 520; // how quickly she changes between the two
 const GRAVITY = 280;
 const JUMP_SPEED = 150;
 const SHORT_JUMP_SPEED = 55; // letting go early cuts a jump to this
 const MOST_FALL = 115;
-// What can hurt her: circles {x, y, size} around her head, body, legs and shoes as they are drawn, around her middle, not her hair or wing.
-// So an obstacle hurts when it visibly touches her.
-const BODY_FLYING = [
-    {x: 7.3, y: -7, size: 5.8}, {x: 1, y: 1.5, size: 4.2}, {x: -3.2, y: 6, size: 2.6}, {x: -7.2, y: 9, size: 2.8}
-];
-const BODY_WALKING = [
-    {x: 3.5, y: -9.6, size: 5.2}, {x: 0.5, y: 2, size: 4.4}, {x: 0, y: 9, size: 3}, {x: -4.5, y: 13.2, size: 2}, {x: 5, y: 13.2, size: 2}
-];
+// What can hurt her is her head, body and legs in her pose, not her hair, wing or shoes (POSES in frames.js).
 const FEET = {left: -4, right: 5}; // what lands on a platform
 // What collects stars and frees kittens: a little wider than her body, not the tips of her hair.
-const STAR_REACH = {left: -9, right: 11, top: -14, bottom: 11};
+const STAR_REACH = {left: -7.5, right: 9.5, top: -13, bottom: 9};
 const RAIL_HEIGHT = 8.2; // between the beams of a fence
+const HOLDER_HALF_WIDTH = 2.4; // of what a laser comes out of
 const JUMP_MEMORY_MS = 110; // a press just before landing still jumps
 const AFTER_EDGE_MS = 80; // and one just after running off a platform
 
@@ -37,13 +31,20 @@ const KITTEN_EVERY = 190; // a kitten about every 5 seconds
 const BIG_STAR_EVERY = 5; // kittens in a row
 const BOOST_EVERY = 10;
 const HEART_EVERY = 25;
-const TUBE_HALF_WIDTH = 9;
-const TUBE_HEIGHT = 25;
-// Missed kittens: each brings a security alert, up to the third, after which it starts over. The first also breaks her wings.
+const TUBE_HALF_WIDTH = 6.5; // what she has to touch, a bit smaller than the tube looks
+const TUBE_HEIGHT = 20;
+// Missed kittens: each brings a security alert, worse up to the third, and five in a row forgive them. The first also breaks her wings.
 const ALERT_MS = 10000;
 const LAST_ALERT = 3;
 const SIREN_MS = 2500;
-const ALERT_GAPS = [null, null, {shortest: 54, longest: 72}, {shortest: 50, longest: 60}];
+const MISSES_FORGIVEN_AFTER = 5; // kittens in a row
+const SCREEN_FRAMES = 6;
+const SCREEN_FRAME_MS = 140;
+const BANNER_FRAMES = 6;
+const BANNER_FRAME_MS = 110;
+const DRONE_DRIFT = 0.25; // how much faster than the rest they come at her
+// From the second alert on there is more of everything: an obstacle in the middle of each gap, and lasers above to catch her flying
+const ALERT_GAPS = [null, null, {shortest: 104, longest: 118}, {shortest: 104, longest: 112}];
 const BOOST_SPEED = 1.9;
 const BOOST_MS = 4500;
 const BOOST_WARNING_MS = 1400; // the bubble blinks for this long before it goes
@@ -62,7 +63,8 @@ let step = 0;
 let energy = 100;
 let kittens = 0;
 let streak = 0;
-let misses = 0; // since the last maximum security
+let misses = 0;
+let alertLevel = 0;
 let alertLeft = 0;
 let brokenWingsLeft = 0;
 let sirenLeft = 0;
@@ -83,6 +85,9 @@ let lastChunk = null;
 let starNote = 0;
 let lastFrame = 0;
 let shownEnergy = -1;
+let showTouchAreas = Boolean(remembered('mission-settings').touchAreas);
+let unlimitedHearts = Boolean(remembered('mission-settings').unlimitedHearts);
+let testRun = false; // unlimited hearts were on at some point: its distance doesn't go on the leaderboard
 
 function newGirl() {
     return {y: 50, vy: 0, onGround: false, flying: true, walking: false, rising: false, pressedAgo: Infinity, leftEdgeAgo: Infinity};
@@ -111,6 +116,7 @@ function startGame() {
     kittens = 0;
     streak = 0;
     misses = 0;
+    alertLevel = 0;
     alertLeft = 0;
     brokenWingsLeft = 0;
     girl = newGirl();
@@ -127,6 +133,7 @@ function startGame() {
     noticeLeft = 0;
     warnedLow = false;
     lastChunk = null;
+    testRun = unlimitedHearts;
     held.clear();
     state = 'playing';
     showKittens();
@@ -167,20 +174,30 @@ function starHeight() {
     return girl.walking || energy < 35 ? 12 + Math.random() * 14 : 16 + Math.random() * 40;
 }
 
-function spikes(x, count) {
-    things.push({kind: 'spikes', x, width: Scene.spikeWidth(count), height: 10});
+function spikes(x, count, base = GROUND) {
+    things.push({kind: 'spikes', x, width: Scene.spikeWidth(count), height: 10, base});
 }
 
-function post(x, height = 21) {
-    things.push({kind: 'post', x, width: 2, height});
+function post(x, height = 21, base = GROUND) {
+    things.push({kind: 'post', x, width: 2, height, base});
+}
+
+// A platform in the air, itself in the way too, with something on it
+function ledge(x, top) {
+    things.push({kind: 'ledge', x, width: 34, top});
 }
 
 function hanging(x, bottom = GROUND - 37) {
     things.push({kind: 'hanging', x, width: 2, bottom});
 }
 
-function mover(x, phase) {
-    things.push({kind: 'mover', x, width: 2, length: 15, middle: 26, reach: 19, wavelength: 120, phase});
+function mover(x, phase, place = {middle: 26, reach: 19}) {
+    things.push({kind: 'mover', x, width: 2, length: 15, wavelength: 120, phase, ...place});
+}
+
+// Security drones: they come flying at her, and stay above her head when she is on foot
+function drone(x, phase, alarm) {
+    things.push({kind: 'drone', x, width: 9, middle: 48, reach: 13, wavelength: 150, phase, alarm});
 }
 
 function beam(x, phase) {
@@ -207,6 +224,9 @@ const CHUNKS = [
         line(x + 38, 42, 5);
         return 92;
     }},
+    {from: 2, name: 'spikes on a platform in the middle', make: x => { ledge(x + 10, GROUND - 46); spikes(x + 13, 3, GROUND - 46); spikes(x + 84, 2); wave(x + 56, 22, 4, 4); return 104; }},
+    {from: 4, name: 'a laser on a platform at the top', make: x => { ledge(x + 10, GROUND - 58); post(x + 26, 18, GROUND - 58); post(x + 86); line(x + 50, 32, 4); return 96; }},
+    {from: 6, name: 'a laser on a platform in the middle', make: x => { ledge(x + 10, GROUND - 46); post(x + 26, 18, GROUND - 46); spikes(x + 84, 2); return 104; }},
     {from: 13, name: 'two lasers', make: x => { post(x + 8); post(x + 66); return 76; }},
     {from: 15, name: 'a laser and spikes', make: x => { hanging(x + 8); spikes(x + 62, 3); arc(x + 52, 6); return 92; }},
     {from: 18, name: 'two moving lasers', make: x => { mover(x + 10, 0.75); mover(x + 76, 0.75); return 96; }}
@@ -222,7 +242,7 @@ function addNext() {
         nextX += 28;
         nextKittenAt = nextX + KITTEN_EVERY * 0.75;
     }
-    const level = alertLeft > 0 ? misses : 0;
+    const level = alertLeft > 0 ? alertLevel : 0;
     const wingsLast = !girl.walking && energy >= 55 && brokenWingsLeft === 0;
     // From the second alert on, all there is, and only what is in her way
     const seen = level >= 2 ? Infinity : kittens;
@@ -238,22 +258,46 @@ function addNext() {
     if (girl.walking || energy < LOW_ENERGY || brokenWingsLeft > 0) {
         line(nextX + 8, 10, 5); // something to refill on, so that a walk doesn't last
     }
-    const gap = ALERT_GAPS[level] || GAP;
-    nextX += between(gap.shortest, gap.longest);
+    const gap = between((ALERT_GAPS[level] || GAP).shortest, (ALERT_GAPS[level] || GAP).longest);
+    if (level >= 2) {
+        addExtras(level, gap);
+    }
+    nextX += gap;
+}
+
+// What an alert adds to a gap: one more on the floor to jump, and above her head lasers that leave her alone on foot
+function addExtras(level, gap) {
+    if (Math.random() < 0.5) {
+        post(nextX + gap / 2 - 1);
+    } else {
+        spikes(nextX + gap / 2 - Scene.spikeWidth(1), 2);
+    }
+    hanging(nextX + gap * 0.2);
+    drone(nextX + gap * 0.74, 0, level >= LAST_ALERT); // not above the one on the floor: she has to be able to jump that
+    if (level >= LAST_ALERT) {
+        hanging(nextX + gap * 0.88);
+        drone(nextX + gap * 0.3, 0.5, true);
+    }
 }
 
 // Where something that can hurt her is
 function hitBoxOf(thing, at) {
-    if (thing.kind === 'spikes') {
-        return {left: thing.x, right: thing.x + thing.width, top: GROUND - thing.height, bottom: GROUND};
+    if (thing.kind === 'ledge') {
+        return {left: thing.x, right: thing.x + thing.width, top: thing.top, bottom: thing.top + 7};
     }
-    if (thing.kind === 'post' || thing.kind === 'fence') {
-        return {left: thing.x, right: thing.x + thing.width, top: GROUND - thing.height, bottom: GROUND};
+    if (thing.kind === 'spikes' || thing.kind === 'post' || thing.kind === 'fence') {
+        const base = thing.base || GROUND;
+        return {left: thing.x, right: thing.x + thing.width, top: base - thing.height, bottom: base};
     }
     if (thing.kind === 'hanging') {
         return {left: thing.x, right: thing.x + thing.width, top: 0, bottom: thing.bottom};
     }
     const reached = at + GIRL_X - thing.x;
+    if (thing.kind === 'drone') {
+        const middleX = thing.x - reached * DRONE_DRIFT;
+        const middleY = GROUND - thing.middle - thing.reach * Math.sin((reached / thing.wavelength + thing.phase) * Math.PI * 2);
+        return {left: middleX - 4, right: middleX + 4, top: middleY - 3.5, bottom: middleY + 3.5};
+    }
     const height = thing.middle + thing.reach * Math.sin((reached / thing.wavelength + thing.phase) * Math.PI * 2);
     const y = GROUND - height;
     return {left: thing.x, right: thing.x + thing.width, top: y - thing.length / 2, bottom: y + thing.length / 2};
@@ -266,10 +310,10 @@ function circleTouchesBox(circle, left, right, top, bottom) {
 }
 
 // A spike is a triangle: along its sides, and inside
-function circleTouchesSpike(circle, left, width, height) {
+function circleTouchesSpike(circle, left, width, height, base) {
     const middle = left + width / 2;
-    const top = GROUND - height;
-    if (circle.y >= top && circle.y <= GROUND && Math.abs(circle.x - middle) < width / 2 * (circle.y - top) / height) {
+    const top = base - height;
+    if (circle.y >= top && circle.y <= base && Math.abs(circle.x - middle) < width / 2 * (circle.y - top) / height) {
         return true;
     }
     for (let along = 0; along <= 1; along += 0.1) {
@@ -281,35 +325,49 @@ function circleTouchesSpike(circle, left, width, height) {
     return false;
 }
 
-function circleTouchesLaser(circle, x, top, bottom) {
-    return circleTouchesBox(circle, x + 0.2, x + 1.8, top, bottom);
-}
-
-// What can be seen of it: the beams, and the holders they come out of
-function circleTouchesThing(circle, thing, box) {
+// What hurts: a little less than can be seen of the beams, the holders they come out of, the spikes and platforms, so that she can get past
+function shapesOf(thing, box) {
     if (thing.kind === 'spikes') {
         const each = Scene.spikeWidth(1);
+        const spikeShapes = [];
         for (let at = 0; at < thing.width - 0.1; at += each) {
-            if (circleTouchesSpike(circle, thing.x + at + each * 0.06, each * 0.88, thing.height)) {
-                return true;
-            }
+            spikeShapes.push({spike: true, left: thing.x + at + each * 0.15, width: each * 0.7, height: thing.height * 0.85, base: box.bottom});
         }
-        return false;
+        return spikeShapes;
+    }
+    if (thing.kind === 'drone') {
+        return [box];
+    }
+    if (thing.kind === 'ledge') {
+        return [{left: box.left + 1.5, right: box.right - 1.5, top: box.top + 1, bottom: box.bottom - 1}];
     }
     if (thing.kind === 'post' || thing.kind === 'mover') {
         const middle = thing.x + 1;
-        return circleTouchesLaser(circle, thing.x, box.top, box.bottom)
-            || circleTouchesBox(circle, middle - 3.4, middle + 3.4, box.top, box.top + 5.5)
-            || circleTouchesBox(circle, middle - 3.4, middle + 3.4, box.bottom - 5, box.bottom);
+        return [
+            {left: thing.x + 0.4, right: thing.x + 1.6, top: box.top, bottom: box.bottom},
+            {left: middle - HOLDER_HALF_WIDTH, right: middle + HOLDER_HALF_WIDTH, top: box.top + 0.8, bottom: box.top + 4.6},
+            {left: middle - HOLDER_HALF_WIDTH, right: middle + HOLDER_HALF_WIDTH, top: box.bottom - 4, bottom: box.bottom}
+        ];
     }
     if (thing.kind === 'hanging') {
         const middle = thing.x + 1;
-        return circleTouchesLaser(circle, thing.x, 0, thing.bottom) || circleTouchesBox(circle, middle - 3.4, middle + 3.4, thing.bottom - 5, thing.bottom);
+        return [
+            {left: thing.x + 0.4, right: thing.x + 1.6, top: 0, bottom: thing.bottom},
+            {left: middle - HOLDER_HALF_WIDTH, right: middle + HOLDER_HALF_WIDTH, top: thing.bottom - 4, bottom: thing.bottom - 0.5}
+        ];
     }
     const rows = thing.kind === 'fence' ? [0, 1, 2].map(row => GROUND - RAIL_HEIGHT * (row + 0.5)) : [(box.top + box.bottom) / 2];
-    return rows.some(y => circleTouchesBox(circle, box.left, box.right, y - 0.9, y + 0.9)
-        || circleTouchesBox(circle, box.left - 5, box.left + 1, y - 3.6, y + 3.6)
-        || circleTouchesBox(circle, box.right - 1, box.right + 5, y - 3.6, y + 3.6));
+    return rows.flatMap(y => [
+        {left: box.left, right: box.right, top: y - 0.6, bottom: y + 0.6},
+        {left: box.left - 3.5, right: box.left, top: y - 2.6, bottom: y + 2.6},
+        {left: box.right, right: box.right + 3.5, top: y - 2.6, bottom: y + 2.6}
+    ]);
+}
+
+function circleTouchesThing(circle, thing, box) {
+    return shapesOf(thing, box).some(shape => (shape.spike
+        ? circleTouchesSpike(circle, shape.left, shape.width, shape.height, shape.base)
+        : circleTouchesBox(circle, shape.left, shape.right, shape.top, shape.bottom)));
 }
 
 function touches(thing, body, at) {
@@ -318,7 +376,17 @@ function touches(thing, body, at) {
     if (box.left > x + 20 || box.right + 6 < x - 20) {
         return false;
     }
-    return (body.flying ? BODY_FLYING : BODY_WALKING).some(part => circleTouchesThing({x: x + part.x, y: body.y + part.y, size: part.size}, thing, box));
+    return POSES[poseOf(body)].circles.some(part => circleTouchesThing({x: x + part.x, y: body.y + part.y, size: part.size}, thing, box));
+}
+
+function poseOf(body) {
+    if (!body.flying) {
+        return body.onGround ? 'walk' : body.vy < 0 ? 'ascend' : 'descend';
+    }
+    if (body.y >= GROUND - WALK_HEIGHT - 1) {
+        return 'hover';
+    }
+    return body.vy < -30 ? 'ascend' : body.vy > 60 ? 'descend' : 'fly';
 }
 
 // Moves her a moment on. Also used to try out what can be passed.
@@ -484,6 +552,9 @@ function saveKittens() {
                 showKittens();
                 Sound.meow();
                 giveReward();
+                if (streak >= MISSES_FORGIVEN_AFTER && misses > 0) {
+                    misses = 0;
+                }
             } else if (tube.x + TUBE_HALF_WIDTH < x + STAR_REACH.left) {
                 tube.missed = true;
                 missKitten();
@@ -498,10 +569,11 @@ function saveKittens() {
 function missKitten() {
     streak = 0;
     showKittens();
-    if (misses >= LAST_ALERT) {
+    if (alertLeft > 0 && alertLevel >= LAST_ALERT) {
         return; // it is at its worst already: she only has to survive until it is over
     }
-    misses++;
+    misses = Math.min(LAST_ALERT, misses + 1);
+    alertLevel = misses;
     alertLeft = ALERT_MS;
     sirenLeft = SIREN_MS;
     Sound.siren();
@@ -511,7 +583,7 @@ function missKitten() {
         things = things.filter(thing => !thing.flyingOnly || thing.x < camera + GIRL_X);
     }
     clearWhatIsComing();
-    showNotice(['', 'Kitten missed! Your wings are failing!', 'Kitten missed! More lasers!', 'Kitten missed! Maximum security!'][misses]);
+    showNotice('');
 }
 
 // So that the alert is felt right away: what she can't see yet is replaced by what comes with it
@@ -536,34 +608,21 @@ function tickAlert(milliseconds) {
         sirenLeft = SIREN_MS;
         Sound.siren();
     }
-    if (alertLeft === 0) {
-        if (misses >= LAST_ALERT) {
-            misses = 0;
-        }
-        showNotice('Alert over');
-    }
 }
 
-// What kittens in a row bring: a miss starts this over, so it also delays them. The biggest news is shown.
+// What kittens in a row bring: a miss starts this over, so it also delays them
 function giveReward() {
-    const rewards = [];
     if (streak % BIG_STAR_EVERY === 0) {
         stars.push({x: camera + GIRL_X + 62, y: Math.max(CEILING + 8, Math.min(GROUND - 16, girl.y)), big: true});
-        rewards.push('a big star');
     }
     if (streak % BOOST_EVERY === 0) {
         boostLeft = BOOST_MS;
         safeLeft = 0;
         Sound.start();
-        rewards.push('boost');
     }
     if (streak % HEART_EVERY === 0) {
         strikes = Math.max(0, strikes - 1);
         showScore();
-        rewards.push('a heart');
-    }
-    if (rewards.length) {
-        showNotice(streak + ' in a row: ' + rewards.join(', ') + '!');
     }
 }
 
@@ -572,13 +631,20 @@ function checkHits() {
         return;
     }
     if (things.some(thing => touches(thing, girl, camera))) {
-        strikes++;
+        if (!unlimitedHearts) {
+            strikes++;
+        }
         showScore();
         hurtLeft = AFTER_HIT_MS;
         Sound.miss();
         if (strikes >= MAX_STRIKES) {
+            const saved = kittens + (kittens === 1 ? ' kitten' : ' kittens') + ' saved';
             draw();
-            finishGame('No hearts left. ' + kittens + (kittens === 1 ? ' kitten' : ' kittens') + ' saved');
+            if (testRun) {
+                score = 0;
+                showScore();
+            }
+            finishGame('No hearts left. ' + saved + (testRun ? '. Test run: not on the leaderboard' : ''));
         }
     }
 }
@@ -623,6 +689,20 @@ function showNotice(text) {
 }
 
 // A short message goes first; otherwise she is warned for as long as it lasts
+// What an alert shows on the wall: the cat screen for the first, the banner for the second, for maximum security both
+function alertSigns() {
+    if (alertLeft === 0) {
+        return {};
+    }
+    const age = ALERT_MS - alertLeft;
+    const appearing = Math.floor(age / SCREEN_FRAME_MS);
+    const screenFrame = appearing < SCREEN_FRAMES ? appearing : appearing % 5 === 4 ? SCREEN_FRAMES - 2 : SCREEN_FRAMES - 1; // and then a glitch now and then
+    return {
+        screen: alertLevel !== 2 ? 'alert-screen-' + screenFrame : null,
+        banner: alertLevel >= 2 ? 'alert-banner-' + Math.floor(age / BANNER_FRAME_MS) % BANNER_FRAMES : null
+    };
+}
+
 function showWarnings(milliseconds) {
     if (noticeLeft > 0) {
         noticeLeft -= milliseconds;
@@ -632,10 +712,7 @@ function showWarnings(milliseconds) {
         return;
     }
     let warning = '';
-    if (alertLeft > 0) {
-        const name = misses >= LAST_ALERT ? 'Maximum security' : 'Security alert ' + misses;
-        warning = name + ': ' + Math.ceil(alertLeft / 1000) + ' s' + (brokenWingsLeft > 0 ? ', no wings' : '');
-    } else if (boostLeft === 0) {
+    if (boostLeft === 0 && brokenWingsLeft === 0) {
         warning = girl.walking ? 'Collect stars to fly again!' : energy <= LOW_ENERGY ? 'Low energy!' : '';
     }
     if ($('notice').textContent !== warning) {
@@ -648,7 +725,49 @@ function showWarnings(milliseconds) {
 function draw() {
     Scene.draw(paint, {
         camera, time, things, platforms, tubes, stars, sparkles, girl, step, hitBoxOf, girlX: GIRL_X,
-        boostLeft, boostWarnFrom: BOOST_WARNING_MS, blink: hurtLeft > 0, alert: alertLeft > 0 ? misses : 0
+        boostLeft, boostWarnFrom: BOOST_WARNING_MS, blink: hurtLeft > 0, alert: alertLeft > 0 ? alertLevel : 0, signs: alertSigns(), pose: poseOf(girl), hurtAge: hurtLeft > 0 ? AFTER_HIT_MS - hurtLeft : null,
+        touchAreas: showTouchAreas ? touchAreas() : null
+    });
+}
+
+// To look at, from the settings: what counts as touching
+function touchAreas() {
+    const x = camera + GIRL_X;
+    return {
+        body: POSES[poseOf(girl)].circles.map(part => ({x: GIRL_X + part.x, y: girl.y + part.y, size: part.size})),
+        reach: {left: GIRL_X + STAR_REACH.left, right: GIRL_X + STAR_REACH.right, top: girl.y + STAR_REACH.top, bottom: girl.y + STAR_REACH.bottom},
+        tubes: tubes.filter(tube => !tube.saved && !tube.missed).map(tube => ({left: tube.x - TUBE_HALF_WIDTH - camera, right: tube.x + TUBE_HALF_WIDTH - camera, top: GROUND - TUBE_HEIGHT, bottom: GROUND})),
+        obstacles: things.filter(thing => thing.x - 10 < x + Scene.viewWidth()).flatMap(thing => shapesOf(thing, hitBoxOf(thing, camera)).map(shape => ({...shape, left: shape.left - camera, right: shape.spike ? 0 : shape.right - camera})))
+    };
+}
+
+function rememberTestSwitches() {
+    remember('mission-settings', {touchAreas: showTouchAreas, unlimitedHearts});
+}
+
+// For trying the game out. A run with unlimited hearts never counts for the leaderboard.
+function setUpTestSwitches() {
+    $('resume').insertAdjacentHTML('beforebegin', `<label class="setting row">
+        <span>Unlimited hearts</span>
+        <input id="unlimited-hearts" type="checkbox" class="switch">
+    </label>
+    <label class="setting row">
+        <span>Show touch areas</span>
+        <input id="touch-areas" type="checkbox" class="switch">
+    </label>
+    <p id="touch-legend" class="touch-legend"><b class="green">Green</b> her body: what can be hurt. <b class="red">Red</b> what hurts. <b class="yellow">Yellow</b> what collects stars.</p>`);
+    $('touch-areas').checked = showTouchAreas;
+    $('touch-legend').hidden = !showTouchAreas;
+    $('touch-areas').addEventListener('change', () => {
+        showTouchAreas = $('touch-areas').checked;
+        $('touch-legend').hidden = !showTouchAreas;
+        rememberTestSwitches();
+    });
+    $('unlimited-hearts').checked = unlimitedHearts;
+    $('unlimited-hearts').addEventListener('change', () => {
+        unlimitedHearts = $('unlimited-hearts').checked;
+        testRun = testRun || unlimitedHearts;
+        rememberTestSwitches();
     });
 }
 
@@ -728,6 +847,7 @@ if (navigator.maxTouchPoints === 0) {
 }
 Sound.setTune('mission');
 setUpEvents();
+setUpTestSwitches();
 setUpGame({
     screens: ['intro', 'stage'],
     newGame,

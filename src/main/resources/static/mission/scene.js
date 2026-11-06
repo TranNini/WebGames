@@ -1,6 +1,5 @@
-// Mission: Meow's look. She, the kittens and what is in her way are cut from the user's picture (mission/art), at the picture's own scale and
-// upscaled three times. Flying she is four pieces, from the first picture, and walking eight, from the second, so that she can flap and take steps.
-// The lab behind them is drawn here, as the user preferred it.
+// Mission: Meow's look. She comes from the user's sprite sheet (frames.js); the kittens and what is in her way are cut from their picture, at its own
+// scale. All in mission/art, upscaled three times. The lab behind them is drawn here, as the user preferred it.
 // A world is 100 units high; the rules are in mission.js.
 const Scene = (() => {
     const FLOOR = 84; // in units from the top, as in mission.js
@@ -13,34 +12,24 @@ const Scene = (() => {
     const SHARPEST_BACK = 14; // pixels per unit: the far walls need no more
     const SPIKE_SCALE = 1.7;
     const BIG_STAR_SCALE = 2.1;
-    // Her pieces as they lie in the picture: x, y, width, height. Each turns around its pivot.
-    const CENTER = {x: 385, y: 400};
-    const BODY = {name: 'girl-body', x: 204, y: 228, width: 303, height: 234};
-    const WING = {name: 'girl-wing', x: 275, y: 320, width: 96, height: 82, pivotX: 368, pivotY: 388};
-    const FAR_LEG = {name: 'girl-far', x: 293, y: 420, width: 112, height: 94, pivotX: 368, pivotY: 436};
-    const NEAR_LEG = {name: 'girl-near', x: 293, y: 430, width: 120, height: 83, pivotX: 385, pivotY: 447};
-    // Walking: pieces as they lie in the second picture, where she is larger. All turn around their pivots; shoes around the ankles.
-    const WALK_SCALE = 0.48;
-    const WALK_CENTER = {x: 880, y: 462};
-    const LEG_ANGLE = 30 * Math.PI / 180; // how far each leg is from straight down in the picture
-    const LEG_LENGTH = 196; // from the hip to the ground, in pixels of the second picture
-    const WALK = {
-        body: {name: 'walk-body', x: 512, y: 92, width: 551, height: 497},
-        wing: {name: 'walk-wing', x: 649, y: 350, width: 161, height: 138, pivotX: 800, pivotY: 440},
-        nearArm: {name: 'walk-arm-near', x: 744, y: 414, width: 151, height: 169, pivotX: 868, pivotY: 440},
-        farArm: {name: 'walk-arm-far', x: 921, y: 458, width: 116, height: 112, pivotX: 945, pivotY: 490},
-        backLeg: {name: 'walk-leg-back', x: 766, y: 546, width: 127, height: 129, pivotX: 858, pivotY: 575},
-        frontLeg: {name: 'walk-leg-front', x: 864, y: 546, width: 123, height: 159, pivotX: 905, pivotY: 575},
-        backShoe: {name: 'walk-shoe-back', x: 710, y: 635, width: 101, height: 115, pivotX: 785, pivotY: 660},
-        frontShoe: {name: 'walk-shoe-front', x: 941, y: 668, width: 116, height: 82, pivotX: 962, pivotY: 690}
-    };
+    const FRAME_SCALE = 0.18; // units for a pixel of the sprite sheet
+    const HURT_FRAME_MS = 130;
     const SIZES = {
         'tube-empty-orange': [178, 239], 'tube-empty-grey': [179, 224], 'kitten-orange': [76, 88], 'kitten-grey': [77, 78], 'slab-long': [300, 72], 'emitter-top': [116, 98], 'emitter-bottom': [77, 59], 'emitter-hang': [83, 60], 'rail-left': [68, 73], 'rail-right': [72, 73],
         column: [76, 195], spike: [48, 54], star: [60, 58], sparkle: [42, 46]
     };
     const KITTEN_IN_TUBE = {orange: [53, 116], grey: [53, 114]};
-    const GIRL = [BODY, WING, FAR_LEG, NEAR_LEG, ...Object.values(WALK)];
-    const FILES = [...Object.keys(SIZES), ...GIRL.map(piece => piece.name)];
+    const ALL_FRAMES = Object.values(FRAMES).flat();
+    // From the user's warning sheet: a drone in 10 frames, flying and with its alarm on, and the signs an alert shows
+    const DRONE_FRAMES = 10;
+    const DRONE_SCALE = 0.12; // units for a pixel of the sheet
+    const DRONE_SIZES = {drone: [130, 96], 'drone-alert': [130, 110]};
+    const DRONE_NAMES = Object.keys(DRONE_SIZES).flatMap(kind => Array.from({length: DRONE_FRAMES}, (_, frame) => kind + '-' + frame));
+    const SIGNS = Array.from({length: 6}, (_, frame) => ['alert-screen-' + frame, 'alert-banner-' + frame]).flat();
+    const SCREEN_SIZE = {width: 33, height: 20.8};
+    const BANNER_SIZE = {width: 54, height: 10.8};
+    const SIGNS_Y = 26; // below what is on top of the screen
+    const FILES = [...Object.keys(SIZES), ...ALL_FRAMES.map(frame => frame.file), ...DRONE_NAMES, ...SIGNS];
     const images = {};
     let scaled = {};
     let unit = 1;
@@ -315,9 +304,16 @@ const Scene = (() => {
         for (const [name, [pieceWidth, pieceHeight]] of Object.entries(SIZES)) {
             scaled[name] = sized(images[name], pieceWidth * picturePixel, pieceHeight * picturePixel);
         }
-        for (const piece of GIRL) {
-            const scale = piece.name.startsWith('walk') ? WALK_SCALE : 1;
-            scaled[piece.name] = sized(images[piece.name], piece.width * picturePixel * scale, piece.height * picturePixel * scale);
+        for (const frame of ALL_FRAMES) {
+            scaled[frame.file] = sized(images[frame.file], frame.width * FRAME_SCALE * unit, frame.height * FRAME_SCALE * unit);
+        }
+        for (const name of DRONE_NAMES) {
+            const [droneWidth, droneHeight] = DRONE_SIZES[name.startsWith('drone-alert') ? 'drone-alert' : 'drone'];
+            scaled[name] = sized(images[name], droneWidth * DRONE_SCALE * unit, droneHeight * DRONE_SCALE * unit);
+        }
+        for (const name of SIGNS) {
+            const size = name.startsWith('alert-screen') ? SCREEN_SIZE : BANNER_SIZE;
+            scaled[name] = sized(images[name], size.width * unit, size.height * unit);
         }
         scaled.bigStar = sized(images.star, SIZES.star[0] * picturePixel * BIG_STAR_SCALE, SIZES.star[1] * picturePixel * BIG_STAR_SCALE);
         scaled.bigSpike = sized(images.spike, SIZES.spike[0] * picturePixel * SPIKE_SCALE, SIZES.spike[1] * picturePixel * SPIKE_SCALE);
@@ -329,102 +325,28 @@ const Scene = (() => {
         ctx.drawImage(scaled[sizedName], x, y, width * UNIT * scale, height * UNIT * scale);
     }
 
-    function drawPiece(ctx, piece, angle) {
-        ctx.save();
-        if (angle) {
-            ctx.translate(piece.pivotX, piece.pivotY);
-            ctx.rotate(angle);
-            ctx.translate(-piece.pivotX, -piece.pivotY);
+    // The frame for this moment of a pose. In the air on foot she holds one frame; flying her wings beat all the time.
+    function frameOf(pose, step, onFoot) {
+        const frames = FRAMES[pose];
+        if (pose === 'walk') {
+            return frames[Math.floor(step / (Math.PI * 2) * frames.length) % frames.length];
         }
-        ctx.drawImage(scaled[piece.name], piece.x, piece.y, piece.width, piece.height);
-        ctx.restore();
-    }
-
-    // Around her middle (x, y): the wing beats and the legs trail
-    function drawFlying(ctx, x, y, step) {
-        ctx.save();
-        ctx.translate(x, y);
-        ctx.rotate(Math.sin(step * 0.5) * 0.02);
-        ctx.scale(UNIT, UNIT);
-        ctx.translate(-CENTER.x, -CENTER.y);
-        const swing = Math.sin(step * 0.7) * 0.07;
-        drawPiece(ctx, FAR_LEG, swing);
-        drawPiece(ctx, NEAR_LEG, -swing);
-        drawPiece(ctx, BODY, 0);
-        drawPiece(ctx, WING, Math.sin(step * 1.5) * 0.17);
-        ctx.restore();
-    }
-
-    // A leg and its shoe. forward: how far the leg points forward now (radians), rest: how far it does in the picture.
-    // A leg swinging through the air is shorter, as if its knee bends, and its shoe follows the ankle and lies as it should for that moment.
-    function drawLegAndShoe(ctx, leg, shoe, rest, forward, shorter, shoeTurn) {
-        const turn = rest - forward; // clockwise on the screen brings the foot back
-        ctx.save();
-        ctx.translate(leg.pivotX, leg.pivotY);
-        ctx.rotate(turn);
-        ctx.scale(1, 1 - shorter);
-        ctx.translate(-leg.pivotX, -leg.pivotY);
-        ctx.drawImage(scaled[leg.name], leg.x, leg.y, leg.width, leg.height);
-        // The shoe goes where the ankle goes, not stretched or turned along with the leg
-        const ankleX = shoe.pivotX - leg.pivotX;
-        const ankleY = (shoe.pivotY - leg.pivotY) * (1 - shorter);
-        ctx.restore();
-        const cos = Math.cos(turn);
-        const sin = Math.sin(turn);
-        ctx.save();
-        ctx.translate(leg.pivotX + ankleX * cos - ankleY * sin, leg.pivotY + ankleX * sin + ankleY * cos);
-        ctx.rotate(shoeTurn);
-        ctx.translate(-shoe.pivotX, -shoe.pivotY);
-        ctx.drawImage(scaled[shoe.name], shoe.x, shoe.y, shoe.width, shoe.height);
-        ctx.restore();
-    }
-
-    // One leg's moment in a step. phase 0: reaching forward, on its heel; then down flat and back along the ground; at pi: pushing off its toes; then through the air.
-    function legAt(phase) {
-        const onGround = Math.sin(phase) >= 0;
-        return {
-            forward: LEG_ANGLE * Math.cos(phase),
-            shorter: onGround ? 0 : -Math.sin(phase) * 0.2,
-            onGround
-        };
-    }
-
-    // Her shoe's tilt for the moment: its toes up on the heel, flat, its heel up on the toes. Positive turns clockwise on the screen.
-    function shoeTilt(phase) {
-        const forward = Math.cos(phase);
-        return forward > 0 ? -0.2 * forward : 0.55 * -forward;
-    }
-
-    // Around her middle (x, y), in the air the stride of the picture
-    function drawWalking(ctx, x, y, step, onGround) {
-        const front = onGround ? legAt(step) : {forward: LEG_ANGLE, shorter: 0};
-        const back = onGround ? legAt(step + Math.PI) : {forward: -LEG_ANGLE, shorter: 0};
-        const planted = onGround ? (front.onGround ? front : back) : null;
-        const lift = planted ? LEG_LENGTH * (Math.cos(planted.forward) - Math.cos(LEG_ANGLE)) : 0; // her hips rise over the planted leg
-        const arm = onGround ? Math.cos(step) * 0.22 : 0;
-        const pictureScale = UNIT * WALK_SCALE;
-        ctx.save();
-        ctx.translate(x, y);
-        ctx.scale(pictureScale, pictureScale);
-        ctx.translate(-WALK_CENTER.x, -WALK_CENTER.y - lift);
-        const {body, wing, nearArm, farArm, backLeg, frontLeg, backShoe, frontShoe} = WALK;
-        const frontTilt = onGround ? shoeTilt(step) : 0;
-        const backTilt = onGround ? shoeTilt(step + Math.PI) : 0;
-        drawLegAndShoe(ctx, backLeg, backShoe, -LEG_ANGLE, back.forward, back.shorter, backTilt - shoeTilt(Math.PI));
-        drawLegAndShoe(ctx, frontLeg, frontShoe, LEG_ANGLE, front.forward, front.shorter, frontTilt - shoeTilt(0));
-        drawPiece(ctx, farArm, arm * 0.7);
-        ctx.drawImage(scaled[body.name], body.x, body.y, body.width, body.height);
-        drawPiece(ctx, wing, Math.sin(step * 0.5) * 0.05);
-        drawPiece(ctx, nearArm, -arm);
-        ctx.restore();
-    }
-
-    function drawGirl(ctx, x, y, girl, step) {
-        if (girl.flying) {
-            drawFlying(ctx, x, y, step);
-        } else {
-            drawWalking(ctx, x, y, step, girl.onGround);
+        if (pose === 'fly') {
+            return frames[Math.floor(step * 1.6) % frames.length];
         }
+        if (pose === 'hover') {
+            return frames[Math.floor(step * 0.9) % frames.length];
+        }
+        return onFoot ? frames[2] : frames[1 + Math.floor(step * 1.2) % (frames.length - 1)];
+    }
+
+    // Her body's middle at (x, y)
+    function drawGirl(ctx, x, y, view) {
+        const {pose, step, hurtAge, girl} = view;
+        const frame = hurtAge !== null && hurtAge < HURT_FRAME_MS * FRAMES.hurt.length
+            ? FRAMES.hurt[Math.floor(hurtAge / HURT_FRAME_MS)]
+            : frameOf(pose, step, !girl.flying);
+        ctx.drawImage(scaled[frame.file], x - frame.x * FRAME_SCALE, y - frame.y * FRAME_SCALE, frame.width * FRAME_SCALE, frame.height * FRAME_SCALE);
     }
 
     function drawBubble(ctx, x, y, left, warnFrom) {
@@ -481,17 +403,22 @@ const Scene = (() => {
         ctx.globalAlpha = 1;
     }
 
+    function drawSlabs(ctx, x, totalWidth, top) {
+        const count = Math.max(1, Math.round(totalWidth / (SIZES['slab-long'][0] * UNIT)));
+        const width = totalWidth / count;
+        for (let i = 0; i < count; i++) {
+            ctx.drawImage(scaled['slab-long'], x + i * width, top - 0.4, width, SIZES['slab-long'][1] * UNIT);
+        }
+    }
+
     function drawPlatform(ctx, platform, x) {
-        const [slabWidth] = SIZES['slab-long'];
-        const each = slabWidth * UNIT;
-        const count = Math.max(1, Math.round(platform.width / each));
+        const count = Math.max(1, Math.round(platform.width / (SIZES['slab-long'][0] * UNIT)));
         const width = platform.width / count;
         const [columnWidth] = SIZES.column;
         for (let i = 0; i < count; i++) {
-            const left = x + i * width;
-            ctx.drawImage(scaled.column, left + width / 2 - columnWidth * UNIT / 2, platform.top + 6, columnWidth * UNIT, FLOOR - platform.top - 6);
-            ctx.drawImage(scaled['slab-long'], left, platform.top - 0.4, width, SIZES['slab-long'][1] * UNIT);
+            ctx.drawImage(scaled.column, x + i * width + width / 2 - columnWidth * UNIT / 2, platform.top + 6, columnWidth * UNIT, FLOOR - platform.top - 6);
         }
+        drawSlabs(ctx, x, platform.width, platform.top);
     }
 
     function drawThing(ctx, thing, box, time) {
@@ -502,8 +429,16 @@ const Scene = (() => {
             const [width, height] = SIZES.spike;
             const each = width * UNIT * SPIKE_SCALE;
             for (let at = 0; at < thing.width - 0.1; at += each) {
-                sprite(ctx, 'spike', thing.screenX + at, FLOOR + 0.6 - height * UNIT * SPIKE_SCALE, SPIKE_SCALE, 'bigSpike');
+                sprite(ctx, 'spike', thing.screenX + at, (thing.base || FLOOR) + 0.6 - height * UNIT * SPIKE_SCALE, SPIKE_SCALE, 'bigSpike');
             }
+        } else if (kind === 'ledge') {
+            drawSlabs(ctx, x, thing.width, box.top);
+        } else if (kind === 'drone') {
+            const name = thing.alarm ? 'drone-alert' : 'drone';
+            const [droneWidth, droneHeight] = DRONE_SIZES[name];
+            const width = droneWidth * DRONE_SCALE;
+            const height = droneHeight * DRONE_SCALE;
+            ctx.drawImage(scaled[name + '-' + Math.floor(time / 70) % DRONE_FRAMES], (box.left + box.right - width) / 2, (box.top + box.bottom - height) / 2, width, height);
         } else if (kind === 'post' || kind === 'mover') {
             const [hangWidth, hangHeight] = SIZES['emitter-hang'];
             const [footWidth, footHeight] = SIZES['emitter-bottom'];
@@ -539,6 +474,56 @@ const Scene = (() => {
         sprite(ctx, 'rail-right', x + width - 3, y - height * UNIT / 2);
     }
 
+    function outlineBox(ctx, area) {
+        ctx.fillRect(area.left, area.top, area.right - area.left, area.bottom - area.top);
+        ctx.strokeRect(area.left, area.top, area.right - area.left, area.bottom - area.top);
+    }
+
+    // From the settings: what counts as touching, drawn over everything
+    function drawTouchAreas(ctx, areas) {
+        ctx.lineWidth = 0.35;
+        ctx.strokeStyle = '#ffe94d';
+        ctx.fillStyle = 'rgba(255, 233, 77, 0.1)';
+        outlineBox(ctx, areas.reach);
+        areas.tubes.forEach(tube => outlineBox(ctx, tube));
+        ctx.strokeStyle = '#ff2d55';
+        ctx.fillStyle = 'rgba(255, 45, 85, 0.3)';
+        for (const shape of areas.obstacles) {
+            if (shape.spike) {
+                ctx.beginPath();
+                ctx.moveTo(shape.left, shape.base);
+                ctx.lineTo(shape.left + shape.width / 2, shape.base - shape.height);
+                ctx.lineTo(shape.left + shape.width, shape.base);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+            } else {
+                outlineBox(ctx, shape);
+            }
+        }
+        ctx.strokeStyle = '#26ff8a';
+        ctx.fillStyle = 'rgba(38, 255, 138, 0.3)';
+        for (const part of areas.body) {
+            ctx.beginPath();
+            ctx.arc(part.x, part.y, part.size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+        }
+    }
+
+    // On the wall, behind everything that matters. Beside each other when there are two.
+    function drawSigns(ctx, {screen, banner}) {
+        const width = (screen ? SCREEN_SIZE.width : 0) + (banner ? BANNER_SIZE.width : 0) + (screen && banner ? 3 : 0);
+        let left = (viewWidth - width) / 2;
+        if (banner) {
+            ctx.drawImage(scaled[banner], left, SIGNS_Y + (screen ? (SCREEN_SIZE.height - BANNER_SIZE.height) / 2 : 0), BANNER_SIZE.width, BANNER_SIZE.height);
+            left += BANNER_SIZE.width + 3;
+        }
+        if (screen) {
+            ctx.drawImage(scaled[screen], left, SIGNS_Y, SCREEN_SIZE.width, SCREEN_SIZE.height);
+        }
+    }
+
     // The lab's lights go red, more with each alert
     function drawAlarm(ctx, level, time) {
         const pulse = (Math.sin(time * 0.008) + 1) / 2;
@@ -564,6 +549,9 @@ const Scene = (() => {
         const {camera, time} = view;
         drawRepeating(ctx, back, BACK_SPEED, BACK_WIDTH, camera, 0, 100);
         drawRepeating(ctx, mid, MID_SPEED, MID_WIDTH, camera, 0, 100);
+        if (view.signs) {
+            drawSigns(ctx, view.signs);
+        }
         for (const platform of view.platforms) {
             drawPlatform(ctx, platform, platform.x - camera);
         }
@@ -589,13 +577,16 @@ const Scene = (() => {
             sprite(ctx, 'sparkle', sparkle.x - width * UNIT * scale / 2, sparkle.y - height * UNIT * scale / 2, scale);
         }
         ctx.globalAlpha = view.blink && Math.floor(time / 90) % 2 ? 0.4 : 1;
-        drawGirl(ctx, view.girlX, view.girl.y, view.girl, view.step);
+        drawGirl(ctx, view.girlX, view.girl.y, view);
         ctx.globalAlpha = 1;
         if (view.boostLeft > 0) {
             drawBubble(ctx, view.girlX, view.girl.y, view.boostLeft, view.boostWarnFrom);
         }
         if (view.alert > 0) {
             drawAlarm(ctx, view.alert, time);
+        }
+        if (view.touchAreas) {
+            drawTouchAreas(ctx, view.touchAreas);
         }
     }
 

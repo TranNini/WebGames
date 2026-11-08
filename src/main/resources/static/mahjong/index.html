@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+    <meta name="theme-color" content="#17161c">
+    <script src="/theme.js"></script>
+    <script src="/player.js"></script>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Games">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" href="/favicon.png" type="image/png">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <title>Mahjong</title>
+    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="/game.css">
+    <link rel="stylesheet" href="mahjong.css">
+</head>
+<body>
+<div class="screen">
+    <main id="intro" class="intro">
+        <div class="modes" role="group" aria-label="Board">
+            <button class="mode" data-size="small">Small<small>72 tiles</small></button>
+            <button class="mode" data-size="big">Big<small>144 tiles</small></button>
+        </div>
+        <div class="intro-text">
+            <span class="tile-icon big" aria-hidden="true">中</span>
+            <h1>Mahjong</h1>
+            <p>Clear the board in pairs. Tap two tiles that are the same; a tile can go when nothing lies on it and its left or right side is open. Any two flowers match, and any two seasons. No timer, and every deal can be cleared.</p>
+            <p id="stats" class="stats"></p>
+        </div>
+        <div class="intro-buttons">
+            <button id="start" class="button primary">Deal</button>
+            <button id="new-deal" class="button" hidden>New deal</button>
+        </div>
+    </main>
+
+    <main id="table" class="table" hidden>
+        <div id="board" class="board"></div>
+        <div class="tools">
+            <p id="stuck" class="stuck" hidden></p>
+            <button id="undo" class="button tool">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5"></path><path d="M4 9h11a5 5 0 0 1 0 10h-3"></path></svg>
+                Undo
+            </button>
+            <button id="hint" class="button tool">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6"></path><path d="M10 22h4"></path><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.2 1 2V17h6v-.3c0-.8.4-1.5 1-2A7 7 0 0 0 12 2z"></path></svg>
+                Hint
+            </button>
+            <button id="shuffle" class="button primary tool" hidden>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 3h5v5"></path><path d="M4 20 21 3"></path><path d="M21 16v5h-5"></path><path d="m15 15 6 6"></path><path d="M4 4l5 5"></path></svg>
+                Shuffle
+            </button>
+        </div>
+    </main>
+</div>
+<script src="/sound.js"></script>
+<script src="/game.js"></script>
+<script src="board.js"></script>
+<script src="faces.js"></script>
+<script src="mahjong.js"></script>
+</body>
+</html>

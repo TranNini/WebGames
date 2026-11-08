@@ -253,6 +253,24 @@ input[type="text"] {
     font-size: 0.9em;
 }
 
+/* Mahjong's picture: a red dragon tile, on the start page and on its first screen */
+.tile-icon {
+    flex: none;
+    width: 42px;
+    height: 56px;
+    margin: 0 12px 0 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 7px;
+    background: #fbf7ec;
+    box-shadow: 2px 2px 0 #ddd0ae, 4px 4px 0 #2a7a5e;
+    color: #cc2f3a;
+    font-family: "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+    font-size: 30px;
+    font-weight: 600;
+}
+
 /* Scribble Math's picture, on the start page and on its first screen */
 .sum-icon {
     flex: none;

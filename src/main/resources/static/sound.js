@@ -81,6 +81,27 @@ const Sound = (() => {
                 {bass: 130.81, notes: [392, null, 440, 466.16, 523.25, null, null, null]}
             ]
         },
+        // Mahjong: a slow walk through a tea garden. Wind chime notes in D major's five-note scale, ringing long over a low bass.
+        // The same speed all the way, as there is no clock.
+        garden: {
+            slowBpm: 70,
+            fastBpm: 70,
+            wave: 'sine',
+            noteSeconds: 0.9,
+            noteLoudness: 0.34,
+            bassEvery: 4,
+            bassSeconds: 1.6,
+            bars: [
+                {bass: 146.83, notes: [587.33, null, 739.99, null, 880, 739.99, 587.33, null]},
+                {bass: 123.47, notes: [493.88, null, 587.33, 739.99, null, 587.33, 493.88, null]},
+                {bass: 98, notes: [440, null, 493.88, 587.33, null, 659.25, 587.33, null]},
+                {bass: 110, notes: [659.25, null, 587.33, 493.88, 440, null, 329.63, null]},
+                {bass: 146.83, notes: [880, null, 987.77, 880, null, 739.99, 659.25, null]},
+                {bass: 123.47, notes: [739.99, null, 659.25, 587.33, null, 493.88, 587.33, null]},
+                {bass: 98, notes: [493.88, 587.33, 659.25, null, 739.99, null, 659.25, null]},
+                {bass: 110, notes: [587.33, null, null, 440, 493.88, null, 587.33, null]}
+            ]
+        },
         // Mission: Meow: action, but cute. A steady beat and a bouncing bass under high, bright notes. The same speed all the way.
         mission: {
             slowBpm: 160,

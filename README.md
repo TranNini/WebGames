@@ -83,6 +83,20 @@ limit, and when all cards are face up and none are left to draw, they go up on t
 (so Safari and a home screen app count apart). The game is kept on the device: leave whenever you like and Continue later.
 Restart in the settings gives the deal up. A computer works too: Space draws, Z or Backspace undoes, Esc pauses.
 
+## Mahjong
+
+Mahjong solitaire, with no timer and made for one thumb: clear the board by taking away pairs of matching tiles. A tile can
+be taken when nothing lies on it and its left or right side is open; tiles that can't be taken yet have a slightly darker
+face. Tap one, then its partner. Any two flowers match, and any two seasons. Every deal can be cleared: the faces are given
+out by taking the tiles away in pairs first (`board.js`). When no pair is left, Shuffle mixes the tiles still there so that
+they can again all be cleared; when that can't be done any more (say, the last pair lies one on the other), Undo goes back.
+Hint shows a pair, and Undo has no limit, shuffles included.
+
+**Small** has 72 tiles, **Big** all 144, each with its own leaderboard of boards cleared, counted on the device. A phone held
+sideways gets a wide layout, upright a tall one; a game keeps its layout when the phone turns. The game is kept on the device
+like Solitaire's. The tiles are our own drawings of the usual faces (`faces.js`); characters and winds carry a small number or
+letter in the corner. It has its own music. On a computer: H for a hint, Z or Backspace undoes, Esc pauses.
+
 ## Leaderboards
 
 Each mode of Reflex Tap has its own top 20, and Lane Dodge, Scribble Math and Mission: Meow have one each. A name is on it once, with its best score. Of two equal scores the one reached first ranks higher, and on a
@@ -115,6 +129,7 @@ and open `http://<the Mac's address>:8083`.
 | `src/main/resources/static/math/` | Scribble Math |
 | `src/main/resources/static/mission/` | Mission: Meow |
 | `src/main/resources/static/solitaire/` | Solitaire |
+| `src/main/resources/static/mahjong/` | Mahjong (`board.js` the rules, `faces.js` the tiles) |
 | `src/main/java/games/Leaderboard.java` | the rules of the list, in SQLite (`games.db`) |
 | `src/main/java/games/LeaderboardController.java` | `GET`/`POST /api/leaderboard/{game}` |
 | `src/main/java/games/AccessCode.java`, `AccessFilter.java`, `LoginController.java` | the access code |

@@ -1,0 +1,258 @@
+/* The tiles' colors, the same in both modes: an ivory face, a cream rim and a green back */
+:root {
+    --tile-face: #fbf7ec;
+    --tile-blocked: #e6dfcd;
+    --tile-rim: #ddd0ae;
+    --tile-back: #2a7a5e;
+    --tile-selected: #ffe08a;
+    --tile-hint: #bfe3ff;
+}
+
+/* The first screen: board size, rules and Deal; on a small screen the text in between scrolls */
+.intro {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.modes {
+    flex: none;
+    width: 100%;
+    max-width: 420px;
+    align-self: center;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.mode {
+    min-height: 56px;
+    padding: 4px;
+    border: 2px solid var(--grey);
+    border-radius: 16px;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-size: 19px;
+    font-weight: 600;
+    line-height: 1.15;
+    cursor: pointer;
+}
+
+.mode small {
+    display: block;
+    font-size: 14px;
+    font-weight: 400;
+}
+
+.mode[aria-pressed="true"] {
+    border-color: var(--text);
+    background: var(--text);
+    color: var(--bg);
+}
+
+.intro-text {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: min(20px, 2.4vh);
+    text-align: center;
+}
+
+.intro-text .tile-icon.big {
+    margin-top: auto;
+    width: min(96px, 13vh);
+    height: min(128px, 17.3vh);
+    border-radius: 12px;
+    box-shadow: 3px 3px 0 var(--tile-rim), 6px 6px 0 var(--tile-back), 8px 8px 0 var(--tile-back);
+    font-size: min(64px, 8.6vh);
+}
+
+.intro-text h1 {
+    font-size: min(44px, 6vh);
+}
+
+.intro-text p {
+    max-width: 420px;
+    margin: 0;
+    color: var(--soft-text);
+    font-size: 18px;
+    line-height: 1.4;
+}
+
+.intro-text .stats {
+    margin-bottom: auto;
+    color: var(--muted);
+    font-size: 16px;
+}
+
+.intro-buttons {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* A phone sideways: the tile beside the text */
+@media (orientation: landscape) and (max-height: 500px) {
+    .intro-text {
+        display: grid;
+        grid-template-columns: auto minmax(0, 460px);
+        justify-content: center;
+        align-content: center;
+        column-gap: 28px;
+        row-gap: 6px;
+        text-align: left;
+    }
+
+    .intro-text .tile-icon.big {
+        grid-row: 1 / span 3;
+        margin: 0;
+        width: min(72px, 20vh);
+        height: min(96px, 27vh);
+        font-size: min(48px, 13vh);
+    }
+
+    .intro-text h1 {
+        font-size: 28px;
+    }
+
+    .intro-text p {
+        font-size: 15px;
+    }
+
+    .intro-text .stats {
+        margin: 0;
+    }
+
+    .intro-buttons {
+        flex-direction: row-reverse;
+    }
+
+    .intro-buttons .button {
+        flex: 1;
+        min-height: 52px;
+    }
+
+    .mode {
+        min-height: 48px;
+    }
+}
+
+/* The table: the board, and the buttons under it (beside it on a phone held sideways) */
+.table {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.board {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+    touch-action: manipulation;
+}
+
+/* Placed by mahjong.js */
+.tile {
+    position: absolute;
+    width: var(--tw);
+    height: var(--th);
+    border-radius: calc(var(--tw) * 0.12);
+    background: var(--tile-face);
+    box-shadow: inset 0 0 0 1px #d6c9a8, var(--sides);
+    cursor: pointer;
+}
+
+.tile svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    padding: 5% 6% 8%; /* a little more room below, where a higher row in front covers the edge */
+    box-sizing: border-box;
+}
+
+/* Can't be taken yet: a slightly darker face */
+.tile.blocked {
+    background: var(--tile-blocked);
+    cursor: default;
+}
+
+.tile.selected {
+    background: var(--tile-selected);
+}
+
+.tile.hint {
+    background: var(--tile-hint);
+}
+
+.tools {
+    flex: none;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.tool {
+    min-height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 18px;
+}
+
+.tool svg {
+    flex: none;
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.tool:disabled {
+    opacity: 1;
+    color: var(--grey);
+    border-color: var(--field);
+    cursor: default;
+}
+
+.stuck {
+    grid-column: 1 / -1;
+    margin: 0;
+    color: var(--soft-text);
+    font-size: 16px;
+    line-height: 1.3;
+    text-align: center;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+    .table {
+        flex-direction: row;
+    }
+
+    .tools {
+        width: 132px;
+        grid-template-columns: 1fr;
+        align-content: end;
+    }
+
+    .stuck {
+        font-size: 14px;
+    }
+}
+
+/* The top bar has no X's here, and the score is the number of tiles left */
+.screen .strikes {
+    visibility: hidden;
+}

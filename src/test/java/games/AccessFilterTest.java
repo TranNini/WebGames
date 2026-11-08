@@ -107,6 +107,12 @@ class AccessFilterTest {
     }
 
     @Test
+    void mahjongHasALeaderboardForEachBoard() throws Exception {
+        mvc.perform(get("/api/leaderboard/mahjong-small")).andExpect(status().isOk());
+        mvc.perform(get("/api/leaderboard/mahjong-big")).andExpect(status().isOk());
+    }
+
+    @Test
     void missionMeowHasALeaderboard() throws Exception {
         mvc.perform(get("/api/leaderboard/mission")).andExpect(status().isOk());
     }

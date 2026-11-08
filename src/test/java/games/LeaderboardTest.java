@@ -143,4 +143,28 @@ class LeaderboardTest {
         return mvc.perform(post("/api/leaderboard/reflex-hard").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"name\":\"" + name + "\",\"score\":" + score + "}"));
     }
+
+    @Test
+    void onAListOfTimesTheFastestIsBest() {
+        leaderboard.submit("mahjong-easy", "Anna", 300);
+        leaderboard.submit("mahjong-easy", "Ben", 200);
+        leaderboard.submit("mahjong-easy", "anna", 400);
+        assertEquals(List.of(new ScoreEntry(1, "Ben", 200), new ScoreEntry(2, "Anna", 300)), leaderboard.top("mahjong-easy"),
+                "a slower time doesn't replace a faster one");
+        leaderboard.submit("mahjong-easy", "anna", 150);
+        assertEquals(List.of(new ScoreEntry(1, "anna", 150), new ScoreEntry(2, "Ben", 200)), leaderboard.top("mahjong-easy"));
+    }
+
+    @Test
+    void aFullListOfTimesTakesOnlyAFasterOne() {
+        for (int i = 1; i <= Leaderboard.MAX_ENTRIES; i++) {
+            leaderboard.submit("mahjong-hard", "Player " + i, 100 + i);
+        }
+        leaderboard.submit("mahjong-hard", "Too slow", 121);
+        assertEquals(Leaderboard.MAX_ENTRIES, leaderboard.top("mahjong-hard").size());
+        assertEquals("Player 20", leaderboard.top("mahjong-hard").get(19).name());
+        leaderboard.submit("mahjong-hard", "Quick", 50);
+        assertEquals("Quick", leaderboard.top("mahjong-hard").get(0).name());
+        assertEquals("Player 19", leaderboard.top("mahjong-hard").get(19).name());
+    }
 }

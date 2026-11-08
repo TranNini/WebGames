@@ -85,17 +85,21 @@ Restart in the settings gives the deal up. A computer works too: Space draws, Z 
 
 ## Mahjong
 
-Mahjong solitaire, with no timer and made for one thumb: clear the board by taking away pairs of matching tiles. A tile can
-be taken when nothing lies on it and its left or right side is open; tiles that can't be taken yet have a slightly darker
-face. Tap one, then its partner. Any two flowers match, and any two seasons. Every deal can be cleared: the faces are given
-out by taking the tiles away in pairs first (`board.js`). When no pair is left, Shuffle mixes the tiles still there so that
-they can again all be cleared; when that can't be done any more (say, the last pair lies one on the other), Undo goes back.
-Hint shows a pair, and Undo has no limit, shuffles included.
+Mahjong solitaire against the clock, made for one thumb: clear the board by taking away pairs of matching tiles. A tile can
+be taken when nothing lies on it and its left or right side is open. Tap one, then its partner. Any two flowers match, and
+any two seasons. Every deal can be cleared: the faces are given out by taking the tiles away in pairs first (`board.js`).
+When no pair is left, Shuffle mixes the tiles still there so that they can again all be cleared; when that can't be done any
+more (say, the last pair lies one on the other), Undo goes back. Hint shows a pair, and Undo has no limit, shuffles included.
 
-**Small** has 72 tiles, **Big** all 144, each with its own leaderboard of boards cleared, counted on the device. A phone held
-sideways gets a wide layout, upright a tall one; a game keeps its layout when the phone turns. The game is kept on the device
-like Solitaire's. The tiles are our own drawings of the usual faces (`faces.js`); characters and winds carry a small number or
-letter in the corner. It has its own music. On a computer: H for a hint, Z or Backspace undoes, Esc pauses.
+Three levels: **Easy** has 72 tiles, **Medium** 108 and **Hard** all 144. On Easy and Medium, tiles that can't be taken yet
+have a slightly darker face; on Hard they look like the rest. The score is the time: the clock in the top bar starts with the
+deal and stops while the game is paused (menu, phone locked, app left), a hint adds 15 seconds and a shuffle 30. Each level
+has its own leaderboard of the fastest times (`Leaderboard.TIMES`: lowest first, and a name keeps its fastest).
+
+A phone held sideways gets a wide layout, upright a tall one; a game keeps its layout when the phone turns. The game, with
+its time so far, is kept on the device like Solitaire's. The tiles are our own drawings of the usual faces (`faces.js`);
+characters and winds carry a small number or letter in the corner. It has its own music. On a computer: H for a hint, Z or
+Backspace undoes, Esc pauses.
 
 ## Leaderboards
 

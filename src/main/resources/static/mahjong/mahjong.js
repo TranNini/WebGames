@@ -1,13 +1,55 @@
-// Mahjong solitaire: take the tiles away in matching pairs until the board is empty. No timer, one thumb is enough:
+// Mahjong solitaire: take the tiles away in matching pairs until the board is empty, against the clock. One thumb is enough:
 // tap one free tile, then its partner. Undo, Hint and, when no pair is left, Shuffle are at the bottom, near the thumb.
-// The rules are in board.js, the pictures in faces.js.
-const SIZES = {small: 'Small', big: 'Big'};
+// The score is the time, so the leaderboards list the fastest; a hint or a shuffle adds to it. The rules are in board.js,
+// the pictures in faces.js.
+// shade: tiles that can't be taken yet have a darker face (not on Hard)
+const LEVELS = {
+    easy: {name: 'Easy', shade: true},
+    medium: {name: 'Medium', shade: true},
+    hard: {name: 'Hard', shade: false}
+};
+const HINT_SECONDS = 15;
+const SHUFFLE_SECONDS = 30;
 const DEPTH = 0.085; // how far a layer sits up and left of the one below it, in tile widths
 const TILE_RATIO = 4 / 3; // height to width
 const REMOVE_MS = 160;
 const HINT_MS = 1600;
 
-const mahjongSettings = {size: 'small', ...remembered('mahjong-settings')};
+// The first version had a small and a big board, without a clock: they are now Easy and Hard
+function moveOldGames() {
+    const old = {small: 'easy', big: 'hard'};
+    const before = remembered('mahjong-settings');
+    if (before.size) {
+        remember('mahjong-settings', {level: old[before.size] || 'easy'});
+    }
+    const counted = remembered('mahjong-stats');
+    let moved = false;
+    for (const [from, to] of Object.entries(old)) {
+        if (counted[from]) {
+            counted[to] ||= counted[from];
+            delete counted[from];
+            moved = true;
+        }
+        const game = remembered('mahjong-game-' + from);
+        if (game.faces && !remembered('mahjong-game-' + to).faces) {
+            remember('mahjong-game-' + to, {...game, elapsed: 0});
+        }
+        try {
+            localStorage.removeItem('mahjong-game-' + from);
+        } catch (e) {
+            // nothing was kept
+        }
+    }
+    if (moved) {
+        remember('mahjong-stats', counted);
+    }
+}
+
+moveOldGames();
+const mahjongSettings = {level: 'easy', ...remembered('mahjong-settings')};
+if (!LEVELS[mahjongSettings.level]) {
+    mahjongSettings.level = 'easy';
+}
 const boardEl = $('board');
 let tiles = []; // positions of the layout being played
 let near = [];
@@ -20,27 +62,36 @@ let selected = -1;
 let taking = false; // while a pair shrinks away
 let hintTimer = 0;
 let shuffledFaces = null; // ready when the board is stuck and can be mixed again
+let elapsed = 0; // milliseconds played on this deal, penalties included; the clock stops in the menu
+let lastTick = performance.now();
 
-const savedKey = () => 'mahjong-game-' + mahjongSettings.size;
+const level = () => LEVELS[mahjongSettings.level];
+const savedKey = () => 'mahjong-game-' + mahjongSettings.level;
 const tilesLeft = () => gone.filter(g => !g).length;
 
+// 75 seconds: 1:15
+function formatTime(seconds) {
+    const whole = Math.floor(seconds);
+    return Math.floor(whole / 60) + ':' + String(whole % 60).padStart(2, '0');
+}
+
 function stats() {
-    return remembered('mahjong-stats')[mahjongSettings.size] || {played: 0, won: 0};
+    return remembered('mahjong-stats')[mahjongSettings.level] || {played: 0, won: 0};
 }
 
 function saveStats(changed) {
     const all = remembered('mahjong-stats');
-    all[mahjongSettings.size] = changed;
+    all[mahjongSettings.level] = changed;
     remember('mahjong-stats', all);
 }
 
 function savedGame() {
     const saved = remembered(savedKey());
-    return saved.faces && Board.LAYOUTS[mahjongSettings.size][saved.shape] ? saved : null;
+    return saved.faces && Board.LAYOUTS[mahjongSettings.level][saved.shape] ? saved : null;
 }
 
 function saveGame() {
-    remember(savedKey(), {shape, faces, gone, history});
+    remember(savedKey(), {shape, faces, gone, history, elapsed});
 }
 
 function forgetGame() {
@@ -53,13 +104,14 @@ function forgetGame() {
 
 function showIntro() {
     for (const button of document.querySelectorAll('.mode')) {
-        button.setAttribute('aria-pressed', String(button.dataset.size === mahjongSettings.size));
+        button.setAttribute('aria-pressed', String(button.dataset.level === mahjongSettings.level));
     }
     const saved = savedGame();
     $('start').textContent = saved ? 'Continue' : 'Deal';
     $('new-deal').hidden = !saved;
-    const {played, won} = stats();
-    $('stats').textContent = played ? 'Cleared ' + won + ' of ' + played + ' on the ' + SIZES[mahjongSettings.size].toLowerCase() + ' board' : '';
+    const {played, won, best} = stats();
+    $('stats').textContent = played ? 'Cleared ' + won + ' of ' + played + ' on ' + level().name
+        + (best ? ' · best ' + formatTime(best) : '') : '';
 }
 
 function newGame() {
@@ -72,6 +124,7 @@ function newGame() {
     score = 0;
     strikes = 0;
     showScore();
+    $('score').textContent = formatTime(0);
     showIntro();
     showScreen('intro');
 }
@@ -79,7 +132,7 @@ function newGame() {
 // The board's own tiles: the layout fixes where they lie, so a new layout means new elements
 function useShape(newShape) {
     shape = newShape;
-    tiles = Board.positions(Board.LAYOUTS[mahjongSettings.size][shape]);
+    tiles = Board.positions(Board.LAYOUTS[mahjongSettings.level][shape]);
     near = Board.neighbours(tiles);
     tileEls = tiles.map((tile, i) => {
         const el = document.createElement('div');
@@ -97,6 +150,7 @@ function deal() {
     faces = Board.deal(tiles, near);
     gone = tiles.map(() => false);
     history = [];
+    elapsed = 0;
     const counted = stats();
     saveStats({...counted, played: counted.played + 1});
 }
@@ -110,20 +164,44 @@ function startGame(fresh) {
     if (saved) {
         useShape(saved.shape);
         ({faces, gone, history} = saved);
+        elapsed = saved.elapsed || 0;
     } else {
         deal();
     }
     saveGame();
     selected = -1;
+    lastTick = performance.now();
     state = 'playing';
     showScreen('table');
     changed();
 }
 
 function showTilesLeft() {
-    score = tilesLeft();
-    showScore();
-    $('score').setAttribute('aria-label', score + ' tiles left');
+    $('tiles-left').textContent = tilesLeft() + ' left';
+}
+
+// The clock runs only while the board is being played: not in the menu, nor while the phone is locked
+function tick() {
+    const now = performance.now();
+    const step = Math.min(now - lastTick, 1000); // a sleeping page's timers don't add a jump
+    lastTick = now;
+    if (state === 'playing' && !document.hidden) {
+        elapsed += step;
+    }
+    if (state === 'playing' || state === 'paused') {
+        showClock();
+    }
+}
+
+function showClock() {
+    $('score').textContent = formatTime(elapsed / 1000);
+    $('score').setAttribute('aria-label', 'Time ' + formatTime(elapsed / 1000));
+}
+
+function addPenalty(seconds) {
+    elapsed += seconds * 1000;
+    showClock();
+    $('score').animate({color: ['var(--red)', 'var(--red)', 'var(--text)'], scale: [1.15, 1]}, {duration: 700});
 }
 
 // After every change: the faces, which tiles are free, the buttons, and whether the game is won or stuck
@@ -154,7 +232,7 @@ function drawTiles() {
         }
         el.querySelector('use').setAttribute('href', '#face-' + faces[i]);
         el.setAttribute('aria-label', Faces.name(faces[i]));
-        el.classList.toggle('blocked', !Board.isFree(i, near, gone));
+        el.classList.toggle('blocked', level().shade && !Board.isFree(i, near, gone));
         el.classList.toggle('selected', i === selected);
     });
 }
@@ -227,6 +305,7 @@ function shuffle() {
     faces = shuffledFaces;
     selected = -1;
     Sound.tap(0);
+    addPenalty(SHUFFLE_SECONDS);
     for (const el of tileEls) {
         el.animate({rotate: ['0deg', '8deg', '-8deg', '0deg']}, {duration: 320});
     }
@@ -245,6 +324,8 @@ function hint() {
     selected = -1;
     drawTiles();
     Sound.tap(3);
+    addPenalty(HINT_SECONDS);
+    saveGame();
     pair.forEach(i => tileEls[i].classList.add('hint'));
     hintTimer = setTimeout(clearHint, HINT_MS);
 }
@@ -257,12 +338,13 @@ function clearHint() {
 function win() {
     state = 'ending';
     forgetGame();
+    const seconds = Math.max(1, Math.round(elapsed / 1000));
+    showClock();
     const counted = stats();
-    const won = counted.won + 1;
-    saveStats({...counted, won});
+    saveStats({...counted, won: counted.won + 1, best: Math.min(counted.best || Infinity, seconds)});
     setTimeout(() => {
-        score = won; // the leaderboard counts boards cleared
-        finishGame('All ' + tiles.length + ' tiles cleared', null, true);
+        score = seconds; // the leaderboard lists the fastest
+        finishGame('Cleared in ' + formatTime(seconds), null, true);
     }, 300);
 }
 
@@ -337,21 +419,36 @@ function setUpEvents() {
     });
     for (const button of document.querySelectorAll('.mode')) {
         button.addEventListener('click', () => {
-            mahjongSettings.size = button.dataset.size;
+            mahjongSettings.level = button.dataset.level;
             remember('mahjong-settings', mahjongSettings);
             showIntro();
         });
     }
     new ResizeObserver(layout).observe(boardEl);
     document.addEventListener('keydown', pressKey);
+    // The time so far is kept when the page goes away
+    const keepTime = () => {
+        if (state === 'playing' || state === 'paused') {
+            saveGame();
+        }
+    };
+    document.addEventListener('visibilitychange', keepTime);
+    window.addEventListener('pagehide', keepTime);
+    setInterval(tick, 250);
 }
 
 Sound.setTune('garden');
+document.querySelector('.bar').insertAdjacentHTML('beforeend', '<span id="tiles-left" class="tiles-left"></span>');
 setUpEvents();
 setUpGame({
     screens: ['intro', 'table'],
     newGame,
-    resume: layout,
-    leaderboardUrl: () => '/api/leaderboard/mahjong-' + mahjongSettings.size,
-    leaderboardTitle: () => 'Boards cleared · ' + SIZES[mahjongSettings.size]
+    resume() {
+        lastTick = performance.now();
+        layout();
+    },
+    leaderboardUrl: () => '/api/leaderboard/mahjong-' + mahjongSettings.level,
+    leaderboardTitle: () => 'Fastest · ' + level().name,
+    formatScore: formatTime,
+    lowerIsBetter: true
 });

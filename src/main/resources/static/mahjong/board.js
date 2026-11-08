@@ -1,10 +1,10 @@
 // Mahjong's rules, without drawing: the layouts, which tiles are free, dealing and shuffling. Runs in Node for the tests.
 // Positions are in half tiles (x across, y down) and layers (z), so a tile can sit half over the ones below it.
 const Board = (() => {
-    // A layout is a height map, one digit per tile place (how many tiles are stacked there), plus caps: tiles that sit
-    // across four below them, as [x, y, z]. Upright and sideways each have their own, with the same number of tiles.
+    // One layout per level: a height map, one digit per tile place (how many tiles are stacked there), plus caps: tiles
+    // that sit across four below them, as [x, y, z]. Upright and sideways each have their own, with the same number of tiles.
     const LAYOUTS = {
-        small: {
+        easy: {
             upright: {
                 map: [
                     '1111111',
@@ -29,7 +29,32 @@ const Board = (() => {
                 caps: []
             }
         },
-        big: {
+        medium: {
+            upright: {
+                map: [
+                    '.111111.',
+                    '11222211',
+                    '12233221',
+                    '12344321',
+                    '12344321',
+                    '12233221',
+                    '11222211',
+                    '.111111.'
+                ],
+                caps: []
+            },
+            sideways: {
+                map: [
+                    '111111111111',
+                    '122223322221',
+                    '123444444321',
+                    '122223322221',
+                    '111111111111'
+                ],
+                caps: []
+            }
+        },
+        hard: {
             upright: {
                 map: [
                     '21111112',

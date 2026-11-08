@@ -7,12 +7,15 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 // The best players of each game. A name is on the list once, with its best score.
 // With a full list, a new name needs more than the last place to get on it.
 @Repository
 public class Leaderboard {
     public static final int MAX_ENTRIES = 20;
+    // Lists of times in seconds, where the fastest is best. On all others the highest score is best.
+    public static final Set<String> TIMES = Set.of("mahjong-easy", "mahjong-medium", "mahjong-hard");
 
     private final JdbcClient jdbc;
 
@@ -23,7 +26,7 @@ public class Leaderboard {
     public List<ScoreEntry> top(String game) {
         List<Row> rows = jdbc.sql("""
                         SELECT name, score FROM scores WHERE game = :game
-                        ORDER BY score DESC, achieved_at ASC, rowid ASC LIMIT :limit""")
+                        ORDER BY %s, achieved_at ASC, rowid ASC LIMIT :limit""".formatted(best(game)))
                 .param("game", game)
                 .param("limit", MAX_ENTRIES)
                 .query(Row.class)
@@ -44,7 +47,7 @@ public class Leaderboard {
                 .param("key", key)
                 .query(Integer.class)
                 .list();
-        if (!saved.isEmpty() && saved.get(0) >= score) {
+        if (!saved.isEmpty() && !isBetter(game, score, saved.get(0))) {
             return;
         }
         jdbc.sql("""
@@ -62,10 +65,19 @@ public class Leaderboard {
         jdbc.sql("""
                         DELETE FROM scores WHERE game = :game AND name_key NOT IN (
                             SELECT name_key FROM scores WHERE game = :game
-                            ORDER BY score DESC, achieved_at ASC, rowid ASC LIMIT :limit)""")
+                            ORDER BY %s, achieved_at ASC, rowid ASC LIMIT :limit)""".formatted(best(game)))
                 .param("game", game)
                 .param("limit", MAX_ENTRIES)
                 .update();
+    }
+
+    // The best first; a fixed text, never from the request
+    private static String best(String game) {
+        return TIMES.contains(game) ? "score ASC" : "score DESC";
+    }
+
+    private static boolean isBetter(String game, int score, int than) {
+        return TIMES.contains(game) ? score < than : score > than;
     }
 
     private record Row(String name, int score) {

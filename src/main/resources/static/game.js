@@ -235,7 +235,7 @@ function entryRow(entry, isOwn) {
     nameCell.className = 'name';
     nameCell.textContent = entry.name;
     const pointsCell = document.createElement('b');
-    pointsCell.textContent = entry.score;
+    pointsCell.textContent = shownScore(entry.score);
     row.append(rankCell, nameCell, pointsCell);
     return row;
 }
@@ -247,16 +247,26 @@ function dotsRow() {
     return dots;
 }
 
+// A game can show its scores its own way (Mahjong: as a time)
+function shownScore(value) {
+    return game.formatScore ? game.formatScore(value) : value;
+}
+
+// A game whose score is a time wants it low (lowerIsBetter)
+function better(a, b) {
+    return game.lowerIsBetter ? a < b : a > b;
+}
+
 function showNote(own, list) {
     let text = '';
     if (score > 0 && !saved) {
         text = 'Your score couldn\'t be saved. Check the connection and try again.';
     } else if (entries === null) {
         text = 'The leaderboard can\'t be reached right now.';
-    } else if (score > 0 && own && own.score > score) {
-        text = 'Your best stays at ' + own.score + '.';
+    } else if (score > 0 && own && better(own.score, score)) {
+        text = 'Your best stays at ' + shownScore(own.score) + '.';
     } else if (score > 0 && !own) {
-        text = 'Beat ' + list[list.length - 1].score + ' to reach the top ' + MAX_ENTRIES + '.';
+        text = 'Beat ' + shownScore(list[list.length - 1].score) + ' to reach the top ' + MAX_ENTRIES + '.';
     } else if (list.length === 0) {
         text = 'No scores yet. Be the first!';
     }
@@ -395,7 +405,8 @@ function setUpShellEvents() {
 }
 
 // screens: the ids of the game's own screens. newGame: back to its first screen. resume: goes on after the menu.
-// leaderboardUrl, leaderboardTitle: functions, as a game may have several lists.
+// leaderboardUrl, leaderboardTitle: functions, as a game may have several lists. formatScore (optional): how a score is shown.
+// lowerIsBetter (optional): the score is a time, and the server's list has the fastest first (Leaderboard.TIMES).
 function setUpGame(theGame) {
     game = theGame;
     loadSettings();

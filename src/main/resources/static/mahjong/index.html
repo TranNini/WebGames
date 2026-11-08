@@ -20,14 +20,16 @@
 <body>
 <div class="screen">
     <main id="intro" class="intro">
-        <div class="modes" role="group" aria-label="Board">
-            <button class="mode" data-size="small">Small<small>72 tiles</small></button>
-            <button class="mode" data-size="big">Big<small>144 tiles</small></button>
+        <div class="modes" role="group" aria-label="Level">
+            <button class="mode" data-level="easy">Easy<small>72 tiles</small></button>
+            <button class="mode" data-level="medium">Medium<small>108 tiles</small></button>
+            <button class="mode" data-level="hard">Hard<small>144 tiles</small></button>
         </div>
         <div class="intro-text">
             <span class="tile-icon big" aria-hidden="true">中</span>
             <h1>Mahjong</h1>
-            <p>Clear the board in pairs. Tap two tiles that are the same; a tile can go when nothing lies on it and its left or right side is open. Any two flowers match, and any two seasons. No timer, and every deal can be cleared.</p>
+            <p>Clear the board in pairs, as fast as you can. Tap two tiles that are the same; a tile can go when nothing lies on it and its left or right side is open. Any two flowers match, and any two seasons. Every deal can be cleared.</p>
+            <p class="small-print">The clock stops while paused. A hint adds 15 seconds, a shuffle 30. On Hard, tiles that can't go yet look like the rest.</p>
             <p id="stats" class="stats"></p>
         </div>
         <div class="intro-buttons">
@@ -46,11 +48,11 @@
             </button>
             <button id="hint" class="button tool">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6"></path><path d="M10 22h4"></path><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.2 1 2V17h6v-.3c0-.8.4-1.5 1-2A7 7 0 0 0 12 2z"></path></svg>
-                Hint
+                Hint <small>+15 s</small>
             </button>
             <button id="shuffle" class="button primary tool" hidden>
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 3h5v5"></path><path d="M4 20 21 3"></path><path d="M21 16v5h-5"></path><path d="m15 15 6 6"></path><path d="M4 4l5 5"></path></svg>
-                Shuffle
+                Shuffle <small>+30 s</small>
             </button>
         </div>
     </main>

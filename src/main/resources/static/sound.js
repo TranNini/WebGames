@@ -60,6 +60,27 @@ const Sound = (() => {
                 {bass: 98, notes: [587.33, null, 493.88, null, 392, null, 493.88, 587.33]}
             ]
         },
+        // Solitaire: no hurry, like a quiet lounge in F. Soft rolling chords (Fmaj7, Dm7, Bbmaj7, C7), then a slow tune over them.
+        // The same speed all the way, as there is no clock.
+        patience: {
+            slowBpm: 80,
+            fastBpm: 80,
+            wave: 'triangle',
+            noteSeconds: 0.7,
+            noteLoudness: 0.28,
+            bassEvery: 4,
+            bassSeconds: 1.4,
+            bars: [
+                {bass: 174.61, notes: [349.23, 440, 523.25, 659.25, null, 523.25, 440, null]},
+                {bass: 146.83, notes: [293.66, 349.23, 440, 523.25, null, 440, 349.23, null]},
+                {bass: 116.54, notes: [349.23, 440, 587.33, 440, null, 349.23, 293.66, null]},
+                {bass: 130.81, notes: [392, 466.16, 523.25, 659.25, null, 587.33, 523.25, null]},
+                {bass: 174.61, notes: [698.46, null, 659.25, 523.25, null, 440, 523.25, null]},
+                {bass: 146.83, notes: [587.33, null, 523.25, 440, null, 349.23, 440, null]},
+                {bass: 116.54, notes: [587.33, null, 698.46, 587.33, 466.16, null, 440, null]},
+                {bass: 130.81, notes: [392, null, 440, 466.16, 523.25, null, null, null]}
+            ]
+        },
         // Mission: Meow: action, but cute. A steady beat and a bouncing bass under high, bright notes. The same speed all the way.
         mission: {
             slowBpm: 160,

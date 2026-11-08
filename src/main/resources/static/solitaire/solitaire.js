@@ -495,7 +495,7 @@ function setUpEvents() {
     document.addEventListener('keydown', pressKey);
 }
 
-Sound.setTune('think');
+Sound.setTune('patience');
 makeTable();
 setUpEvents();
 setUpGame({

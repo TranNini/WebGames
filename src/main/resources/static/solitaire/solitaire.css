@@ -1,3 +1,28 @@
+/* Warm colors for this game, in both modes (the user's wish, 2026-11-08): espresso brown in dark mode, warm sand in
+   light mode. They replace the shared colors of style.css on this page only; the status bar takes them from the
+   theme-color meta tag in index.html. */
+:root {
+    --bg: #2b1e17;
+    --card: #3d2c22;
+    --field: #46342a;
+    --text: #fbf4ee;
+    --soft-text: #e6d6c8;
+    --muted: #cbb7a6;
+    --grey: #a08877;
+    --switch-knob: #2b1e17;
+}
+
+:root[data-theme="light"] {
+    --bg: #f3e4d0;
+    --card: #fffaf2;
+    --field: #d9c0a3;
+    --text: #2b1e17;
+    --soft-text: #4d3b2f;
+    --muted: #6a5444;
+    --grey: #8a7260;
+    --switch-knob: #fffaf2;
+}
+
 /* The first screen: mode, rules and Deal; on a small screen the text in between scrolls */
 .intro {
     flex: 1;

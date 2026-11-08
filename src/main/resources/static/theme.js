@@ -4,9 +4,11 @@ const Theme = (() => {
     const KEY = 'games-theme';
     const BAR_COLORS = {dark: '#17161c', light: '#f4f3f7'};
 
+    // A page with colors of its own gives the bar's in data-dark and data-light on its theme-color tag
     function apply(theme) {
         document.documentElement.dataset.theme = theme;
-        document.querySelector('meta[name="theme-color"]').content = BAR_COLORS[theme];
+        const bar = document.querySelector('meta[name="theme-color"]');
+        bar.content = bar.dataset[theme] || BAR_COLORS[theme];
     }
 
     function current() {

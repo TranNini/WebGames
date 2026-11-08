@@ -53,7 +53,7 @@ gameScreen.insertAdjacentHTML('beforeend', `<section id="menu" class="menu" hidd
 </section>
 <main id="over" class="over" hidden>
     <div class="over-title">
-        <h1>Game over</h1>
+        <h1 id="over-heading">Game over</h1>
         <div class="reason"><span id="reason-color" aria-hidden="true"></span><span id="reason"></span></div>
     </div>
     <section class="leaderboard">
@@ -132,11 +132,16 @@ function showScore() {
     $('strikes').setAttribute('aria-label', strikes + ' of ' + MAX_STRIKES + ' strikes');
 }
 
-// reasonColor: a color to show with the reason, if any
-async function finishGame(reason, reasonColor) {
+// reasonColor: a color to show with the reason, if any. won: the game was won (Solitaire), not lost.
+async function finishGame(reason, reasonColor, won = false) {
     state = 'ending';
     Sound.stopMusic();
-    Sound.gameOver();
+    if (won) {
+        Sound.start();
+    } else {
+        Sound.gameOver();
+    }
+    $('over-heading').textContent = won ? 'You won!' : 'Game over';
     saved = false;
     warnedAboutLeaving = false;
     // A moment to see what happened, and fingers still tapping don't press a button on the next screen

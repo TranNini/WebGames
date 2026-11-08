@@ -70,6 +70,19 @@ For trying it out, the settings have **Unlimited hearts** (such a run doesn't go
 
 She comes from the user's sprite sheet (`frames.js`), the kittens and obstacles from their picture, and the drones, cat screen and banner from their warning sheet: `mission/art` holds the pieces, upscaled, and `mission/scene.js` puts them together with the lab it draws behind them.
 
+## Solitaire
+
+Klondike, with no timer and made for one thumb. Build each suit from ace to king on the foundations; in the columns, cards go
+down in alternating colors, and only a king goes into an empty column. Tap a card to move it, with the cards on it, to the
+best place it fits: the foundation first, then a column with cards, then an empty one. Tapping it again moves it on to the
+next column that fits, so there is nothing to drag. The deck and Undo are at the bottom, near the thumb; tap the deck to draw,
+and once it is empty, to turn the cards over again (as often as you like). A covered card turns over by itself, Undo has no
+limit, and when all cards are face up and none are left to draw, they go up on their own.
+
+**Draw 1** turns over one card at a time, **Draw 3** three. Each has its own leaderboard of games won, counted on the device
+(so Safari and a home screen app count apart). The game is kept on the device: leave whenever you like and Continue later.
+Restart in the settings gives the deal up. A computer works too: Space draws, Z or Backspace undoes, Esc pauses.
+
 ## Leaderboards
 
 Each mode of Reflex Tap has its own top 20, and Lane Dodge, Scribble Math and Mission: Meow have one each. A name is on it once, with its best score. Of two equal scores the one reached first ranks higher, and on a
@@ -101,6 +114,7 @@ and open `http://<the Mac's address>:8083`.
 | `src/main/resources/static/dodge/` | Lane Dodge |
 | `src/main/resources/static/math/` | Scribble Math |
 | `src/main/resources/static/mission/` | Mission: Meow |
+| `src/main/resources/static/solitaire/` | Solitaire |
 | `src/main/java/games/Leaderboard.java` | the rules of the list, in SQLite (`games.db`) |
 | `src/main/java/games/LeaderboardController.java` | `GET`/`POST /api/leaderboard/{game}` |
 | `src/main/java/games/AccessCode.java`, `AccessFilter.java`, `LoginController.java` | the access code |

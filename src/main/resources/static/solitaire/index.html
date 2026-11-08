@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+    <meta name="theme-color" content="#17161c">
+    <script src="/theme.js"></script>
+    <script src="/player.js"></script>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Games">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" href="/favicon.png" type="image/png">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <title>Solitaire</title>
+    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="/game.css">
+    <link rel="stylesheet" href="solitaire.css">
+</head>
+<body>
+<div class="screen">
+    <main id="intro" class="intro">
+        <div class="modes" role="group" aria-label="Mode">
+            <button class="mode" data-draw="1">Draw 1<small>easier</small></button>
+            <button class="mode" data-draw="3">Draw 3<small>harder</small></button>
+        </div>
+        <div class="intro-text">
+            <span class="cards-icon big" aria-hidden="true">A<small>&#x2660;&#xFE0E;</small></span>
+            <h1>Solitaire</h1>
+            <p>Build each suit from ace to king. Tap a card to move it to the best place it fits; tap it again for the next one. No timer, and the game waits for you when you leave.</p>
+            <p id="stats" class="stats"></p>
+        </div>
+        <div class="intro-buttons">
+            <button id="start" class="button primary">Deal</button>
+            <button id="new-deal" class="button" hidden>New deal</button>
+        </div>
+    </main>
+
+    <main id="table" class="table" hidden>
+        <button id="undo" class="button undo" aria-label="Undo">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5"></path><path d="M4 9h11a5 5 0 0 1 0 10h-3"></path></svg>
+            Undo
+        </button>
+    </main>
+</div>
+<script src="/sound.js"></script>
+<script src="/game.js"></script>
+<script src="solitaire.js"></script>
+</body>
+</html>

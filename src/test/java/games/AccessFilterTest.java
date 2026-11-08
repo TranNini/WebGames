@@ -101,6 +101,12 @@ class AccessFilterTest {
     }
 
     @Test
+    void solitaireHasALeaderboardForEachMode() throws Exception {
+        mvc.perform(get("/api/leaderboard/solitaire-1")).andExpect(status().isOk());
+        mvc.perform(get("/api/leaderboard/solitaire-3")).andExpect(status().isOk());
+    }
+
+    @Test
     void missionMeowHasALeaderboard() throws Exception {
         mvc.perform(get("/api/leaderboard/mission")).andExpect(status().isOk());
     }

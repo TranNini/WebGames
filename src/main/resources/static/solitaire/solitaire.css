@@ -1,0 +1,268 @@
+/* The first screen: mode, rules and Deal; on a small screen the text in between scrolls */
+.intro {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.modes {
+    flex: none;
+    width: 100%;
+    max-width: 420px;
+    align-self: center;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.mode {
+    min-height: 56px;
+    padding: 4px;
+    border: 2px solid var(--grey);
+    border-radius: 16px;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-size: 19px;
+    font-weight: 600;
+    line-height: 1.15;
+    cursor: pointer;
+}
+
+.mode small {
+    display: block;
+    font-size: 14px;
+    font-weight: 400;
+}
+
+.mode[aria-pressed="true"] {
+    border-color: var(--text);
+    background: var(--text);
+    color: var(--bg);
+}
+
+.intro-text {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: min(20px, 2.4vh);
+    text-align: center;
+}
+
+.intro-text .cards-icon.big {
+    margin-top: auto;
+    width: min(110px, 15vh);
+    height: min(154px, 21vh);
+    border-radius: 14px;
+    font-size: min(48px, 6.5vh);
+}
+
+.intro-text h1 {
+    font-size: min(44px, 6vh);
+}
+
+.intro-text p {
+    max-width: 420px;
+    margin: 0;
+    color: var(--soft-text);
+    font-size: 18px;
+    line-height: 1.4;
+}
+
+.intro-text .stats {
+    margin-bottom: auto;
+    color: var(--muted);
+    font-size: 16px;
+}
+
+.intro-buttons {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* A phone sideways: the card beside the text */
+@media (orientation: landscape) and (max-height: 500px) {
+    .intro-text {
+        display: grid;
+        grid-template-columns: auto minmax(0, 420px);
+        justify-content: center;
+        align-content: center;
+        column-gap: 24px;
+        row-gap: 6px;
+        text-align: left;
+    }
+
+    .intro-text .cards-icon.big {
+        grid-row: 1 / span 3;
+        margin: 0;
+        width: min(80px, 22vh);
+        height: min(112px, 31vh);
+        font-size: min(36px, 10vh);
+    }
+
+    .intro-text h1 {
+        font-size: 28px;
+    }
+
+    .intro-text p {
+        font-size: 15px;
+    }
+
+    .intro-text .stats {
+        margin: 0;
+    }
+
+    .intro-buttons {
+        flex-direction: row-reverse;
+    }
+
+    .intro-buttons .button {
+        flex: 1;
+        min-height: 52px;
+    }
+
+    .mode {
+        min-height: 48px;
+    }
+}
+
+/* The table: everything on it is placed by solitaire.js */
+.table {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+    touch-action: manipulation;
+}
+
+.table > * {
+    position: absolute;
+    left: 0;
+    top: 0;
+}
+
+.card,
+.slot {
+    width: var(--cw);
+    height: var(--ch);
+    border-radius: calc(var(--cw) * 0.13);
+}
+
+.card {
+    overflow: hidden;
+    background: #fdfcf8;
+    box-shadow: 0 0 0 1px rgb(0 0 0 / 0.28), 0 1px 3px rgb(0 0 0 / 0.25);
+    cursor: pointer;
+    transition: transform 200ms ease-out;
+}
+
+.table.still .card {
+    transition: none;
+}
+
+.card.red {
+    color: #d1293d;
+}
+
+.card.black {
+    color: #1d1b24;
+}
+
+/* Rank and suit where a covered card still shows */
+.card .corner {
+    position: absolute;
+    top: calc(var(--cw) * 0.05);
+    left: calc(var(--cw) * 0.08);
+    font-size: calc(var(--cw) * 0.34);
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.04em;
+    white-space: nowrap;
+}
+
+.card .corner small {
+    margin-left: 0.06em;
+    font-size: 0.85em;
+}
+
+.card .pip {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: calc(var(--ch) * 0.1);
+    text-align: center;
+    font-size: calc(var(--cw) * 0.62);
+    line-height: 1;
+}
+
+/* The back: no rank, no suit */
+.card.down {
+    background: repeating-linear-gradient(45deg, #8f8aee 0 5px, #7d77e0 5px 10px);
+    box-shadow: inset 0 0 0 3px #fdfcf8, 0 0 0 1px rgb(0 0 0 / 0.28), 0 1px 3px rgb(0 0 0 / 0.25);
+}
+
+.card.down > * {
+    visibility: hidden;
+}
+
+/* Empty places: the foundations show their suit, the deck shows that it can be turned over again */
+.slot {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--field);
+    color: var(--grey);
+    font-size: calc(var(--cw) * 0.5);
+    line-height: 1;
+}
+
+.slot.stock {
+    cursor: pointer;
+    color: transparent;
+}
+
+.slot.stock.empty {
+    color: var(--text);
+}
+
+/* Undo, down by the thumb */
+.button.undo {
+    min-height: 0;
+    padding: 0 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border-radius: 16px;
+    background: var(--bg);
+    font-size: 17px;
+    z-index: 300;
+}
+
+.button.undo svg {
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.button.undo:disabled {
+    opacity: 1;
+    color: var(--grey);
+    border-color: var(--field);
+    cursor: default;
+}
+
+/* The top bar has no X's here, and the score is the number of moves */
+.screen .strikes {
+    visibility: hidden;
+}

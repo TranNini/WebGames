@@ -232,6 +232,27 @@ input[type="text"] {
     border-radius: 12px;
 }
 
+/* Solitaire's picture: an ace, on the start page and on its first screen */
+.cards-icon {
+    flex: none;
+    width: 42px;
+    height: 58px;
+    margin: 0 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 7px;
+    background: #fdfcf8;
+    box-shadow: 0 0 0 1px rgb(0 0 0 / 0.28);
+    color: #1d1b24;
+    font-size: 21px;
+    font-weight: 700;
+}
+
+.cards-icon small {
+    font-size: 0.9em;
+}
+
 /* Scribble Math's picture, on the start page and on its first screen */
 .sum-icon {
     flex: none;

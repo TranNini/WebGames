@@ -1,86 +1,84 @@
 // Mahjong's rules, without drawing: the layouts, which tiles are free, dealing and shuffling. Runs in Node for the tests.
 // Positions are in half tiles (x across, y down) and layers (z), so a tile can sit half over the ones below it.
 const Board = (() => {
-    // One layout per level: a height map, one digit per tile place (how many tiles are stacked there), plus caps: tiles
-    // that sit across four below them, as [x, y, z]. Upright and sideways each have their own, with the same number of tiles.
+    // Each level has a few layouts (assemblies) of the same number of tiles, so its leaderboard stays fair; a deal takes one
+    // of them at random. A layout is a height map per shape, one digit per tile place (how many tiles are stacked there),
+    // plus caps: tiles that sit across four below them, as [x, y, z]. Upright and sideways have the same number of tiles.
+    // The first of each level is the one from before there were several, so games kept on a device still fit.
     const LAYOUTS = {
-        easy: {
-            upright: {
-                map: [
-                    '1111111',
-                    '1112111',
-                    '1122211',
-                    '1123211',
-                    '1123211',
-                    '1122211',
-                    '1112111',
-                    '1111111'
-                ],
-                caps: []
+        easy: [
+            {
+                name: 'Garden',
+                upright: ['1111111', '1112111', '1122211', '1123211', '1123211', '1122211', '1112111', '1111111'],
+                sideways: ['..1111111..', '.112333211.', '11233433211', '.112333211.', '..1111111..']
             },
-            sideways: {
-                map: [
-                    '..1111111..',
-                    '.112333211.',
-                    '11233433211',
-                    '.112333211.',
-                    '..1111111..'
-                ],
-                caps: []
-            }
-        },
-        medium: {
-            upright: {
-                map: [
-                    '.111111.',
-                    '11222211',
-                    '12233221',
-                    '12344321',
-                    '12344321',
-                    '12233221',
-                    '11222211',
-                    '.111111.'
-                ],
-                caps: []
+            {
+                name: 'Butterfly',
+                upright: ['11....11', '122..221', '123..321', '.112211.', '...22...', '.112211.', '123..321', '122..221', '11....11'],
+                sideways: ['111.....111', '12221.12221', '12343234321', '12221.12221', '111.....111']
             },
-            sideways: {
-                map: [
-                    '111111111111',
-                    '122223322221',
-                    '123444444321',
-                    '122223322221',
-                    '111111111111'
-                ],
-                caps: []
-            }
-        },
-        hard: {
-            upright: {
-                map: [
-                    '21111112',
-                    '12222221',
-                    '12333321',
-                    '12344321',
-                    '12344321',
-                    '12344321',
-                    '12333321',
-                    '12222221',
-                    '21111112'
-                ],
-                caps: []
+            {
+                name: 'Pyramid',
+                upright: ['...11...', '..1111..', '.123321.', '12333321', '12333321', '.123321.', '..1111..', '...11...'],
+                sideways: ['111111111', '122222221', '123343321', '122222221', '111111111']
             },
-            sideways: {
-                map: [
-                    '11111111111111',
-                    '12333333333321',
-                    '12334455443321',
-                    '12333333333321',
-                    '11111111111111'
-                ],
-                caps: []
+            {
+                name: 'Bridge',
+                upright: ['1111111', '12.1.21', '1222221', '12.4.21', '12.4.21', '1222221', '12.1.21', '1111111'],
+                sideways: ['11111111111', '12.2.2.2.21', '12333233321', '12.2.2.2.21', '11111111111']
             }
-        }
+        ],
+        medium: [
+            {
+                name: 'Lotus',
+                upright: ['.111111.', '11222211', '12233221', '12344321', '12344321', '12233221', '11222211', '.111111.'],
+                sideways: ['111111111111', '122223322221', '123444444321', '122223322221', '111111111111']
+            },
+            {
+                name: 'Twin Towers',
+                upright: ['.111111.', '12211221', '13311331', '14411441', '14411441', '13311331', '12211221', '.111111.'],
+                sideways: ['111111111111', '123321123321', '125532235521', '123321123321', '111111111111']
+            },
+            {
+                name: 'Courtyard',
+                upright: ['11111111', '13333331', '13.11.31', '13.44.31', '13.44.31', '13.11.31', '13333331', '11111111'],
+                sideways: ['111111111111', '133333333331', '13..2442..31', '133333333331', '111111111111']
+            },
+            {
+                name: 'Hourglass',
+                upright: ['11111111', '12333321', '.134431.', '..1331..', '...44...', '..1331..', '.134431.', '12333321', '11111111'],
+                sideways: ['11111..11111', '123321123321', '123455554321', '123321123321', '11111..11111']
+            }
+        ],
+        hard: [
+            {
+                name: 'Temple',
+                upright: ['21111112', '12222221', '12333321', '12344321', '12344321', '12344321', '12333321', '12222221', '21111112'],
+                sideways: ['11111111111111', '12333333333321', '12334455443321', '12333333333321', '11111111111111']
+            },
+            {
+                name: 'Mountains',
+                upright: ['11111111', '12355321', '12344321', '11222211', '12344321', '11222211', '12344321', '12355321', '11111111'],
+                sideways: ['12221122112221', '12321244212321', '13631244213631', '12321244212321', '12221122112221']
+            },
+            {
+                name: 'Castle',
+                upright: ['33.11.33', '33222233', '11222211', '12233221', '12344321', '12233221', '11222211', '33222233', '33.11.33'],
+                sideways: ['331111..111133', '33222222222233', '12333444433321', '33222222222233', '331111..111133']
+            },
+            {
+                name: 'Terraces',
+                upright: ['12222221', '22222222', '12222221', '33333333', '11111111', '33333333', '12222221', '22222222', '12222221'],
+                sideways: ['11222222222211', '33333333333333', '111111..111111', '33333333333333', '11222222222211']
+            }
+        ]
     };
+    const TILE_COUNTS = {easy: 72, medium: 108, hard: 144};
+
+    // The layout of a level with this name (the first one when it isn't known)
+    function layoutOf(level, name) {
+        return LAYOUTS[level].find(layout => layout.name === name) || LAYOUTS[level][0];
+    }
 
     // Faces: 0-8 dots, 9-17 bamboo, 18-26 characters (each 1 to 9), 27-30 winds (east, south, west, north),
     // 31-33 dragons (red, green, white), 34-37 flowers, 38-41 seasons. Four of each, but one of each flower and season.
@@ -91,14 +89,15 @@ const Board = (() => {
     const groupOf = face => (face < FLOWERS ? face : face < SEASONS ? FLOWERS : FLOWERS + 1);
     const matches = (a, b) => groupOf(a) === groupOf(b);
 
-    function positions(layout) {
+    // The tiles of a height map (and its caps, if any)
+    function positions(map, caps = []) {
         const list = [];
-        layout.map.forEach((row, r) => [...row].forEach((cell, c) => {
+        map.forEach((row, r) => [...row].forEach((cell, c) => {
             for (let z = 0; z < (Number(cell) || 0); z++) {
                 list.push({x: c * 2, y: r * 2, z});
             }
         }));
-        list.push(...layout.caps.map(([x, y, z]) => ({x, y, z})));
+        list.push(...caps.map(([x, y, z]) => ({x, y, z})));
         return list;
     }
 
@@ -220,7 +219,7 @@ const Board = (() => {
         return placePairs(pairs, near, gone, faces, random);
     }
 
-    return {LAYOUTS, FLOWERS, SEASONS, groupOf, matches, positions, neighbours, isFree, freeTiles, freePair, deal, shuffle};
+    return {LAYOUTS, TILE_COUNTS, layoutOf, FLOWERS, SEASONS, groupOf, matches, positions, neighbours, isFree, freeTiles, freePair, deal, shuffle};
 })();
 
 if (typeof module !== 'undefined') {

@@ -57,7 +57,8 @@ let tileEls = [];
 let faces = [];
 let gone = [];
 let history = []; // [a, b]: a pair taken away; {faces}: the faces before a shuffle
-let shape = ''; // upright or sideways: which of the mode's layouts
+let layoutName = ''; // which of the level's layouts (board.js)
+let shape = ''; // upright or sideways: which of that layout's height maps
 let selected = -1;
 let taking = false; // while a pair shrinks away
 let hintTimer = 0;
@@ -87,11 +88,13 @@ function saveStats(changed) {
 
 function savedGame() {
     const saved = remembered(savedKey());
-    return saved.faces && Board.LAYOUTS[mahjongSettings.level][saved.shape] ? saved : null;
+    // Games from before there were several layouts have no name: they were on the level's first
+    const layout = saved.faces && Board.layoutOf(mahjongSettings.level, saved.layout);
+    return layout && layout[saved.shape] && saved.faces.length === Board.TILE_COUNTS[mahjongSettings.level] ? saved : null;
 }
 
 function saveGame() {
-    remember(savedKey(), {shape, faces, gone, history, elapsed});
+    remember(savedKey(), {layout: layoutName, shape, faces, gone, history, elapsed});
 }
 
 function forgetGame() {
@@ -130,9 +133,11 @@ function newGame() {
 }
 
 // The board's own tiles: the layout fixes where they lie, so a new layout means new elements
-function useShape(newShape) {
+function useLayout(name, newShape) {
+    const layout = Board.layoutOf(mahjongSettings.level, name);
+    layoutName = layout.name;
     shape = newShape;
-    tiles = Board.positions(Board.LAYOUTS[mahjongSettings.level][shape]);
+    tiles = Board.positions(layout[shape]);
     near = Board.neighbours(tiles);
     tileEls = tiles.map((tile, i) => {
         const el = document.createElement('div');
@@ -144,9 +149,19 @@ function useShape(newShape) {
     boardEl.replaceChildren(...tileEls);
 }
 
+// One of the level's layouts at random, but not the one played last
+function nextLayout() {
+    const last = (mahjongSettings.lastLayout || {})[mahjongSettings.level];
+    const choices = Board.LAYOUTS[mahjongSettings.level].filter(layout => layout.name !== last);
+    const name = choices[Math.floor(Math.random() * choices.length)].name;
+    mahjongSettings.lastLayout = {...mahjongSettings.lastLayout, [mahjongSettings.level]: name};
+    remember('mahjong-settings', mahjongSettings);
+    return name;
+}
+
 function deal() {
-    // Sideways screens get the wide layout. A deal keeps its layout when the screen turns; it just gets smaller.
-    useShape(innerWidth > innerHeight * 1.1 ? 'sideways' : 'upright');
+    // Sideways screens get the wide shape. A deal keeps its shape when the screen turns; it just gets smaller.
+    useLayout(nextLayout(), innerWidth > innerHeight * 1.1 ? 'sideways' : 'upright');
     faces = Board.deal(tiles, near);
     gone = tiles.map(() => false);
     history = [];
@@ -162,7 +177,7 @@ function startGame(fresh) {
     Sound.startMusic();
     const saved = fresh ? null : savedGame();
     if (saved) {
-        useShape(saved.shape);
+        useLayout(saved.layout, saved.shape);
         ({faces, gone, history} = saved);
         elapsed = saved.elapsed || 0;
     } else {
@@ -177,7 +192,8 @@ function startGame(fresh) {
 }
 
 function showTilesLeft() {
-    $('tiles-left').textContent = tilesLeft() + ' left';
+    $('layout-name').textContent = layoutName;
+    $('left-count').textContent = tilesLeft() + ' left';
 }
 
 // The clock runs only while the board is being played: not in the menu, nor while the phone is locked
@@ -344,7 +360,7 @@ function win() {
     saveStats({...counted, won: counted.won + 1, best: Math.min(counted.best || Infinity, seconds)});
     setTimeout(() => {
         score = seconds; // the leaderboard lists the fastest
-        finishGame('Cleared in ' + formatTime(seconds), null, true);
+        finishGame('Cleared ' + layoutName + ' in ' + formatTime(seconds), null, true);
     }, 300);
 }
 
@@ -438,7 +454,7 @@ function setUpEvents() {
 }
 
 Sound.setTune('garden');
-document.querySelector('.bar').insertAdjacentHTML('beforeend', '<span id="tiles-left" class="tiles-left"></span>');
+document.querySelector('.bar').insertAdjacentHTML('beforeend', '<span id="tiles-left" class="tiles-left"><small id="layout-name"></small><span id="left-count"></span></span>');
 setUpEvents();
 setUpGame({
     screens: ['intro', 'table'],

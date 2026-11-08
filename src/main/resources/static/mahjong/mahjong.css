@@ -324,6 +324,13 @@
     font-variant-numeric: tabular-nums;
 }
 
+.tiles-left small {
+    display: block;
+    color: var(--soft-text);
+    font-size: 14px;
+    line-height: 1.2;
+}
+
 .screen:has(#table[hidden]) .tiles-left {
     display: none;
 }

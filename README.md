@@ -91,7 +91,10 @@ any two seasons. Every deal can be cleared: the faces are given out by taking th
 When no pair is left, Shuffle mixes the tiles still there so that they can again all be cleared; when that can't be done any
 more (say, the last pair lies one on the other), Undo goes back. Hint shows a pair, and Undo has no limit, shuffles included.
 
-Three levels: **Easy** has 72 tiles, **Medium** 108 and **Hard** all 144. On Easy and Medium, tiles that can't be taken yet
+Three levels: **Easy** has 72 tiles, **Medium** 108 and **Hard** all 144, each in four layouts of its own (Easy:
+Garden, Butterfly, Pyramid, Bridge; Medium: Lotus, Twin Towers, Courtyard, Hourglass; Hard: Temple, Mountains, Castle,
+Terraces). A deal takes one of the level's layouts at random, never the same twice in a row; its name is in the top bar
+and on the end screen. On Easy and Medium, tiles that can't be taken yet
 have a slightly darker face; on Hard they look like the rest. The score is the time: the clock in the top bar starts with the
 deal and stops while the game is paused (menu, phone locked, app left), a hint adds 15 seconds and a shuffle 30. Each level
 has its own leaderboard of the fastest times (`Leaderboard.TIMES`: lowest first, and a name keeps its fastest).

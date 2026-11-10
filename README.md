@@ -91,9 +91,9 @@ any two seasons. Every deal can be cleared: the faces are given out by taking th
 When no pair is left, Shuffle mixes the tiles still there so that they can again all be cleared; when that can't be done any
 more (say, the last pair lies one on the other), Undo goes back. Hint shows a pair, and Undo has no limit, shuffles included.
 
-Three levels: **Easy** has 72 tiles, **Medium** 108 and **Hard** all 144, each in four layouts of its own (Easy:
-Garden, Butterfly, Pyramid, Bridge; Medium: Lotus, Twin Towers, Courtyard, Hourglass; Hard: Temple, Mountains, Castle,
-Terraces). The first screen shows them with their outlines: pick one, or Random (one of the level's layouts, never the
+Three levels: **Easy** has 72 tiles, **Medium** 108 and **Hard** all 144, each in eight layouts of its own (Easy:
+Garden, Butterfly, Pyramid, Bridge, Heart, Cross, Hills, Wreath; Medium: Lotus, Twin Towers, Courtyard, Hourglass,
+Diamond, Crown, Bowl, Arrow; Hard: Temple, Mountains, Castle, Terraces, Pagoda, Lattice, Gate, Stadium). The first screen shows them with their outlines: pick one, or Random (one of the level's layouts, never the
 same twice in a row). The pick is kept per level. The layout's name is in the top bar and on the end screen. With **No hints** on, there is no Hint button and every tile looks the same (also on Easy and Medium);
 those games have their own leaderboards. Otherwise, on Easy and Medium, tiles that can't be taken yet
 have a slightly darker face; on Hard they look like the rest. The score is the time: the clock in the top bar starts with the

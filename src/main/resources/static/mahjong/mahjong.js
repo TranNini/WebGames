@@ -144,6 +144,10 @@ function showLayoutChoices() {
         button.querySelector('span').textContent = name;
         return button;
     }));
+    // The picked one in view, without moving the page
+    const picked = $('layouts').querySelector('[aria-pressed="true"]');
+    const row = $('layouts');
+    row.scrollLeft = picked ? Math.max(0, picked.offsetLeft - row.offsetLeft - (row.clientWidth - picked.offsetWidth) / 2) : 0;
 }
 
 function outline(map) {

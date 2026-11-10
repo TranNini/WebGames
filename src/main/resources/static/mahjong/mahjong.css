@@ -100,18 +100,28 @@
     flex: none;
 }
 
-/* Random and the level's layouts, each with its outline */
+/* Random and the level's layouts, each with its outline, in one row that scrolls sideways */
 .layouts {
     flex: none;
     width: 100%;
     max-width: 520px;
     align-self: center;
-    display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    display: flex;
     gap: 6px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    touch-action: pan-x;
+}
+
+.layouts::-webkit-scrollbar {
+    display: none;
 }
 
 .layout-choice {
+    flex: 0 0 68px;
+    scroll-snap-align: start;
     min-height: 64px;
     padding: 6px 2px;
     display: flex;
@@ -290,7 +300,9 @@
     }
 
     .layout-choice {
+        flex: none;
         min-height: 44px;
+        padding: 4px 12px;
         flex-direction: row;
         gap: 8px;
     }

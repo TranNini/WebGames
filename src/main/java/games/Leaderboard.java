@@ -15,7 +15,8 @@ import java.util.Set;
 public class Leaderboard {
     public static final int MAX_ENTRIES = 20;
     // Lists of times in seconds, where the fastest is best. On all others the highest score is best.
-    public static final Set<String> TIMES = Set.of("mahjong-easy", "mahjong-medium", "mahjong-hard");
+    public static final Set<String> TIMES = Set.of("mahjong-easy", "mahjong-medium", "mahjong-hard",
+            "mahjong-easy-nohints", "mahjong-medium-nohints", "mahjong-hard-nohints");
 
     private final JdbcClient jdbc;
 

@@ -167,4 +167,12 @@ class LeaderboardTest {
         assertEquals("Quick", leaderboard.top("mahjong-hard").get(0).name());
         assertEquals("Player 19", leaderboard.top("mahjong-hard").get(19).name());
     }
+
+    @Test
+    void theNoHintsListsAreTimesToo() {
+        leaderboard.submit("mahjong-medium-nohints", "Anna", 500);
+        leaderboard.submit("mahjong-medium-nohints", "Ben", 400);
+        assertEquals("Ben", leaderboard.top("mahjong-medium-nohints").get(0).name());
+        assertEquals(List.of(), leaderboard.top("mahjong-medium"), "a list of its own");
+    }
 }

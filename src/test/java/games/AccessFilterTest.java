@@ -111,6 +111,9 @@ class AccessFilterTest {
         mvc.perform(get("/api/leaderboard/mahjong-easy")).andExpect(status().isOk());
         mvc.perform(get("/api/leaderboard/mahjong-medium")).andExpect(status().isOk());
         mvc.perform(get("/api/leaderboard/mahjong-hard")).andExpect(status().isOk());
+        mvc.perform(get("/api/leaderboard/mahjong-easy-nohints")).andExpect(status().isOk());
+        mvc.perform(get("/api/leaderboard/mahjong-medium-nohints")).andExpect(status().isOk());
+        mvc.perform(get("/api/leaderboard/mahjong-hard-nohints")).andExpect(status().isOk());
         mvc.perform(get("/api/leaderboard/mahjong-small")).andExpect(status().isNotFound());
     }
 

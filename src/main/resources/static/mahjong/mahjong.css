@@ -78,6 +78,28 @@
     color: var(--bg);
 }
 
+.no-hints {
+    flex: none;
+    width: 100%;
+    max-width: 520px;
+    align-self: center;
+    gap: 16px;
+    font-size: 19px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.no-hints small {
+    display: block;
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 400;
+}
+
+.no-hints .switch {
+    flex: none;
+}
+
 .intro-text {
     flex: 1;
     min-height: 0;
@@ -177,6 +199,32 @@
     .mode {
         min-height: 48px;
     }
+
+    /* The switch beside the levels, so the text keeps its room */
+    .intro {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-rows: auto minmax(0, 1fr) auto;
+        column-gap: 20px;
+    }
+
+    .modes {
+        max-width: none;
+    }
+
+    .no-hints {
+        width: auto;
+        gap: 12px;
+    }
+
+    .intro-text,
+    .intro-buttons {
+        grid-column: 1 / -1;
+    }
+
+    .no-hints small {
+        display: none;
+    }
 }
 
 /* The table: the board, and the buttons under it (beside it on a phone held sideways) */
@@ -242,6 +290,11 @@
     justify-content: center;
     gap: 8px;
     font-size: 18px;
+}
+
+/* Undo alone (no hints, or no shuffle left) takes the whole row */
+.tools:has(#hint[hidden]):has(#shuffle[hidden]) #undo {
+    grid-column: 1 / -1;
 }
 
 .tool {

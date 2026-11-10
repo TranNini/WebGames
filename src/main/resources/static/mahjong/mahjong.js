@@ -46,7 +46,7 @@ function moveOldGames() {
 }
 
 moveOldGames();
-const mahjongSettings = {level: 'easy', ...remembered('mahjong-settings')};
+const mahjongSettings = {level: 'easy', noHints: false, ...remembered('mahjong-settings')};
 if (!LEVELS[mahjongSettings.level]) {
     mahjongSettings.level = 'easy';
 }
@@ -67,7 +67,10 @@ let elapsed = 0; // milliseconds played on this deal, penalties included; the cl
 let lastTick = performance.now();
 
 const level = () => LEVELS[mahjongSettings.level];
-const savedKey = () => 'mahjong-game-' + mahjongSettings.level;
+// The level, and whether hints are off: each has its own saved game, stats and leaderboard (easy, easy-nohints, ...)
+const modeKey = () => mahjongSettings.level + (mahjongSettings.noHints ? '-nohints' : '');
+const modeName = () => level().name + (mahjongSettings.noHints ? ' · No hints' : '');
+const savedKey = () => 'mahjong-game-' + modeKey();
 const tilesLeft = () => gone.filter(g => !g).length;
 
 // 75 seconds: 1:15
@@ -77,12 +80,12 @@ function formatTime(seconds) {
 }
 
 function stats() {
-    return remembered('mahjong-stats')[mahjongSettings.level] || {played: 0, won: 0};
+    return remembered('mahjong-stats')[modeKey()] || {played: 0, won: 0};
 }
 
 function saveStats(changed) {
     const all = remembered('mahjong-stats');
-    all[mahjongSettings.level] = changed;
+    all[modeKey()] = changed;
     remember('mahjong-stats', all);
 }
 
@@ -109,11 +112,13 @@ function showIntro() {
     for (const button of document.querySelectorAll('.mode')) {
         button.setAttribute('aria-pressed', String(button.dataset.level === mahjongSettings.level));
     }
+    $('no-hints').checked = mahjongSettings.noHints;
     const saved = savedGame();
     $('start').textContent = saved ? 'Continue' : 'Deal';
     $('new-deal').hidden = !saved;
     const {played, won, best} = stats();
     $('stats').textContent = played ? 'Cleared ' + won + ' of ' + played + ' on ' + level().name
+        + (mahjongSettings.noHints ? ' without hints' : '')
         + (best ? ' · best ' + formatTime(best) : '') : '';
 }
 
@@ -236,7 +241,7 @@ function changed() {
     $('stuck').hidden = !stuck;
     $('stuck').textContent = !stuck ? '' : shuffledFaces ? 'No pairs left. Shuffle the tiles, or undo.'
         : 'These tiles can\'t all be cleared any more. Undo a few moves.';
-    $('hint').hidden = stuck;
+    $('hint').hidden = stuck || mahjongSettings.noHints;
     $('shuffle').hidden = !stuck || !shuffledFaces;
 }
 
@@ -248,7 +253,7 @@ function drawTiles() {
         }
         el.querySelector('use').setAttribute('href', '#face-' + faces[i]);
         el.setAttribute('aria-label', Faces.name(faces[i]));
-        el.classList.toggle('blocked', level().shade && !Board.isFree(i, near, gone));
+        el.classList.toggle('blocked', level().shade && !mahjongSettings.noHints && !Board.isFree(i, near, gone));
         el.classList.toggle('selected', i === selected);
     });
 }
@@ -329,7 +334,7 @@ function shuffle() {
 }
 
 function hint() {
-    if (state !== 'playing' || taking) {
+    if (state !== 'playing' || taking || mahjongSettings.noHints) {
         return;
     }
     const pair = Board.freePair(faces, near, gone);
@@ -440,6 +445,11 @@ function setUpEvents() {
             showIntro();
         });
     }
+    $('no-hints').addEventListener('change', () => {
+        mahjongSettings.noHints = $('no-hints').checked;
+        remember('mahjong-settings', mahjongSettings);
+        showIntro();
+    });
     new ResizeObserver(layout).observe(boardEl);
     document.addEventListener('keydown', pressKey);
     // The time so far is kept when the page goes away
@@ -463,8 +473,8 @@ setUpGame({
         lastTick = performance.now();
         layout();
     },
-    leaderboardUrl: () => '/api/leaderboard/mahjong-' + mahjongSettings.level,
-    leaderboardTitle: () => 'Fastest · ' + level().name,
+    leaderboardUrl: () => '/api/leaderboard/mahjong-' + modeKey(),
+    leaderboardTitle: () => 'Fastest · ' + modeName(),
     formatScore: formatTime,
     lowerIsBetter: true
 });

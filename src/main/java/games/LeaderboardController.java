@@ -16,7 +16,8 @@ import java.util.Set;
 @RequestMapping("/api/leaderboard/{game}")
 public class LeaderboardController {
     private static final Set<String> GAMES = Set.of("reflex-easy", "reflex-medium", "reflex-hard", "dodge", "math", "mission",
-            "solitaire-1", "solitaire-3", "mahjong-easy", "mahjong-medium", "mahjong-hard");
+            "solitaire-1", "solitaire-3", "mahjong-easy", "mahjong-medium", "mahjong-hard",
+            "mahjong-easy-nohints", "mahjong-medium-nohints", "mahjong-hard-nohints");
     private static final int MAX_NAME_LENGTH = 16;
     private static final int MAX_SCORE = 1_000_000;
 

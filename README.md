@@ -94,7 +94,8 @@ more (say, the last pair lies one on the other), Undo goes back. Hint shows a pa
 Three levels: **Easy** has 72 tiles, **Medium** 108 and **Hard** all 144, each in four layouts of its own (Easy:
 Garden, Butterfly, Pyramid, Bridge; Medium: Lotus, Twin Towers, Courtyard, Hourglass; Hard: Temple, Mountains, Castle,
 Terraces). A deal takes one of the level's layouts at random, never the same twice in a row; its name is in the top bar
-and on the end screen. On Easy and Medium, tiles that can't be taken yet
+and on the end screen. With **No hints** on, there is no Hint button and every tile looks the same (also on Easy and Medium);
+those games have their own leaderboards. Otherwise, on Easy and Medium, tiles that can't be taken yet
 have a slightly darker face; on Hard they look like the rest. The score is the time: the clock in the top bar starts with the
 deal and stops while the game is paused (menu, phone locked, app left), a hint adds 15 seconds and a shuffle 30. Each level
 has its own leaderboard of the fastest times (`Leaderboard.TIMES`: lowest first, and a name keeps its fastest).

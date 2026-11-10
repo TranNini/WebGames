@@ -17,7 +17,8 @@ import java.util.Set;
 public class LeaderboardController {
     private static final Set<String> GAMES = Set.of("reflex-easy", "reflex-medium", "reflex-hard", "dodge", "math", "mission",
             "solitaire-moves-1", "solitaire-moves-3", "mahjong-easy", "mahjong-medium", "mahjong-hard",
-            "mahjong-easy-nohints", "mahjong-medium-nohints", "mahjong-hard-nohints");
+            "mahjong-easy-nohints", "mahjong-medium-nohints", "mahjong-hard-nohints",
+            "moto-seaside", "moto-canyon", "moto-forest");
     private static final int MAX_NAME_LENGTH = 16;
     private static final int MAX_SCORE = 1_000_000;
 
@@ -40,6 +41,10 @@ public class LeaderboardController {
     @PostMapping
     public List<ScoreEntry> submit(@PathVariable String game, @RequestBody Submission submission) {
         checkGame(game);
+        if (game.startsWith("moto-")) {
+            // Moto Race's times are taken by the server itself, from its own clock (Races)
+            throw new ResponseStatusException(HttpStatus.METHOD_NOT_ALLOWED, "Race times come from the race.");
+        }
         String name = submission.name() == null ? "" : submission.name().trim().replaceAll("\\s+", " ");
         if (name.isEmpty() || name.codePointCount(0, name.length()) > MAX_NAME_LENGTH) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The name needs 1 to 16 characters.");

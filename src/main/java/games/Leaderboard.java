@@ -14,9 +14,11 @@ import java.util.Set;
 @Repository
 public class Leaderboard {
     public static final int MAX_ENTRIES = 20;
-    // Lists where the lowest score is best: Mahjong's times in seconds and Solitaire's moves. On all others the highest is.
+    // Lists where the lowest score is best: Mahjong's times in seconds, Solitaire's moves and Moto Race's times in tenths of a
+    // second (Races puts those in itself). On all others the highest is.
     public static final Set<String> LOWEST_FIRST = Set.of("mahjong-easy", "mahjong-medium", "mahjong-hard",
-            "mahjong-easy-nohints", "mahjong-medium-nohints", "mahjong-hard-nohints", "solitaire-moves-1", "solitaire-moves-3");
+            "mahjong-easy-nohints", "mahjong-medium-nohints", "mahjong-hard-nohints", "solitaire-moves-1", "solitaire-moves-3",
+            "moto-seaside", "moto-canyon", "moto-forest");
 
     private final JdbcClient jdbc;
 

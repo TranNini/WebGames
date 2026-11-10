@@ -99,12 +99,30 @@ same twice in a row). The pick is kept per level. The layout's name is in the to
 those games have their own leaderboards. Otherwise, on Easy and Medium, tiles that can't be taken yet
 have a slightly darker face; on Hard they look like the rest. The score is the time: the clock in the top bar starts with the
 deal and stops while the game is paused (menu, phone locked, app left), a hint adds 15 seconds and a shuffle 30. Each level
-has its own leaderboard of the fastest times (`Leaderboard.TIMES`: lowest first, and a name keeps its fastest).
+has its own leaderboard of the fastest times (`Leaderboard.LOWEST_FIRST`: lowest first, and a name keeps its fastest).
 
 A phone held sideways gets a wide layout, upright a tall one; a game keeps its layout when the phone turns. The game, with
 its time so far, is kept on the device like Solitaire's. The tiles are our own drawings of the usual faces (`faces.js`);
 characters and winds carry a small number or letter in the corner. It has its own music. On a computer: H for a hint, Z or
 Backspace undoes, Esc pauses.
+
+## Moto Race
+
+A race on motorcycles against friends, each on their own phone, each seeing the road from behind their own bike. One
+taps **New race**; the others see it under Races waiting and tap **Join** (up to 6 riders). The one who opened it picks
+the track and starts; alone, it is **Ride alone**. A countdown, then three laps. The bike speeds up by itself: hold the
+left or right half of the screen to steer, both to brake (on a computer: the arrow keys, Down or Space to brake). Bends
+push the bike outwards, the more the faster it goes; off the road it is slow, and a tree or a rock there almost stops it.
+Riding right behind another bike gives up to 10% more speed; running into one slows you down. Three tracks of our own:
+**Seaside** (long bends), **Canyon** (sharp turns, steep hills) and **Forest** (winding, at dusk).
+
+The phones talk to the server over a WebSocket (`/api/race`, checked by the access code like everything else). Each phone
+rides its own bike (`track.js`) and sends where it is 15 times a second; the server passes that on to the others with how
+old it is, and each phone draws the others where they should be now. The server counts the start down, keeps the order
+at the finish by its own clock, gives the others a minute after the winner, and puts each finish on the track's
+leaderboard of fastest times (`moto-seaside`, `moto-canyon`, `moto-forest`; only the server adds to them). The menu
+doesn't stop the race. Afterwards the one who opened the race can start another with the same riders. It has its own
+music and an engine sound that follows the speed.
 
 ## Leaderboards
 
@@ -139,6 +157,8 @@ and open `http://<the Mac's address>:8083`.
 | `src/main/resources/static/mission/` | Mission: Meow |
 | `src/main/resources/static/solitaire/` | Solitaire |
 | `src/main/resources/static/mahjong/` | Mahjong (`board.js` the rules, `faces.js` the tiles) |
+| `src/main/resources/static/moto/` | Moto Race (`track.js` the tracks and riding, `scene.js` the drawing, `moto.js` the game) |
+| `src/main/java/games/Races.java`, `RaceSocket.java` | Moto Race's races, over the WebSocket `/api/race` |
 | `src/main/java/games/Leaderboard.java` | the rules of the list, in SQLite (`games.db`) |
 | `src/main/java/games/LeaderboardController.java` | `GET`/`POST /api/leaderboard/{game}` |
 | `src/main/java/games/AccessCode.java`, `AccessFilter.java`, `LoginController.java` | the access code |

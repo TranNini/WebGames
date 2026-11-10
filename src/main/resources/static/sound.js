@@ -122,6 +122,27 @@ const Sound = (() => {
                 {bass: 174.61, notes: [1046.5, 880, 1046.5, 1174.66, 1396.91, null, 1174.66, 1046.5]},
                 {bass: 110, notes: [880, null, 1108.73, null, 1318.51, 1108.73, 880, 659.25]}
             ]
+        },
+        // Moto Race: a driving riff in E minor over a steady beat, then a tune on top. Quicker as the bike gets faster.
+        throttle: {
+            slowBpm: 148,
+            fastBpm: 172,
+            wave: 'sawtooth',
+            noteSeconds: 0.11,
+            noteLoudness: 0.09,
+            bassEvery: 2,
+            bassSeconds: 0.2,
+            beat: true,
+            bars: [
+                {bass: 164.81, notes: [659.25, 493.88, 659.25, 783.99, 659.25, 493.88, 587.33, 659.25]},
+                {bass: 130.81, notes: [659.25, 523.25, 659.25, 783.99, 659.25, 523.25, 493.88, 523.25]},
+                {bass: 146.83, notes: [739.99, 587.33, 440, 587.33, 739.99, 880, 739.99, 587.33]},
+                {bass: 123.47, notes: [739.99, 587.33, 493.88, 587.33, 739.99, 987.77, 880, 739.99]},
+                {bass: 164.81, notes: [987.77, null, 783.99, 880, 987.77, null, 1318.51, 1174.66]},
+                {bass: 130.81, notes: [1046.5, null, 987.77, 783.99, 659.25, null, 783.99, 1046.5]},
+                {bass: 146.83, notes: [1174.66, null, 880, 739.99, 1174.66, 1318.51, 1174.66, 880]},
+                {bass: 123.47, notes: [987.77, 880, 739.99, 587.33, 493.88, null, 587.33, 739.99]}
+            ]
         }
     };
 
@@ -281,6 +302,49 @@ const Sound = (() => {
         speed = value;
     }
 
+    // Moto Race's engine: a growl whose pitch follows the speed. level: 0 (standing) to 1 (top speed), null: off
+    let engine = null;
+
+    function setEngine(level) {
+        if (!ctx) {
+            return;
+        }
+        const now = ctx.currentTime;
+        if (level === null) {
+            if (engine) {
+                engine.gain.gain.setTargetAtTime(0, now, 0.05);
+                engine.oscillators.forEach(oscillator => oscillator.stop(now + 0.4));
+                engine = null;
+            }
+            return;
+        }
+        if (!engine) {
+            const gain = ctx.createGain();
+            gain.gain.value = 0;
+            const filter = ctx.createBiquadFilter();
+            filter.type = 'lowpass';
+            const growl = ctx.createOscillator();
+            growl.type = 'sawtooth';
+            const rumble = ctx.createOscillator();
+            rumble.type = 'square';
+            growl.connect(filter);
+            rumble.connect(filter);
+            filter.connect(gain).connect(soundGain);
+            growl.start();
+            rumble.start();
+            engine = {gain, filter, oscillators: [growl, rumble], level: -1};
+        }
+        if (Math.abs(level - engine.level) < 0.005) {
+            return;
+        }
+        engine.level = level;
+        const pitch = 85 + level * 170;
+        engine.oscillators[0].frequency.setTargetAtTime(pitch, now, 0.05);
+        engine.oscillators[1].frequency.setTargetAtTime(pitch / 2, now, 0.05);
+        engine.filter.frequency.setTargetAtTime(500 + level * 1500, now, 0.08);
+        engine.gain.gain.setTargetAtTime(0.05 + level * 0.07, now, 0.08);
+    }
+
     // While the page isn't visible (phone locked, other app)
     function sleep() {
         if (ctx) {
@@ -288,5 +352,5 @@ const Sound = (() => {
         }
     }
 
-    return {unlock, setSoundVolume, setMusicVolume, tap, meow, warn, siren, miss, start, gameOver, startMusic, stopMusic, setMusicSpeed, setTune, sleep};
+    return {unlock, setSoundVolume, setMusicVolume, tap, meow, warn, siren, miss, start, gameOver, startMusic, stopMusic, setMusicSpeed, setTune, setEngine, sleep};
 })();

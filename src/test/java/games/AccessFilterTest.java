@@ -102,8 +102,9 @@ class AccessFilterTest {
 
     @Test
     void solitaireHasALeaderboardForEachMode() throws Exception {
-        mvc.perform(get("/api/leaderboard/solitaire-1")).andExpect(status().isOk());
-        mvc.perform(get("/api/leaderboard/solitaire-3")).andExpect(status().isOk());
+        mvc.perform(get("/api/leaderboard/solitaire-moves-1")).andExpect(status().isOk());
+        mvc.perform(get("/api/leaderboard/solitaire-moves-3")).andExpect(status().isOk());
+        mvc.perform(get("/api/leaderboard/solitaire-1")).andExpect(status().isNotFound()); // the old lists of games won
     }
 
     @Test

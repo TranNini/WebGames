@@ -31,7 +31,7 @@ const savedKey = () => 'solitaire-game-' + solitaireSettings.draw;
 
 function stats() {
     const all = remembered('solitaire-stats');
-    return all[solitaireSettings.draw] || {played: 0, won: 0};
+    return {played: 0, won: 0, ...all[solitaireSettings.draw]}; // best: the fewest moves of a won game
 }
 
 function saveStats(changed) {
@@ -64,8 +64,9 @@ function showIntro() {
     const saved = savedGame();
     $('start').textContent = saved ? 'Continue' : 'Deal';
     $('new-deal').hidden = !saved;
-    const {played, won} = stats();
-    $('stats').textContent = played ? 'Won ' + won + ' of ' + played + ' with ' + MODES[solitaireSettings.draw] : '';
+    const {played, won, best} = stats();
+    $('stats').textContent = played ? 'Won ' + won + ' of ' + played + ' with ' + MODES[solitaireSettings.draw]
+        + (best ? ' · fewest moves ' + best : '') : '';
 }
 
 function newGame() {
@@ -299,11 +300,10 @@ function win() {
     finishing = true; // no more taps while the last card lands
     forgetGame();
     const counted = stats();
-    const won = counted.won + 1;
-    saveStats({...counted, won});
+    saveStats({...counted, won: counted.won + 1, best: Math.min(counted.best || Infinity, moves)});
     setTimeout(() => {
         finishing = false;
-        score = won; // the leaderboard counts games won
+        score = moves; // the leaderboard has the fewest moves first
         finishGame('In ' + moves + ' moves', null, true);
     }, MOVE_MS + 300);
 }
@@ -505,6 +505,7 @@ setUpGame({
         layout(false);
         checkEnd();
     },
-    leaderboardUrl: () => '/api/leaderboard/solitaire-' + solitaireSettings.draw,
-    leaderboardTitle: () => 'Games won · ' + MODES[solitaireSettings.draw]
+    leaderboardUrl: () => '/api/leaderboard/solitaire-moves-' + solitaireSettings.draw,
+    leaderboardTitle: () => 'Fewest moves · ' + MODES[solitaireSettings.draw],
+    lowerIsBetter: true
 });

@@ -252,7 +252,7 @@ function shownScore(value) {
     return game.formatScore ? game.formatScore(value) : value;
 }
 
-// A game whose score is a time wants it low (lowerIsBetter)
+// A game whose score is a time or a count of moves wants it low (lowerIsBetter)
 function better(a, b) {
     return game.lowerIsBetter ? a < b : a > b;
 }
@@ -406,7 +406,7 @@ function setUpShellEvents() {
 
 // screens: the ids of the game's own screens. newGame: back to its first screen. resume: goes on after the menu.
 // leaderboardUrl, leaderboardTitle: functions, as a game may have several lists. formatScore (optional): how a score is shown.
-// lowerIsBetter (optional): the score is a time, and the server's list has the fastest first (Leaderboard.TIMES).
+// lowerIsBetter (optional): the lowest score is best (a time, or a count of moves), as on the server's list (Leaderboard.LOWEST_FIRST).
 function setUpGame(theGame) {
     game = theGame;
     loadSettings();

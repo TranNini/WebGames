@@ -175,4 +175,14 @@ class LeaderboardTest {
         assertEquals("Ben", leaderboard.top("mahjong-medium-nohints").get(0).name());
         assertEquals(List.of(), leaderboard.top("mahjong-medium"), "a list of its own");
     }
+
+    @Test
+    void onSolitaireTheFewestMovesAreBest() {
+        leaderboard.submit("solitaire-moves-1", "Anna", 140);
+        leaderboard.submit("solitaire-moves-1", "Ben", 120);
+        leaderboard.submit("solitaire-moves-1", "anna", 160);
+        assertEquals(List.of(new ScoreEntry(1, "Ben", 120), new ScoreEntry(2, "Anna", 140)), leaderboard.top("solitaire-moves-1"),
+                "more moves don't replace fewer");
+        assertEquals(List.of(), leaderboard.top("solitaire-moves-3"), "Draw 3 has its own list");
+    }
 }

@@ -79,8 +79,9 @@ next column that fits, so there is nothing to drag. The deck and Undo are at the
 and once it is empty, to turn the cards over again (as often as you like). A covered card turns over by itself, Undo has no
 limit, and when all cards are face up and none are left to draw, they go up on their own. It has its own unhurried music (`TUNES` in `sound.js`).
 
-**Draw 1** turns over one card at a time, **Draw 3** three. Each has its own leaderboard of games won, counted on the device
-(so Safari and a home screen app count apart). The game is kept on the device: leave whenever you like and Continue later.
+**Draw 1** turns over one card at a time, **Draw 3** three. Each has its own leaderboard of the fewest moves to win a game:
+every card moved counts, and the deck too, while Undo takes its move back. The games played and won, and the fewest moves,
+are counted on the device (so Safari and a home screen app count apart). The game is kept on the device: leave whenever you like and Continue later.
 Restart in the settings gives the deal up. A computer works too: Space draws, Z or Backspace undoes, Esc pauses.
 
 ## Mahjong

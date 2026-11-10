@@ -14,9 +14,9 @@ import java.util.Set;
 @Repository
 public class Leaderboard {
     public static final int MAX_ENTRIES = 20;
-    // Lists of times in seconds, where the fastest is best. On all others the highest score is best.
-    public static final Set<String> TIMES = Set.of("mahjong-easy", "mahjong-medium", "mahjong-hard",
-            "mahjong-easy-nohints", "mahjong-medium-nohints", "mahjong-hard-nohints");
+    // Lists where the lowest score is best: Mahjong's times in seconds and Solitaire's moves. On all others the highest is.
+    public static final Set<String> LOWEST_FIRST = Set.of("mahjong-easy", "mahjong-medium", "mahjong-hard",
+            "mahjong-easy-nohints", "mahjong-medium-nohints", "mahjong-hard-nohints", "solitaire-moves-1", "solitaire-moves-3");
 
     private final JdbcClient jdbc;
 
@@ -74,11 +74,11 @@ public class Leaderboard {
 
     // The best first; a fixed text, never from the request
     private static String best(String game) {
-        return TIMES.contains(game) ? "score ASC" : "score DESC";
+        return LOWEST_FIRST.contains(game) ? "score ASC" : "score DESC";
     }
 
     private static boolean isBetter(String game, int score, int than) {
-        return TIMES.contains(game) ? score < than : score > than;
+        return LOWEST_FIRST.contains(game) ? score < than : score > than;
     }
 
     private record Row(String name, int score) {

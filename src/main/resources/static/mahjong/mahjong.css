@@ -100,6 +100,69 @@
     flex: none;
 }
 
+/* Random and the level's layouts, each with its outline */
+.layouts {
+    flex: none;
+    width: 100%;
+    max-width: 520px;
+    align-self: center;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.layout-choice {
+    min-height: 64px;
+    padding: 6px 2px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    border: 2px solid var(--field);
+    border-radius: 12px;
+    background: transparent;
+    color: var(--soft-text);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.1;
+    text-align: center;
+    cursor: pointer;
+}
+
+.layout-choice[aria-pressed="true"] {
+    border-color: var(--text);
+    background: var(--card);
+    color: var(--text);
+    font-weight: 600;
+}
+
+.layout-preview {
+    width: 100%;
+    height: 30px;
+}
+
+.layout-preview .h1 { fill: #d9cfb6; }
+.layout-preview .h2 { fill: #b8a77d; }
+.layout-preview .h3 { fill: #94804f; }
+.layout-preview .h4 { fill: #6e5c31; }
+
+/* Darker steps on the sand, where the light ones would fade away */
+:root[data-theme="light"] .layout-preview .h1 { fill: #c4b48f; }
+:root[data-theme="light"] .layout-preview .h2 { fill: #a08b5c; }
+:root[data-theme="light"] .layout-preview .h3 { fill: #7c6838; }
+:root[data-theme="light"] .layout-preview .h4 { fill: #57461f; }
+
+.layout-preview.random {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    padding: 3px 0;
+}
+
 .intro-text {
     flex: 1;
     min-height: 0;
@@ -113,11 +176,12 @@
 
 .intro-text .tile-icon.big {
     margin-top: auto;
-    width: min(96px, 13vh);
-    height: min(128px, 17.3vh);
-    border-radius: 12px;
-    box-shadow: 3px 3px 0 var(--tile-rim), 6px 6px 0 var(--tile-back), 8px 8px 0 var(--tile-back);
-    font-size: min(64px, 8.6vh);
+    flex: none;
+    width: min(72px, 9vh);
+    height: min(96px, 12vh);
+    border-radius: 10px;
+    box-shadow: 2px 2px 0 var(--tile-rim), 5px 5px 0 var(--tile-back), 6px 6px 0 var(--tile-back);
+    font-size: min(48px, 6vh);
 }
 
 .intro-text h1 {
@@ -154,7 +218,7 @@
 @media (orientation: landscape) and (max-height: 500px) {
     .intro-text {
         display: grid;
-        grid-template-columns: auto minmax(0, 460px);
+        grid-template-columns: minmax(0, 680px);
         justify-content: center;
         align-content: safe center; /* text that doesn't fit scrolls, from the top */
         column-gap: 28px;
@@ -162,12 +226,9 @@
         text-align: left;
     }
 
+    /* No room for the picture beside the text here */
     .intro-text .tile-icon.big {
-        grid-row: 1 / span 4;
-        margin: 0;
-        width: min(72px, 20vh);
-        height: min(96px, 27vh);
-        font-size: min(48px, 13vh);
+        display: none;
     }
 
     .intro-text h1 {
@@ -204,7 +265,8 @@
     .intro {
         display: grid;
         grid-template-columns: minmax(0, 1fr) auto;
-        grid-template-rows: auto minmax(0, 1fr) auto;
+        grid-template-rows: auto auto minmax(0, 1fr) auto;
+        row-gap: 10px;
         column-gap: 20px;
     }
 
@@ -217,9 +279,25 @@
         gap: 12px;
     }
 
+    .layouts,
     .intro-text,
     .intro-buttons {
         grid-column: 1 / -1;
+    }
+
+    .layouts {
+        max-width: none;
+    }
+
+    .layout-choice {
+        min-height: 44px;
+        flex-direction: row;
+        gap: 8px;
+    }
+
+    .layout-preview {
+        width: 40px;
+        height: 24px;
     }
 
     .no-hints small {

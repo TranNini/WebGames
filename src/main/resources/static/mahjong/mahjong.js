@@ -8,6 +8,7 @@ const LEVELS = {
     medium: {name: 'Medium', shade: true},
     hard: {name: 'Hard', shade: false}
 };
+const RANDOM = 'Random';
 const HINT_SECONDS = 15;
 const SHUFFLE_SECONDS = 30;
 const DEPTH = 0.085; // how far a layer sits up and left of the one below it, in tile widths
@@ -113,13 +114,45 @@ function showIntro() {
         button.setAttribute('aria-pressed', String(button.dataset.level === mahjongSettings.level));
     }
     $('no-hints').checked = mahjongSettings.noHints;
+    showLayoutChoices();
     const saved = savedGame();
-    $('start').textContent = saved ? 'Continue' : 'Deal';
+    $('start').textContent = saved ? 'Continue ' + Board.layoutOf(mahjongSettings.level, saved.layout).name : 'Deal';
     $('new-deal').hidden = !saved;
     const {played, won, best} = stats();
     $('stats').textContent = played ? 'Cleared ' + won + ' of ' + played + ' on ' + level().name
         + (mahjongSettings.noHints ? ' without hints' : '')
         + (best ? ' · best ' + formatTime(best) : '') : '';
+}
+
+const upright = () => innerWidth <= innerHeight * 1.1;
+
+// Random and the level's layouts, each with a small outline of the shape a deal on this screen would get:
+// the higher the stack, the darker the place
+function showLayoutChoices() {
+    const shuffleIcon = '<svg class="layout-preview random" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 3h5v5"></path>'
+        + '<path d="M4 20 21 3"></path><path d="M21 16v5h-5"></path><path d="m15 15 6 6"></path><path d="M4 4l5 5"></path></svg>';
+    const choices = [{name: RANDOM, picture: shuffleIcon}, ...Board.LAYOUTS[mahjongSettings.level].map(layout => ({
+        name: layout.name,
+        picture: outline(layout[upright() ? 'upright' : 'sideways'])
+    }))];
+    $('layouts').replaceChildren(...choices.map(({name, picture}) => {
+        const button = document.createElement('button');
+        button.className = 'layout-choice';
+        button.dataset.layout = name;
+        button.setAttribute('aria-pressed', String(name === pickedLayout()));
+        button.innerHTML = picture + '<span></span>';
+        button.querySelector('span').textContent = name;
+        return button;
+    }));
+}
+
+function outline(map) {
+    const rects = map.flatMap((row, r) => [...row].flatMap((cell, c) => {
+        const height = Number(cell) || 0;
+        return height ? ['<rect x="' + c * 3 + '" y="' + r * 4 + '" width="2.6" height="3.6" rx="0.4" class="h' + Math.min(height, 4) + '"></rect>'] : [];
+    }));
+    return '<svg class="layout-preview" viewBox="-0.2 -0.2 ' + (map[0].length * 3) + ' ' + (map.length * 4) + '" aria-hidden="true">'
+        + rects.join('') + '</svg>';
 }
 
 function newGame() {
@@ -154,8 +187,14 @@ function useLayout(name, newShape) {
     boardEl.replaceChildren(...tileEls);
 }
 
-// One of the level's layouts at random, but not the one played last
+// The layout picked on the first screen for this level, or Random
+const pickedLayout = () => (mahjongSettings.layouts || {})[mahjongSettings.level] || RANDOM;
+
+// The picked layout, or with Random one of the level's layouts, but not the one played last
 function nextLayout() {
+    if (pickedLayout() !== RANDOM) {
+        return Board.layoutOf(mahjongSettings.level, pickedLayout()).name;
+    }
     const last = (mahjongSettings.lastLayout || {})[mahjongSettings.level];
     const choices = Board.LAYOUTS[mahjongSettings.level].filter(layout => layout.name !== last);
     const name = choices[Math.floor(Math.random() * choices.length)].name;
@@ -166,7 +205,7 @@ function nextLayout() {
 
 function deal() {
     // Sideways screens get the wide shape. A deal keeps its shape when the screen turns; it just gets smaller.
-    useLayout(nextLayout(), innerWidth > innerHeight * 1.1 ? 'sideways' : 'upright');
+    useLayout(nextLayout(), upright() ? 'upright' : 'sideways');
     faces = Board.deal(tiles, near);
     gone = tiles.map(() => false);
     history = [];
@@ -445,6 +484,20 @@ function setUpEvents() {
             showIntro();
         });
     }
+    $('layouts').addEventListener('click', event => {
+        const button = event.target.closest('.layout-choice');
+        if (button) {
+            mahjongSettings.layouts = {...mahjongSettings.layouts, [mahjongSettings.level]: button.dataset.layout};
+            remember('mahjong-settings', mahjongSettings);
+            showIntro();
+        }
+    });
+    // The outlines follow the screen: a phone turned sideways gets the wide shapes
+    addEventListener('resize', () => {
+        if (state === 'intro') {
+            showLayoutChoices();
+        }
+    });
     $('no-hints').addEventListener('change', () => {
         mahjongSettings.noHints = $('no-hints').checked;
         remember('mahjong-settings', mahjongSettings);

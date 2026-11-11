@@ -119,7 +119,7 @@
     font-weight: 600;
 }
 
-/* The three tracks, each with its colors */
+/* The three courses, each on its picture */
 .tracks {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -127,7 +127,7 @@
 }
 
 .track-choice {
-    min-height: 76px;
+    min-height: 92px;
     padding: 8px 6px;
     display: flex;
     flex-direction: column;
@@ -136,22 +136,25 @@
     gap: 4px;
     border: 3px solid transparent;
     border-radius: 18px;
-    color: #17161c;
+    background: center / cover no-repeat;
+    color: #ffffff;
     font: inherit;
     font-size: 18px;
     font-weight: 600;
     line-height: 1.1;
+    text-align: center;
+    text-shadow: 0 1px 3px rgb(0 0 0 / 0.85), 0 0 10px rgb(0 0 0 / 0.5);
     cursor: pointer;
 }
 
 .track-choice small {
     font-size: 13px;
-    font-weight: 400;
+    font-weight: 500;
 }
 
-.track-choice.seaside { background: linear-gradient(#8fcdf2, #e9d7a4); }
-.track-choice.canyon { background: linear-gradient(#f6b27a, #d9a066); }
-.track-choice.forest { background: linear-gradient(#a77a9a, #5f9a63); color: #fff; }
+.track-choice.sakura { background-image: url(art/course-sakura.webp); }
+.track-choice.city { background-image: url(art/course-city.webp); }
+.track-choice.mountain { background-image: url(art/course-mountain.webp); }
 
 .track-choice[aria-pressed="true"] {
     border-color: var(--text);
@@ -263,7 +266,7 @@
     filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.5));
 }
 
-/* The bar: the lap left, the place in the middle; neither outside the race */
+/* The bar: the way to the goal left, the place in the middle; neither outside the race */
 .screen .strikes {
     display: none;
 }
@@ -293,9 +296,60 @@
     visibility: hidden;
 }
 
+/* Everyone between the start and the goal */
+.trip {
+    position: absolute;
+    top: calc(max(env(safe-area-inset-top), 12px) + 58px);
+    left: max(env(safe-area-inset-left), 22px);
+    right: max(env(safe-area-inset-right), 22px);
+    height: 4px;
+    border-radius: 2px;
+    background: rgb(255 255 255 / 0.55);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.4);
+    pointer-events: none;
+}
+
+.trip::before,
+.trip::after {
+    content: "";
+    position: absolute;
+    top: -5px;
+    width: 4px;
+    height: 14px;
+    border-radius: 2px;
+    background: #ffffff;
+}
+
+.trip::before {
+    left: -2px;
+}
+
+.trip::after {
+    right: -2px;
+    background: repeating-linear-gradient(#22242a 0 3.5px, #ffffff 3.5px 7px);
+}
+
+.trip-dot {
+    position: absolute;
+    top: 50%;
+    width: 10px;
+    height: 10px;
+    margin: -5px 0 0 -5px;
+    border-radius: 50%;
+    box-shadow: 0 0 0 1.5px rgb(255 255 255 / 0.85);
+}
+
+.trip-dot.mine {
+    z-index: 1;
+    width: 14px;
+    height: 14px;
+    margin: -7px 0 0 -7px;
+    box-shadow: 0 0 0 2.5px #ffffff;
+}
+
 .standings {
     position: absolute;
-    top: calc(max(env(safe-area-inset-top), 12px) + 64px);
+    top: calc(max(env(safe-area-inset-top), 12px) + 76px);
     left: max(env(safe-area-inset-left), 12px);
     margin: 0;
     padding: 0;
@@ -429,10 +483,14 @@
     }
 
     .track-choice {
-        min-height: 56px;
+        min-height: 64px;
+    }
+
+    .trip {
+        top: calc(max(env(safe-area-inset-top), 12px) + 48px);
     }
 
     .standings {
-        top: calc(max(env(safe-area-inset-top), 12px) + 50px);
+        top: calc(max(env(safe-area-inset-top), 12px) + 64px);
     }
 }

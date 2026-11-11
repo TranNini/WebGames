@@ -18,7 +18,7 @@ public class Leaderboard {
     // second (Races puts those in itself). On all others the highest is.
     public static final Set<String> LOWEST_FIRST = Set.of("mahjong-easy", "mahjong-medium", "mahjong-hard",
             "mahjong-easy-nohints", "mahjong-medium-nohints", "mahjong-hard-nohints", "solitaire-moves-1", "solitaire-moves-3",
-            "moto-seaside", "moto-canyon", "moto-forest");
+            "moto-sakura", "moto-city", "moto-mountain");
 
     private final JdbcClient jdbc;
 

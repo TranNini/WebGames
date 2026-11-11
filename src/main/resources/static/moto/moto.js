@@ -1,11 +1,11 @@
 // Moto Race: a race on motorcycles against friends, each on their own phone with their own view from behind their bike.
 // The phones meet through the server (/api/race, Races.java): one opens a race, the others join it from the list, the one
-// who opened it picks the track and starts. Each phone rides its own bike (track.js) and sends where it is 15 times a
-// second; the others' bikes are shown a little behind time, smoothly between their messages. The server keeps the order
-// at the finish, by its own clock, and puts the times on the track's leaderboard.
+// who opened it picks the course and starts. A course goes from a start to a goal, like a trip together. Each phone rides
+// its own bike (track.js) and sends where it is 15 times a second; the others' bikes are worked out to now from their last
+// message, smoothly. The server keeps the order at the goal, by its own clock, and puts the times on the course's leaderboard.
 const SEND_SECONDS = 1 / 15;
 const ON_THE_WAY_MS = 40; // about how long a message takes from the server to a phone
-const motoSettings = {track: 'seaside', steeredBefore: false, ...remembered('moto-settings')};
+const motoSettings = {track: 'sakura', steeredBefore: false, ...remembered('moto-settings')};
 
 let socket = null;
 let me = 0;
@@ -278,7 +278,6 @@ function startRide(message) {
     const own = room.riders.find(rider => rider.id === me) || {color: 0};
     race = {
         track,
-        laps: message.laps,
         startAt: now + message.in,
         bike: Track.newBike(message.grid.indexOf(me)),
         color: own.color,
@@ -293,7 +292,8 @@ function startRide(message) {
     $('steer-hint').hidden = motoSettings.steeredBefore;
     setScreen('race');
     Scene.resize();
-    showLap();
+    $('trip').replaceChildren();
+    showTrip([]);
 }
 
 function endRide() {
@@ -378,13 +378,13 @@ function frame(now) {
         }
         const before = Track.segmentAt(track, bike.z);
         const happened = Track.ride(bike, track, input, others, seconds);
-        if (happened === 'crash') {
+        if (happened === 'scrape') {
             Sound.miss();
         } else if (happened === 'bump') {
             Sound.tap(0);
         }
         race.turned = before.bend * bike.speed * seconds * 0.9;
-        if (bike.z >= race.laps * track.length) {
+        if (bike.z >= track.length) {
             race.done = true;
             send({t: 'finish'});
             Sound.start();
@@ -407,7 +407,7 @@ function frame(now) {
     Sound.setEngine(riding || bike.speed > 0 ? bike.speed / Track.TOP_SPEED : 0);
     Sound.setMusicSpeed(bike.speed / Track.TOP_SPEED);
 
-    showLap();
+    showTrip(others);
     showStandings(others);
     $('speed-number').textContent = Math.round(bike.speed * 3.6);
     Scene.draw({track, bike, others, color: race.color, braking: input.brake, turned: race.turned || 0});
@@ -436,13 +436,37 @@ function showCountdown(now) {
     }
 }
 
-function showLap() {
-    const lap = Math.max(1, Math.min(race.laps, Math.floor(race.bike.z / race.track.length) + 1));
-    $('lap').innerHTML = '';
-    $('lap').append('Lap ' + lap + ' ');
-    const of = document.createElement('small');
-    of.textContent = 'of ' + race.laps;
-    $('lap').append(of);
+// How far to the goal, in the bar, and everyone on a line from the start to the goal
+function showTrip(others) {
+    const length = race.track.length;
+    const left = Math.max(0, length - Math.max(0, race.bike.z));
+    const text = race.done ? 'Goal' : left >= 1000 ? (left / 1000).toFixed(1) + ' km' : Math.ceil(left / 10) * 10 + ' m';
+    if ($('lap').dataset.shown !== text) {
+        $('lap').dataset.shown = text;
+        $('lap').replaceChildren(text);
+        if (!race.done) {
+            $('lap').append(Object.assign(document.createElement('small'), {textContent: ' to go'}));
+        }
+    }
+    const riders = [{id: me, color: race.color, z: race.bike.z}, ...others.map(other => ({
+        id: other.id, color: race.others.get(other.id).color, z: other.z
+    }))];
+    const line = $('trip');
+    for (const rider of riders) {
+        let dot = line.querySelector(`[data-id="${rider.id}"]`);
+        if (!dot) {
+            dot = Object.assign(document.createElement('span'), {className: rider.id === me ? 'trip-dot mine' : 'trip-dot'});
+            dot.dataset.id = rider.id;
+            dot.style.background = Scene.RIDER_COLORS[rider.color];
+            line.append(dot);
+        }
+        dot.style.left = (Math.max(0, Math.min(1, rider.z / length)) * 100).toFixed(2) + '%';
+    }
+    for (const dot of line.querySelectorAll('.trip-dot')) {
+        if (!riders.some(rider => String(rider.id) === dot.dataset.id)) {
+            dot.remove();
+        }
+    }
 }
 
 // The places now: who has finished in their order, then the others by how far they are
@@ -559,7 +583,7 @@ async function loadFastest(track) {
 function setUpEvents() {
     $('new-race').addEventListener('click', () => {
         Sound.unlock();
-        send({t: 'create', track: motoSettings.track in Track.TRACKS ? motoSettings.track : 'seaside'});
+        send({t: 'create', track: motoSettings.track in Track.TRACKS ? motoSettings.track : 'sakura'});
     });
     $('start').addEventListener('click', () => {
         Sound.unlock();
@@ -622,7 +646,7 @@ function leaveRace() {
     showLobby();
 }
 
-// The bar: the lap where other games have their X's, the place in the middle
+// The bar: the way to the goal where other games have their X's, the place in the middle
 function setUpBar() {
     const lap = document.createElement('div');
     lap.id = 'lap';
@@ -647,7 +671,7 @@ setUpGame({
     resume() {
         pointers.clear();
     },
-    leaderboardUrl: () => '/api/leaderboard/moto-' + (room ? room.track : 'seaside'),
+    leaderboardUrl: () => '/api/leaderboard/moto-' + (room ? room.track : 'sakura'),
     leaderboardTitle: () => 'Fastest'
 });
 setUpMenuForRace();

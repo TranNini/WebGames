@@ -87,7 +87,7 @@ class RaceSocketTest {
         anna.say("{\"t\":\"hello\",\"name\":\"Anna\"}");
         ben.say("{\"t\":\"hello\",\"name\":\"Ben\"}");
         ben.next("rooms");
-        anna.say("{\"t\":\"create\",\"track\":\"seaside\"}");
+        anna.say("{\"t\":\"create\",\"track\":\"sakura\"}");
         String code = anna.next("room").path("code").asText();
         JsonNode open = ben.next("rooms").path("rooms");
         assertEquals(code, open.get(0).path("code").asText());
@@ -95,7 +95,7 @@ class RaceSocketTest {
         ben.say("{\"t\":\"join\",\"code\":\"" + code + "\"}");
         assertEquals(2, ben.next("room").path("riders").size());
         anna.say("{\"t\":\"start\"}");
-        assertEquals("seaside", ben.next("start").path("track").asText());
+        assertEquals("sakura", ben.next("start").path("track").asText());
         ben.say("{\"t\":\"pos\",\"z\":12,\"x\":1,\"v\":30}");
         // The bikes come 15 times a second, also during the countdown
         JsonNode bikes;
@@ -122,7 +122,7 @@ class RaceSocketTest {
         for (String track : Races.TRACKS) {
             mvc.perform(get("/api/leaderboard/moto-" + track)).andExpect(status().isOk());
         }
-        mvc.perform(post("/api/leaderboard/moto-canyon").contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(post("/api/leaderboard/moto-city").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"name\":\"Fake\",\"score\":1}")).andExpect(status().isMethodNotAllowed());
     }
 }

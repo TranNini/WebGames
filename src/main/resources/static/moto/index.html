@@ -24,7 +24,7 @@
         <div class="page-text">
             <img class="moto-icon" src="/moto/icon.png" alt="">
             <h1>Moto Race</h1>
-            <p>Race your friends on motorcycles, each on their own phone. Open a race, or join one below.</p>
+            <p>Race your friends on motorcycles from the start to the goal, each on their own phone. Open a race, or join one below.</p>
             <h2 class="list-title">Races waiting</h2>
             <div id="races" class="races"></div>
             <p id="status" class="status" role="status"></p>
@@ -36,7 +36,7 @@
     <main id="room" class="page" hidden>
         <div class="page-text">
             <h1 id="room-title">Your race</h1>
-            <div id="tracks" class="tracks" role="group" aria-label="Track"></div>
+            <div id="tracks" class="tracks" role="group" aria-label="Course"></div>
             <h2 class="list-title">Riders <span id="rider-count"></span></h2>
             <ol id="riders" class="riders"></ol>
             <p id="room-note" class="status"></p>
@@ -50,6 +50,7 @@
     <!-- The race: the own view from behind the bike. Hold the left or right half to steer, both to brake. -->
     <main id="race" class="race" hidden>
         <canvas id="canvas" aria-label="The road ahead, seen from behind your motorcycle"></canvas>
+        <div id="trip" class="trip" aria-hidden="true"></div>
         <ol id="standings" class="standings" aria-label="Places"></ol>
         <div id="speed" class="speed"><b id="speed-number">0</b> km/h</div>
         <div id="countdown" class="countdown" aria-live="assertive" hidden></div>

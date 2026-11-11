@@ -302,7 +302,9 @@ const Sound = (() => {
         speed = value;
     }
 
-    // Moto Race's engine: a growl whose pitch follows the speed. level: 0 (standing) to 1 (top speed), null: off
+    // Moto Race's engine: a deep twin's rumble whose pitch follows the speed. level: 0 (standing) to 1 (top speed), null: off.
+    // Two slightly detuned saws (rough), a sine an octave under (body), and a pulse in the loudness that thumps at idle and
+    // smooths out at speed. Phone speakers can't play the low notes themselves: the filter keeps enough overtones to hear them.
     let engine = null;
 
     function setEngine(level) {
@@ -323,26 +325,42 @@ const Sound = (() => {
             gain.gain.value = 0;
             const filter = ctx.createBiquadFilter();
             filter.type = 'lowpass';
-            const growl = ctx.createOscillator();
-            growl.type = 'sawtooth';
-            const rumble = ctx.createOscillator();
-            rumble.type = 'square';
-            growl.connect(filter);
-            rumble.connect(filter);
-            filter.connect(gain).connect(soundGain);
-            growl.start();
-            rumble.start();
-            engine = {gain, filter, oscillators: [growl, rumble], level: -1};
+            filter.Q.value = 3;
+            const pulsing = ctx.createGain(); // the thump: its gain swings around 1 with the pulse below
+            pulsing.gain.value = 1;
+            const pulse = ctx.createOscillator();
+            pulse.type = 'sine';
+            const pulseDepth = ctx.createGain();
+            pulse.connect(pulseDepth).connect(pulsing.gain);
+            const saw = ctx.createOscillator();
+            saw.type = 'sawtooth';
+            const rough = ctx.createOscillator();
+            rough.type = 'sawtooth';
+            const body = ctx.createOscillator();
+            body.type = 'sine';
+            const bodyGain = ctx.createGain();
+            bodyGain.gain.value = 0.8;
+            saw.connect(filter);
+            rough.connect(filter);
+            body.connect(bodyGain).connect(filter);
+            filter.connect(pulsing).connect(gain).connect(soundGain);
+            const oscillators = [saw, rough, body, pulse];
+            oscillators.forEach(oscillator => oscillator.start());
+            engine = {gain, filter, pulseDepth, oscillators, level: -1};
         }
         if (Math.abs(level - engine.level) < 0.005) {
             return;
         }
         engine.level = level;
-        const pitch = 85 + level * 170;
-        engine.oscillators[0].frequency.setTargetAtTime(pitch, now, 0.05);
-        engine.oscillators[1].frequency.setTargetAtTime(pitch / 2, now, 0.05);
-        engine.filter.frequency.setTargetAtTime(500 + level * 1500, now, 0.08);
-        engine.gain.gain.setTargetAtTime(0.05 + level * 0.07, now, 0.08);
+        const [saw, rough, body, pulse] = engine.oscillators;
+        const pitch = 32 + level * 86;
+        saw.frequency.setTargetAtTime(pitch, now, 0.06);
+        rough.frequency.setTargetAtTime(pitch * 1.013, now, 0.06);
+        body.frequency.setTargetAtTime(pitch / 2, now, 0.06);
+        pulse.frequency.setTargetAtTime(pitch / 4, now, 0.06);
+        engine.pulseDepth.gain.setTargetAtTime(0.55 * (1 - level) + 0.1, now, 0.08);
+        engine.filter.frequency.setTargetAtTime(380 + level * 900, now, 0.08);
+        engine.gain.gain.setTargetAtTime(0.05 + level * 0.05, now, 0.08);
     }
 
     // While the page isn't visible (phone locked, other app)

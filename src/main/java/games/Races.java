@@ -24,12 +24,12 @@ import java.util.function.LongSupplier;
 @Component
 public class Races {
     public static final int MAX_RIDERS = 6;
-    public static final Set<String> TRACKS = Set.of("seaside", "canyon", "forest");
-    public static final int LAPS = 3;
+    // The courses, from a start to a goal (track.js has their roads)
+    public static final Set<String> TRACKS = Set.of("sakura", "city", "mountain");
     static final long COUNTDOWN_MS = 4000;
     // The others have this long to finish after the winner
     static final long AFTER_THE_WINNER_MS = 60_000;
-    // Faster than any bike can ride three laps: such a finish isn't taken
+    // Faster than any bike can ride a course: such a finish isn't taken
     static final long SHORTEST_RACE_MS = 30_000;
     private static final int MAX_NAME_LENGTH = 16;
     private static final String CODE_LETTERS = "BCDFGHJKLMNPQRSTVWXZ";
@@ -274,7 +274,7 @@ public class Races {
             each.speed = 0;
             grid.add(each.id);
         }
-        sendToRoom(room, Map.of("t", "start", "in", COUNTDOWN_MS, "track", room.track, "laps", LAPS, "grid", grid));
+        sendToRoom(room, Map.of("t", "start", "in", COUNTDOWN_MS, "track", room.track, "grid", grid));
         sendRoomsToLobby();
     }
 

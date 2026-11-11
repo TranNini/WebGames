@@ -108,19 +108,26 @@ Backspace undoes, Esc pauses.
 
 ## Moto Race
 
-A race on motorcycles against friends, each on their own phone, each seeing the road from behind their own bike. One
-taps **New race**; the others see it under Races waiting and tap **Join** (up to 6 riders). The one who opened it picks
-the track and starts; alone, it is **Ride alone**. A countdown, then three laps. The bike speeds up by itself: hold the
-left or right half of the screen to steer, both to brake (on a computer: the arrow keys, Down or Space to brake). Bends
-push the bike outwards, the more the faster it goes; off the road it is slow, and a tree or a rock there almost stops it.
-Riding right behind another bike gives up to 10% more speed; running into one slows you down. Three tracks of our own:
-**Seaside** (long bends), **Canyon** (sharp turns, steep hills) and **Forest** (winding, at dusk).
+A race on motorcycles against friends, each on their own phone, each seeing the road from behind their own bike: a trip
+together from a start to a goal. One taps **New race**; the others see it under Races waiting and tap **Join** (up to 6
+riders). The one who opened it picks the course and starts; alone, it is **Ride alone**. A countdown, then from the START
+banner to the GOAL, about one and a half minutes; the bar shows how far it still is, and a line under it where everyone
+is. The bike speeds up by itself: hold the left or right half of the screen to steer, both to brake (on a computer: the
+arrow keys, Down or Space to brake). Bends push the bike outwards, the more the faster it goes; walls, hedges, fences and
+guardrails line the road, and riding into one slows you down. Riding right behind another bike gives up to 10% more
+speed; running into one slows you down.
+
+The three courses follow the user's pictures (2026-11-11): **Sakura River** (along the river under cherry trees, from day
+into night: the user's day and night pictures as one ride), **Neon City** (shop fronts and neon at night, under an overpass)
+and **Mountain Pass** (up a winding road at sunset, a stone wall on one side and the valley on the other). The far view,
+the walls, trees, lanterns and signs are pieces of those pictures (`static/moto/art/`, cut, straightened and painted by a
+script that is not kept in the repo); the road, fences, lamps and their glow on the wet road are drawn in code.
 
 The phones talk to the server over a WebSocket (`/api/race`, checked by the access code like everything else). Each phone
 rides its own bike (`track.js`) and sends where it is 15 times a second; the server passes that on to the others with how
 old it is, and each phone draws the others where they should be now. The server counts the start down, keeps the order
-at the finish by its own clock, gives the others a minute after the winner, and puts each finish on the track's
-leaderboard of fastest times (`moto-seaside`, `moto-canyon`, `moto-forest`; only the server adds to them). The menu
+at the goal by its own clock, gives the others a minute after the winner, and puts each finish on the course's
+leaderboard of fastest times (`moto-sakura`, `moto-city`, `moto-mountain`; only the server adds to them). The menu
 doesn't stop the race. Afterwards the one who opened the race can start another with the same riders. It has its own
 music and an engine sound that follows the speed.
 
@@ -157,7 +164,7 @@ and open `http://<the Mac's address>:8083`.
 | `src/main/resources/static/mission/` | Mission: Meow |
 | `src/main/resources/static/solitaire/` | Solitaire |
 | `src/main/resources/static/mahjong/` | Mahjong (`board.js` the rules, `faces.js` the tiles) |
-| `src/main/resources/static/moto/` | Moto Race (`track.js` the tracks and riding, `scene.js` the drawing, `moto.js` the game) |
+| `src/main/resources/static/moto/` | Moto Race (`track.js` the courses and riding, `scene.js` the drawing, `moto.js` the game, `art/` the pieces of the user's pictures) |
 | `src/main/java/games/Races.java`, `RaceSocket.java` | Moto Race's races, over the WebSocket `/api/race` |
 | `src/main/java/games/Leaderboard.java` | the rules of the list, in SQLite (`games.db`) |
 | `src/main/java/games/LeaderboardController.java` | `GET`/`POST /api/leaderboard/{game}` |

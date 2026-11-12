@@ -605,3 +605,14 @@
         top: calc(max(env(safe-area-inset-top), 12px) + 64px);
     }
 }
+
+/* Bigger screens: the top bar is taller (game.css), so the trip line and the places sit lower */
+@media (min-width: 700px) and (min-height: 600px) {
+    .trip {
+        top: calc(max(env(safe-area-inset-top), 24px) + 84px);
+    }
+
+    .standings {
+        top: calc(max(env(safe-area-inset-top), 24px) + 102px);
+    }
+}

@@ -229,16 +229,19 @@ const Scene = (() => {
         const night = nightOf(track, bike.z);
         const look = lookFor(track.key, night);
         const upright = height > width;
-        const horizon = height * (upright ? 0.3 : 0.38);
-        const bikeY = height * 0.86;
+        // Sideways, the camera comes closer: the road and the bikes fill more of the wide screen, with less sky
+        const horizon = height * (upright ? 0.3 : 0.33);
+        const bikeY = height * (upright ? 0.86 : 0.9);
         // The road at the bike takes most of the width; the camera's height follows from where the bike is on screen
-        const focal = Math.min(width, height * 1.7) * 0.74 * CAMERA_BACK / (2 * Track.ROAD);
+        const focal = (upright ? width * 0.74 : Math.min(width * 0.86, height * 2.2)) * CAMERA_BACK / (2 * Track.ROAD);
         const cameraHeight = (bikeY - horizon) * CAMERA_BACK / focal;
         const cameraZ = bike.z - CAMERA_BACK;
         const cameraY = Track.heightAt(track, bike.z) + cameraHeight;
         const cameraX = bike.x;
         // Bikes are drawn bigger than they are, to be seen well, but the own one no taller than a fifth of the screen
-        const bikeScale = Math.min(BIKE_SCALE, height * 0.21 / 1.8 / (focal / CAMERA_BACK));
+        // (a phone sideways, where the screen is low: a third; a tablet sideways: a quarter)
+        const tallest = upright ? 0.21 : height < 500 ? 0.32 : 0.24;
+        const bikeScale = Math.min(BIKE_SCALE, height * tallest / 1.8 / (focal / CAMERA_BACK));
 
         skyShift += view.turned;
         drawSky(track, look, night, horizon);

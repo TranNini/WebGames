@@ -260,9 +260,56 @@ const Track = (() => {
         return ride(bike, track, {steer, brake: bike.speed > wanted + 2, gas: bike.speed < wanted}, [], seconds);
     }
 
+    // The computer riders, in the order they are in the race: how fast they like to go (a share of the top speed), where
+    // on the road they like to ride, and how much their line wanders
+    const COMPUTERS = [
+        {skill: 0.97, lane: -1.4, wobble: 0.5},
+        {skill: 0.92, lane: 1.6, wobble: 0.8},
+        {skill: 0.95, lane: -0.4, wobble: 0.6},
+        {skill: 0.89, lane: 0.8, wobble: 1},
+        {skill: 0.93, lane: -2.4, wobble: 0.7}
+    ];
+
+    // What a computer rider does now. It keeps to its lane, cuts to the inside of a bend, slows for a bend too sharp to
+    // hold at its speed and rides round a slower bike ahead. pace (-1 to 1): + when it is far behind the people riding,
+    // - when far ahead, so it stays near them. rider: a copy of one of COMPUTERS, which also keeps its time.
+    function computer(bike, track, others, rider, pace, seconds) {
+        rider.time = (rider.time || 0) + seconds;
+        const share = bike.speed / TOP_SPEED;
+        const reach = STEER * Math.min(1, 0.25 + share * 1.2);
+        const here = segmentAt(track, bike.z).bend;
+        const near = segmentAt(track, bike.z + 6 + bike.speed * 0.35).bend;
+        let sharpest = 0;
+        for (let ahead = 0; ahead <= bike.speed * 1.6 + 8; ahead += SEGMENT * 2) {
+            const bend = segmentAt(track, bike.z + ahead).bend;
+            if (Math.abs(bend) > Math.abs(sharpest)) {
+                sharpest = bend;
+            }
+        }
+
+        // Where on the road
+        let target = rider.lane * (1 - Math.min(1, Math.abs(near) / 4)) + Math.sign(near) * Math.min(2.4, Math.abs(near) * 0.6);
+        target += Math.sin(rider.time * 0.55 + rider.lane * 3) * rider.wobble;
+        for (const other of others) {
+            const gap = other.z - bike.z;
+            if (gap > 0 && gap < 14 && other.speed < bike.speed + 1 && Math.abs(other.x - target) < 1.3) {
+                target = other.x + (other.x > 0 ? -1.8 : 1.8);
+            }
+        }
+        target = Math.max(-ROAD + 0.6, Math.min(ROAD - 0.6, target));
+        const sideways = Math.max(-6, Math.min(6, (target - bike.x) * 1.6));
+        const steer = Math.max(-1, Math.min(1, (sideways + here * OUTWARD * share * share) / reach));
+
+        // How fast: its own top, nearer the riders' pace, and no faster than the sharpest bend coming allows
+        const top = TOP_SPEED * Math.min(1, rider.skill + pace * (pace > 0 ? 0.06 : 0.15));
+        const bendTop = TOP_SPEED * Math.sqrt(0.8 * STEER / (Math.max(0.1, Math.abs(sharpest)) * OUTWARD));
+        const wanted = Math.min(top, bendTop);
+        return {steer, brake: bike.speed > wanted + 3, gas: bike.speed < wanted};
+    }
+
     return {
-        SEGMENT, ROAD, TOP_SPEED, BEND, RUN_UP, TRACKS,
-        build, segmentAt, heightAt, newBike, ride, cruise
+        SEGMENT, ROAD, TOP_SPEED, BEND, RUN_UP, TRACKS, COMPUTERS,
+        build, segmentAt, heightAt, newBike, ride, cruise, computer
     };
 })();
 

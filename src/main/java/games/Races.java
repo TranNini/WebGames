@@ -19,7 +19,8 @@ import java.util.function.LongSupplier;
 
 // The races of Moto Race. Each phone rides its own bike and says where it is; the server passes that on to the others in
 // the race, counts the start down, keeps the finishing order and puts the times on the track's leaderboard. One rider
-// opens a race, the others see it in the list and join; the one who opened it starts it.
+// opens a race, the others see it in the list and join; the one who opened it starts it. It can also add computer riders:
+// the host's phone rides them and sends where they are with its own bike, and their times aren't on the leaderboard.
 // All messages are small JSON objects with a type in "t" (see moto.js for the other side).
 @Component
 public class Races {
@@ -33,12 +34,16 @@ public class Races {
     static final long SHORTEST_RACE_MS = 30_000;
     private static final int MAX_NAME_LENGTH = 16;
     private static final String CODE_LETTERS = "BCDFGHJKLMNPQRSTVWXZ";
+    private static final List<String> COMPUTER_NAMES = List.of("Aiko", "Kenji", "Mika", "Ren", "Sora", "Yuki");
+    // A computer rider still on the way when all the people are in is given its time at the speed it had: no further than this
+    private static final long LONGEST_GUESS_MS = 120_000;
 
     enum Phase { LOBBY, COUNTDOWN, RACING, RESULTS }
 
     static final class Rider {
         final int id;
         private final Consumer<String> out;
+        final boolean computer; // ridden by the host's phone
         String name = "Rider";
         Room room;
         int color;
@@ -49,8 +54,13 @@ public class Races {
         long seenAt; // when the phone last said where it is
 
         Rider(int id, Consumer<String> out) {
+            this(id, out, false);
+        }
+
+        Rider(int id, Consumer<String> out, boolean computer) {
             this.id = id;
             this.out = out;
+            this.computer = computer;
         }
 
         boolean finished() {
@@ -71,6 +81,14 @@ public class Races {
             this.code = code;
             this.track = track;
             this.host = host;
+        }
+
+        List<Rider> people() {
+            return riders.stream().filter(rider -> !rider.computer).toList();
+        }
+
+        List<Rider> computers() {
+            return riders.stream().filter(rider -> rider.computer).toList();
         }
     }
 
@@ -122,13 +140,20 @@ public class Races {
         }
         switch (message.path("t").asText()) {
             case "hello" -> hello(rider, message.path("name").asText());
-            case "create" -> create(rider, message.path("track").asText());
+            case "create" -> create(rider, message.path("track").asText(), message.path("computers").asInt(0));
+            case "computers" -> chooseComputers(rider, message.path("count").asInt(-1));
             case "join" -> join(rider, message.path("code").asText());
             case "leave" -> leave(rider, true);
             case "track" -> chooseTrack(rider, message.path("track").asText());
             case "start" -> start(rider);
             case "pos" -> position(rider, message);
-            case "finish" -> finish(rider);
+            case "finish" -> {
+                if (message.has("id")) {
+                    finishComputer(rider, message.path("id").asInt(), message.path("rest").asLong(0));
+                } else {
+                    finish(rider);
+                }
+            }
             case "again" -> again(rider);
             default -> {
             }
@@ -169,7 +194,7 @@ public class Races {
         }
     }
 
-    private void create(Rider rider, String track) {
+    private void create(Rider rider, String track, int computers) {
         if (!TRACKS.contains(track)) {
             return;
         }
@@ -181,6 +206,11 @@ public class Races {
         Room room = new Room(code, track, rider);
         rooms.put(code, room);
         addToRoom(rider, room);
+        if (computers > 0) {
+            setComputers(room, computers);
+            sendRoom(room);
+            sendRoomsToLobby();
+        }
     }
 
     private void join(Rider rider, String code) {
@@ -197,13 +227,44 @@ public class Races {
             sendRooms(rider);
             return;
         }
-        if (room.riders.size() >= MAX_RIDERS) {
+        if (room.people().size() >= MAX_RIDERS) {
             send(rider, Map.of("t", "error", "text", "That race is full."));
             sendRooms(rider);
             return;
         }
         leave(rider, false);
+        if (room.riders.size() >= MAX_RIDERS) {
+            // A person takes the place of a computer rider
+            room.riders.remove(room.computers().get(room.computers().size() - 1));
+        }
         addToRoom(rider, room);
+    }
+
+    private void chooseComputers(Rider rider, int count) {
+        Room room = rider.room;
+        if (room != null && room.host == rider && room.phase == Phase.LOBBY && count >= 0) {
+            setComputers(room, count);
+            sendRoom(room);
+            sendRoomsToLobby();
+        }
+    }
+
+    // As many computer riders as wanted, as far as there's room next to the people
+    private void setComputers(Room room, int wanted) {
+        int count = Math.max(0, Math.min(wanted, MAX_RIDERS - room.people().size()));
+        while (room.computers().size() > count) {
+            room.riders.remove(room.computers().get(room.computers().size() - 1));
+        }
+        while (room.computers().size() < count) {
+            Rider computer = new Rider(nextId++, text -> {
+            }, true);
+            computer.room = room;
+            computer.color = firstFreeColor(room);
+            computer.name = COMPUTER_NAMES.stream()
+                    .filter(name -> room.riders.stream().noneMatch(other -> other.name.equalsIgnoreCase(name)))
+                    .findFirst().orElse("Computer");
+            room.riders.add(computer);
+        }
     }
 
     private void addToRoom(Rider rider, Room room) {
@@ -230,11 +291,12 @@ public class Races {
         if (room != null) {
             rider.room = null;
             room.riders.remove(rider);
-            if (room.riders.isEmpty()) {
+            if (room.people().isEmpty()) {
                 rooms.remove(room.code);
             } else {
                 if (room.host == rider) {
-                    room.host = room.riders.get(0);
+                    // The next person; their phone rides the computer riders from now on
+                    room.host = room.people().get(0);
                 }
                 sendRoom(room);
                 sendToRoom(room, Map.of("t", "left", "id", rider.id));
@@ -292,6 +354,25 @@ public class Races {
             rider.speed = speed;
             rider.seenAt = clock.getAsLong();
         }
+        // The computer riders, from the host's phone: [id, z, x, speed] each
+        if (room.host == rider) {
+            for (JsonNode place : message.path("computers")) {
+                Rider computer = computerIn(room, place.path(0).asInt());
+                double cz = place.path(1).asDouble(Double.NaN);
+                double cx = place.path(2).asDouble(Double.NaN);
+                double cv = place.path(3).asDouble(Double.NaN);
+                if (computer != null && Double.isFinite(cz) && Double.isFinite(cx) && Double.isFinite(cv)) {
+                    computer.z = cz;
+                    computer.x = cx;
+                    computer.speed = cv;
+                    computer.seenAt = rider.seenAt;
+                }
+            }
+        }
+    }
+
+    private static Rider computerIn(Room room, int id) {
+        return room.computers().stream().filter(computer -> computer.id == id).findFirst().orElse(null);
     }
 
     private void finish(Rider rider) {
@@ -304,12 +385,35 @@ public class Races {
         if (after < SHORTEST_RACE_MS) {
             return;
         }
-        rider.finishedAfter = after;
+        // The others get a minute after the first person home; a computer rider winning doesn't hurry anyone
         if (room.firstFinishAt < 0) {
             room.firstFinishAt = now;
         }
-        long place = room.riders.stream().filter(Rider::finished).count();
         leaderboard.submit("moto-" + room.track, rider.name, (int) Math.round(after / 100.0));
+        finished(room, rider, after);
+    }
+
+    // A computer rider at the goal, from the host's phone. rest: when the people are all in, a computer rider still on the
+    // way is given its time with how long it would still need (ms).
+    private void finishComputer(Rider host, int id, long rest) {
+        Room room = host.room;
+        if (room == null || room.host != host || room.phase != Phase.RACING) {
+            return;
+        }
+        Rider computer = computerIn(room, id);
+        if (computer == null || computer.finished() || rest < 0 || rest > LONGEST_GUESS_MS) {
+            return;
+        }
+        long after = clock.getAsLong() - room.startAt + rest;
+        if (after < SHORTEST_RACE_MS) {
+            return;
+        }
+        finished(room, computer, after);
+    }
+
+    private void finished(Room room, Rider rider, long after) {
+        rider.finishedAfter = after;
+        long place = room.riders.stream().filter(other -> other.finished() && other.finishedAfter <= after).count();
         sendToRoom(room, Map.of("t", "finished", "id", rider.id, "place", place, "time", after));
         if (room.riders.stream().allMatch(Rider::finished)) {
             endRace(room);
@@ -329,6 +433,7 @@ public class Races {
             result.put("id", rider.id);
             result.put("name", rider.name);
             result.put("color", rider.color);
+            result.put("computer", rider.computer);
             result.put("place", results.size() + 1);
             result.put("time", rider.finished() ? rider.finishedAfter : null);
             results.add(result);
@@ -357,7 +462,7 @@ public class Races {
     private void sendRoom(Room room) {
         List<Map<String, Object>> list = new ArrayList<>();
         for (Rider rider : room.riders) {
-            list.add(Map.of("id", rider.id, "name", rider.name, "color", rider.color));
+            list.add(Map.of("id", rider.id, "name", rider.name, "color", rider.color, "computer", rider.computer));
         }
         sendToRoom(room, Map.of("t", "room", "code", room.code, "track", room.track, "host", room.host.id,
                 "phase", room.phase.name().toLowerCase(), "riders", list));
@@ -367,8 +472,10 @@ public class Races {
     private void sendRooms(Rider rider) {
         List<Map<String, Object>> open = new ArrayList<>();
         for (Room room : rooms.values()) {
-            if (room.phase == Phase.LOBBY && room.riders.size() < MAX_RIDERS) {
-                open.add(0, Map.of("code", room.code, "host", room.host.name, "track", room.track, "riders", room.riders.size()));
+            int people = room.people().size();
+            if (room.phase == Phase.LOBBY && people < MAX_RIDERS) {
+                open.add(0, Map.of("code", room.code, "host", room.host.name, "track", room.track, "riders", people,
+                        "computers", room.computers().size()));
             }
         }
         send(rider, Map.of("t", "rooms", "rooms", open));

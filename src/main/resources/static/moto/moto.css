@@ -230,6 +230,54 @@
     text-align: center;
 }
 
+/* How many computer riders, under the riders: for the one who opened the race */
+.computers {
+    min-height: 56px;
+    padding: 4px 6px 4px 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border: 2px dashed var(--field);
+    border-radius: 16px;
+    font-size: 18px;
+}
+
+.computers[hidden] {
+    display: none;
+}
+
+.computers span {
+    flex: 1;
+    min-width: 0;
+}
+
+.computers b {
+    min-width: 52px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    text-align: center;
+}
+
+.computers .step {
+    flex: none;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    border-radius: 14px;
+    background: var(--card);
+    color: var(--text);
+    font: inherit;
+    font-size: 24px;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.computers .step:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
 .page .leaderboard {
     flex: none;
 }

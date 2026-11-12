@@ -24,7 +24,7 @@
         <div class="page-text">
             <img class="moto-icon" src="/moto/icon.png" alt="">
             <h1>Moto Race</h1>
-            <p>Race your friends on motorcycles from the start to the goal, each on their own phone. Open a race, or join one below.</p>
+            <p>Race your friends on motorcycles from the start to the goal, each on their own phone, or race computer riders. Open a race, or join one below.</p>
             <h2 class="list-title">Races waiting</h2>
             <div id="races" class="races"></div>
             <p id="status" class="status" role="status"></p>
@@ -39,6 +39,12 @@
             <div id="tracks" class="tracks" role="group" aria-label="Course"></div>
             <h2 class="list-title">Riders <span id="rider-count"></span></h2>
             <ol id="riders" class="riders"></ol>
+            <div id="computers" class="computers" role="group" aria-labelledby="computers-label">
+                <span id="computers-label">Computer riders</span>
+                <button id="fewer-computers" class="step" aria-label="Fewer computer riders">−</button>
+                <b id="computer-count" aria-live="polite">None</b>
+                <button id="more-computers" class="step" aria-label="More computer riders">+</button>
+            </div>
             <p id="room-note" class="status"></p>
         </div>
         <div class="page-buttons">

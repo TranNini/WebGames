@@ -3,9 +3,12 @@
 // who opened it picks the course and starts. A course goes from a start to a goal, like a trip together. Each phone rides
 // its own bike (track.js) and sends where it is 15 times a second; the others' bikes are worked out to now from their last
 // message, smoothly. The server keeps the order at the goal, by its own clock, and puts the times on the course's leaderboard.
+// The one who opened the race can add computer riders (Track.computer): their phone rides them along with their own bike
+// and sends where they are too; if they leave, the next person's phone takes them over.
 const SEND_SECONDS = 1 / 15;
 const ON_THE_WAY_MS = 40; // about how long a message takes from the server to a phone
-const motoSettings = {track: 'sakura', steeredBefore: false, ...remembered('moto-settings')};
+const motoSettings = {track: 'sakura', computers: 0, steeredBefore: false, ...remembered('moto-settings')};
+const MAX_RIDERS = 6;
 
 let socket = null;
 let me = 0;
@@ -110,6 +113,10 @@ function receive(message) {
         case 'finished':
             if (race) {
                 race.finished.set(message.id, {place: message.place, time: message.time});
+                const computer = race.computers.find(each => each.id === message.id);
+                if (computer) {
+                    computer.done = true;
+                }
                 if (message.id === me) {
                     showFinish(message.place, message.time);
                 }
@@ -146,7 +153,31 @@ function gotRoom(message) {
                 other.name = rider.name;
             }
         }
+        if (isHost()) {
+            takeOverComputers();
+        }
     }
+}
+
+// The host who rode the computer riders left: this phone rides them on from where they were last seen
+function takeOverComputers() {
+    for (const rider of room.riders) {
+        const other = rider.computer && race.others.get(rider.id);
+        if (other) {
+            const bike = Track.newBike(0);
+            Object.assign(bike, {z: other.z ?? other.last.z, x: other.x ?? other.last.x, speed: other.last.speed});
+            race.computers.push(newComputer(rider, bike, race.computers.length));
+            race.others.delete(rider.id);
+        }
+    }
+}
+
+function newComputer(rider, bike, index) {
+    return {
+        id: rider.id, name: rider.name, color: rider.color, bike,
+        brain: {...Track.COMPUTERS[index % Track.COMPUTERS.length]},
+        done: race.finished.has(rider.id), braking: false, sentGuess: false
+    };
 }
 
 // --- Screens ---
@@ -186,7 +217,8 @@ function renderLobby() {
         who.className = 'race-host';
         who.textContent = open.host;
         const what = document.createElement('small');
-        what.textContent = Track.TRACKS[open.track].name + ' · ' + open.riders + (open.riders === 1 ? ' rider' : ' riders');
+        what.textContent = Track.TRACKS[open.track].name + ' · ' + open.riders + (open.riders === 1 ? ' rider' : ' riders')
+            + (open.computers ? ' · ' + open.computers + ' computer' : '');
         who.append(what);
         const join = document.createElement('b');
         join.textContent = 'Join';
@@ -230,13 +262,32 @@ function renderRoom() {
         });
         return button;
     }));
-    $('rider-count').textContent = room.riders.length + ' of 6';
+    $('rider-count').textContent = room.riders.length + ' of ' + MAX_RIDERS;
     $('riders').replaceChildren(...room.riders.map(rider => riderRow(rider, rider.id === room.host ? 'opened it' : '')));
+    renderComputers();
+    const people = room.riders.filter(rider => !rider.computer).length;
     $('start').hidden = !isHost();
     $('start').textContent = room.riders.length > 1 ? 'Start race' : 'Ride alone';
     $('room-note').textContent = isHost()
-        ? (room.riders.length > 1 ? 'Start when everyone is in.' : 'Friends can join from Moto Race on their phones until you start.')
+        ? (people > 1 ? 'Start when everyone is in.' : 'Friends can join from Moto Race on their phones until you start.')
         : 'Waiting for ' + hostName() + ' to start the race.';
+}
+
+// How many computer riders: the host chooses, from none to as many as fit next to the people
+function renderComputers() {
+    const count = room.riders.filter(rider => rider.computer).length;
+    const most = MAX_RIDERS - room.riders.filter(rider => !rider.computer).length;
+    $('computers').hidden = !isHost();
+    $('computer-count').textContent = count === 0 ? 'None' : String(count);
+    $('fewer-computers').disabled = count === 0;
+    $('more-computers').disabled = count >= most;
+}
+
+function chooseComputers(change) {
+    const count = room.riders.filter(rider => rider.computer).length + change;
+    motoSettings.computers = Math.max(0, Math.min(MAX_RIDERS - 1, count));
+    remember('moto-settings', motoSettings);
+    send({t: 'computers', count: motoSettings.computers});
 }
 
 function riderRow(rider, extra, time) {
@@ -249,6 +300,9 @@ function riderRow(rider, extra, time) {
     name.className = 'rider-name';
     name.textContent = rider.name + (rider.id === me ? ' (you)' : '');
     row.append(dot, name);
+    if (rider.computer && !extra) {
+        extra = 'computer';
+    }
     if (extra !== undefined && extra !== '') {
         const small = document.createElement('small');
         small.textContent = extra;
@@ -268,11 +322,17 @@ function startRide(message) {
     const now = performance.now();
     const track = Track.build(message.track);
     const others = new Map();
+    const computers = [];
+    race = {finished: new Map()};
     message.grid.forEach((id, place) => {
         if (id !== me) {
             const rider = room.riders.find(each => each.id === id) || {name: 'Rider', color: 0};
             const bike = Track.newBike(place);
-            others.set(id, {name: rider.name, color: rider.color, last: {at: now, z: bike.z, x: bike.x, speed: 0}, lean: 0});
+            if (rider.computer && isHost()) {
+                computers.push(newComputer(rider, bike, computers.length));
+            } else {
+                others.set(id, {name: rider.name, color: rider.color, last: {at: now, z: bike.z, x: bike.x, speed: 0}, lean: 0});
+            }
         }
     });
     const own = room.riders.find(rider => rider.id === me) || {color: 0};
@@ -282,7 +342,8 @@ function startRide(message) {
         bike: Track.newBike(message.grid.indexOf(me)),
         color: own.color,
         others,
-        finished: new Map(),
+        computers,
+        finished: race.finished,
         sentAt: 0,
         shownCount: null,
         done: false
@@ -368,6 +429,12 @@ function frame(now) {
         const place = follow(other, now, seconds);
         others.push({id, ...place, lean: other.lean, color: Scene.RIDER_COLORS[other.color], name: other.name, braking: false});
     }
+    rideComputers(now >= race.startAt, others, seconds);
+    for (const computer of race.computers) {
+        const {bike: own} = computer;
+        others.push({id: computer.id, z: own.z, x: own.x, speed: own.speed, lean: own.steer * 0.42,
+            color: Scene.RIDER_COLORS[computer.color], name: computer.name, braking: computer.braking});
+    }
 
     let input = {steer: 0, brake: false, gas: false};
     if (riding && !race.done) {
@@ -402,7 +469,11 @@ function frame(now) {
 
     if (now - race.sentAt >= SEND_SECONDS * 1000) {
         race.sentAt = now;
-        send({t: 'pos', z: +bike.z.toFixed(2), x: +bike.x.toFixed(2), v: +bike.speed.toFixed(2)});
+        const message = {t: 'pos', z: +bike.z.toFixed(2), x: +bike.x.toFixed(2), v: +bike.speed.toFixed(2)};
+        if (race.computers.length) {
+            message.computers = race.computers.map(({id, bike: own}) => [id, +own.z.toFixed(2), +own.x.toFixed(2), +own.speed.toFixed(2)]);
+        }
+        send(message);
     }
     Sound.setEngine(riding || bike.speed > 0 ? bike.speed / Track.TOP_SPEED : 0);
     Sound.setMusicSpeed(bike.speed / Track.TOP_SPEED);
@@ -411,6 +482,35 @@ function frame(now) {
     showStandings(others);
     $('speed-number').textContent = Math.round(bike.speed * 3.6);
     Scene.draw({track, bike, others, color: race.color, braking: input.brake, turned: race.turned || 0});
+}
+
+// The computer riders this phone rides: like a bike, with Track.computer steering. Each keeps near the people riding.
+// When all the people are at the goal, those still on the way are given their time at the speed they have.
+function rideComputers(riding, people, seconds) {
+    const humans = [race.bike, ...people.filter(other => !room.riders.some(rider => rider.id === other.id && rider.computer))];
+    const peopleIn = room.riders.every(rider => rider.computer || race.finished.has(rider.id));
+    for (const computer of race.computers) {
+        const {bike} = computer;
+        const around = [race.bike, ...people, ...race.computers.filter(other => other !== computer).map(other => other.bike)];
+        if (computer.done) {
+            Track.cruise(bike, race.track, seconds);
+            computer.braking = false;
+        } else if (riding) {
+            const nearest = humans.reduce((best, human) => Math.abs(human.z - bike.z) < Math.abs(best.z - bike.z) ? human : best);
+            const pace = Math.max(-1, Math.min(1, (nearest.z - bike.z) / 200));
+            const input = Track.computer(bike, race.track, around, computer.brain, pace, seconds);
+            Track.ride(bike, race.track, input, around, seconds);
+            computer.braking = input.brake;
+            if (bike.z >= race.track.length) {
+                computer.done = true;
+                send({t: 'finish', id: computer.id});
+            } else if (peopleIn && !computer.sentGuess) {
+                computer.sentGuess = true;
+                const rest = (race.track.length - bike.z) / Math.max(20, bike.speed) * 1000;
+                send({t: 'finish', id: computer.id, rest: Math.round(Math.min(120000, rest))});
+            }
+        }
+    }
 }
 
 function showCountdown(now) {
@@ -449,7 +549,7 @@ function showTrip(others) {
         }
     }
     const riders = [{id: me, color: race.color, z: race.bike.z}, ...others.map(other => ({
-        id: other.id, color: race.others.get(other.id).color, z: other.z
+        id: other.id, color: colorOf(other.id), z: other.z
     }))];
     const line = $('trip');
     for (const rider of riders) {
@@ -469,10 +569,15 @@ function showTrip(others) {
     }
 }
 
+function colorOf(id) {
+    const other = race.others.get(id) || race.computers.find(computer => computer.id === id);
+    return other ? other.color : 0;
+}
+
 // The places now: who has finished in their order, then the others by how far they are
 function standings(others) {
     const list = [{id: me, name: Player.name(), color: race.color, z: race.bike.z}, ...others.map(other => ({
-        id: other.id, name: other.name, color: race.others.get(other.id).color, z: other.z
+        id: other.id, name: other.name, color: colorOf(other.id), z: other.z
     }))];
     const finishedPlace = rider => (race.finished.get(rider.id) || {place: 99}).place;
     list.sort((a, b) => finishedPlace(a) - finishedPlace(b) || b.z - a.z);
@@ -494,7 +599,7 @@ function showStandings(others) {
 
 function showFinish(place, time) {
     $('finish-note').hidden = false;
-    const count = race ? race.others.size + 1 : 1;
+    const count = race ? race.others.size + race.computers.length + 1 : 1;
     if (place) {
         $('finish-place').textContent = count > 1 ? (place === 1 ? 'You won!' : ORDINALS[place - 1] + ' place') : 'Finished!';
         $('finish-time').textContent = formatTime(time);
@@ -583,12 +688,14 @@ async function loadFastest(track) {
 function setUpEvents() {
     $('new-race').addEventListener('click', () => {
         Sound.unlock();
-        send({t: 'create', track: motoSettings.track in Track.TRACKS ? motoSettings.track : 'sakura'});
+        send({t: 'create', track: motoSettings.track in Track.TRACKS ? motoSettings.track : 'sakura', computers: motoSettings.computers});
     });
     $('start').addEventListener('click', () => {
         Sound.unlock();
         send({t: 'start'});
     });
+    $('fewer-computers').addEventListener('click', () => chooseComputers(-1));
+    $('more-computers').addEventListener('click', () => chooseComputers(1));
     $('leave').addEventListener('click', leaveRace);
     $('leave-results').addEventListener('click', leaveRace);
     $('again-race').addEventListener('click', () => send({t: 'again'}));

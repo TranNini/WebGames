@@ -27,7 +27,12 @@
     text-align: center;
 }
 
-.page-text > p {
+/* Each page in two parts: one under the other, or side by side on a phone held sideways */
+.part {
+    display: contents;
+}
+
+.part > p {
     margin: 0;
     color: var(--soft-text);
     font-size: 18px;
@@ -119,7 +124,7 @@
     font-weight: 600;
 }
 
-/* The three courses, each on its picture */
+/* The three courses, each with its colors */
 .tracks {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -127,7 +132,7 @@
 }
 
 .track-choice {
-    min-height: 92px;
+    min-height: 76px;
     padding: 8px 6px;
     display: flex;
     flex-direction: column;
@@ -136,25 +141,23 @@
     gap: 4px;
     border: 3px solid transparent;
     border-radius: 18px;
-    background: center / cover no-repeat;
-    color: #ffffff;
+    color: #17161c;
     font: inherit;
     font-size: 18px;
     font-weight: 600;
     line-height: 1.1;
     text-align: center;
-    text-shadow: 0 1px 3px rgb(0 0 0 / 0.85), 0 0 10px rgb(0 0 0 / 0.5);
     cursor: pointer;
 }
 
 .track-choice small {
     font-size: 13px;
-    font-weight: 500;
+    font-weight: 400;
 }
 
-.track-choice.sakura { background-image: url(art/course-sakura.webp); }
-.track-choice.city { background-image: url(art/course-city.webp); }
-.track-choice.mountain { background-image: url(art/course-mountain.webp); }
+.track-choice.seaside { background: linear-gradient(#8fcdf2, #e9d7a4); }
+.track-choice.canyon { background: linear-gradient(#f6b27a, #d9a066); }
+.track-choice.forest { background: linear-gradient(#a77a9a, #5f9a63); color: #fff; }
 
 .track-choice[aria-pressed="true"] {
     border-color: var(--text);
@@ -576,8 +579,54 @@
         font-size: 28px;
     }
 
-    .page-text > p {
+    .part > p {
         font-size: 15px;
+    }
+
+    /* The whole width, right under the top bar, the two parts side by side, each scrolling by itself */
+    .page {
+        max-width: none;
+        padding-top: 0;
+    }
+
+    .page-text {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        column-gap: 28px;
+        overflow: hidden;
+    }
+
+    .part {
+        min-height: 0;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .part .list-title {
+        margin-top: 0;
+    }
+
+    .riders {
+        gap: 4px;
+    }
+
+    .rider {
+        min-height: 40px;
+        font-size: 17px;
+    }
+
+    .computers {
+        min-height: 48px;
+    }
+
+    .level-choice {
+        min-height: 34px;
+    }
+
+    .page-buttons {
+        width: 100%;
     }
 
     .moto-icon {
@@ -594,7 +643,7 @@
     }
 
     .track-choice {
-        min-height: 64px;
+        min-height: 56px;
     }
 
     .trip {

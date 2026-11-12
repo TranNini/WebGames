@@ -114,9 +114,10 @@ riders). The one who opened it picks the course, adds computer riders if they li
 up to as many as fit next to the people) and starts; alone, it is **Ride alone**. A countdown, then from the START
 banner to the GOAL, about one and a half minutes; the bar shows how far it still is, and a line under it where everyone
 is. The bike speeds up by itself: hold the left or right half of the screen to steer, both to brake (on a computer: the
-arrow keys, Down or Space to brake). Bends push the bike outwards, the more the faster it goes; walls, hedges, fences and
-guardrails line the road, and riding into one slows you down. Riding right behind another bike gives up to 10% more
-speed; running into one slows you down.
+arrow keys, Down or Space to brake). Bends push the bike outwards, the more the faster it goes; off the road it is
+slower, and riding into a tree or a rock beside it is a crash: the bike is carried back onto the road and then rides
+through everything for a moment, blinking. Riding right behind another bike gives up to 10% more speed; running into one
+slows you down.
 
 Computer riders (Aiko, Kenji, Mika, Ren, Sora) are ridden by the phone that opened the race (`Track.computer`: they keep a
 line, cut to the inside of bends, slow for the sharpest ones and ride round slower bikes) and sent on with its own bike, so
@@ -130,22 +131,22 @@ Levels: the one who opened the race picks **Easy**, **Medium** or **Hard** for t
   140 to 220 m, also in bends, often two on both sides of the road with the way through between them. A standing car with
   its hazard lights on, rocks, a tree stump or traffic cones, by course (`Track.TRACKS[...].obstacles`), the same on every
   phone. Riding into one from behind stops the bike short, and it slides round to the side with room; along one, it is held
-  off it. Each course level has its own leaderboard (`moto-city`, `moto-city-medium`, `moto-city-hard`).
+  off it. Each course level has its own leaderboard (`moto-canyon`, `moto-canyon-medium`, `moto-canyon-hard`).
 - The computer riders (`Track.COMPUTER_LEVELS`): Easy ease off a lot when ahead and see what is on the road late; Medium
   ride faster and ease off less; Hard are faster still, with a little more top speed than a bike has, hardly ease off and see
   far ahead.
 
-The three courses follow the user's pictures (2026-11-11): **Sakura River** (along the river under cherry trees, from day
-into night: the user's day and night pictures as one ride), **Neon City** (shop fronts and neon at night, under an overpass)
-and **Mountain Pass** (up a winding road at sunset, a stone wall on one side and the valley on the other). The far view,
-the walls, trees, lanterns and signs are pieces of those pictures (`static/moto/art/`, cut, straightened and painted by a
-script that is not kept in the repo); the road, fences, lamps and their glow on the wet road are drawn in code.
+The three courses, all drawn in code: **Seaside** (long bends along the sea, palms, rocks and huts), **Canyon** (sharp
+turns and steep hills, cacti, boulders and mesas) and **Forest** (winding through pines and birches at dusk). Each is its
+loop of bends and hills ridden three times over, one after the other, from the start to the goal. (From 2026-11-11 to
+2026-11-13 the courses were Sakura River, Neon City and Mountain Pass, made from the user's pictures; the user took them
+out again. Their times stay in the database, unlisted.)
 
 The phones talk to the server over a WebSocket (`/api/race`, checked by the access code like everything else). Each phone
 rides its own bike (`track.js`) and sends where it is 15 times a second; the server passes that on to the others with how
 old it is, and each phone draws the others where they should be now. The server counts the start down, keeps the order
 at the goal by its own clock, gives the others a minute after the winner, and puts each finish on the course's
-leaderboard of fastest times (`moto-sakura`, `moto-city`, `moto-mountain`; only the server adds to them). The menu
+leaderboard of fastest times (`moto-seaside`, `moto-canyon`, `moto-forest`; only the server adds to them). The menu
 doesn't stop the race. Afterwards the one who opened the race can start another with the same riders. It has its own
 music and an engine sound that follows the speed.
 

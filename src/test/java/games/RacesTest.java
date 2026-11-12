@@ -87,11 +87,11 @@ class RacesTest {
         Phone anna = new Phone("Anna");
         Phone ben = new Phone("Ben");
         assertEquals(0, ben.last("rooms").path("rooms").size());
-        anna.say("{\"t\":\"create\",\"track\":\"city\"}");
+        anna.say("{\"t\":\"create\",\"track\":\"canyon\"}");
         JsonNode open = ben.last("rooms").path("rooms");
         assertEquals(1, open.size());
         assertEquals("Anna", open.get(0).path("host").asText());
-        assertEquals("city", open.get(0).path("track").asText());
+        assertEquals("canyon", open.get(0).path("track").asText());
         assertEquals(anna.rider.id, anna.last("room").path("host").asInt());
     }
 
@@ -99,7 +99,7 @@ class RacesTest {
     void ridersRaceAndTheFirstHomeWins() {
         Phone anna = new Phone("Anna");
         Phone ben = new Phone("Ben");
-        anna.say("{\"t\":\"create\",\"track\":\"sakura\"}");
+        anna.say("{\"t\":\"create\",\"track\":\"seaside\"}");
         ben.say("{\"t\":\"join\",\"code\":\"" + anna.last("room").path("code").asText() + "\"}");
         JsonNode room = ben.last("room");
         assertEquals(2, room.path("riders").size());
@@ -129,7 +129,7 @@ class RacesTest {
         assertEquals("Anna", results.get(1).path("name").asText());
         assertEquals("results", anna.last("room").path("phase").asText());
 
-        List<ScoreEntry> fastest = leaderboard.top("moto-sakura");
+        List<ScoreEntry> fastest = leaderboard.top("moto-seaside");
         assertEquals("Ben", fastest.get(0).name());
         assertEquals(1001, fastest.get(0).score(), "in tenths of a second");
 
@@ -140,7 +140,7 @@ class RacesTest {
     @Test
     void aFinishTooEarlyIsntTaken() {
         Phone anna = new Phone("Anna");
-        anna.say("{\"t\":\"create\",\"track\":\"mountain\"}");
+        anna.say("{\"t\":\"create\",\"track\":\"forest\"}");
         anna.say("{\"t\":\"start\"}");
         later(Races.COUNTDOWN_MS + 5000);
         anna.say("{\"t\":\"finish\"}");
@@ -151,7 +151,7 @@ class RacesTest {
     void theOthersGetAMinuteAfterTheWinner() {
         Phone anna = new Phone("Anna");
         Phone ben = new Phone("Ben");
-        anna.say("{\"t\":\"create\",\"track\":\"mountain\"}");
+        anna.say("{\"t\":\"create\",\"track\":\"forest\"}");
         ben.say("{\"t\":\"join\",\"code\":\"" + anna.last("room").path("code").asText() + "\"}");
         anna.say("{\"t\":\"start\"}");
         later(Races.COUNTDOWN_MS + Races.SHORTEST_RACE_MS);
@@ -167,7 +167,7 @@ class RacesTest {
     void whenTheHostLeavesTheNextOneStarts() {
         Phone anna = new Phone("Anna");
         Phone ben = new Phone("Ben");
-        anna.say("{\"t\":\"create\",\"track\":\"city\"}");
+        anna.say("{\"t\":\"create\",\"track\":\"canyon\"}");
         String code = anna.last("room").path("code").asText();
         ben.say("{\"t\":\"join\",\"code\":\"" + code + "\"}");
         races.disconnect(anna.rider);
@@ -179,7 +179,7 @@ class RacesTest {
     @Test
     void aFullRaceTakesNoMore() {
         Phone host = new Phone("Host");
-        host.say("{\"t\":\"create\",\"track\":\"city\"}");
+        host.say("{\"t\":\"create\",\"track\":\"canyon\"}");
         String code = host.last("room").path("code").asText();
         for (int i = 1; i < Races.MAX_RIDERS; i++) {
             new Phone("Rider " + i).say("{\"t\":\"join\",\"code\":\"" + code + "\"}");
@@ -193,7 +193,7 @@ class RacesTest {
     @Test
     void computerRidersRideOnTheHostsPhone() {
         Phone anna = new Phone("Anna");
-        anna.say("{\"t\":\"create\",\"track\":\"city\",\"computers\":2}");
+        anna.say("{\"t\":\"create\",\"track\":\"canyon\",\"computers\":2}");
         JsonNode riders = anna.last("room").path("riders");
         assertEquals(3, riders.size());
         assertFalse(riders.get(0).path("computer").asBoolean());
@@ -228,7 +228,7 @@ class RacesTest {
         assertEquals("Kenji", results.get(2).path("name").asText());
         assertEquals(Races.SHORTEST_RACE_MS + 51_070 + 4000, results.get(2).path("time").asLong());
 
-        List<ScoreEntry> fastest = leaderboard.top("moto-city");
+        List<ScoreEntry> fastest = leaderboard.top("moto-canyon");
         assertEquals(1, fastest.size(), "computer riders aren't on the leaderboard");
         assertEquals("Anna", fastest.get(0).name());
     }
@@ -237,7 +237,7 @@ class RacesTest {
     void onlyTheHostMovesTheComputerRiders() {
         Phone anna = new Phone("Anna");
         Phone ben = new Phone("Ben");
-        anna.say("{\"t\":\"create\",\"track\":\"city\",\"computers\":1}");
+        anna.say("{\"t\":\"create\",\"track\":\"canyon\",\"computers\":1}");
         ben.say("{\"t\":\"join\",\"code\":\"" + anna.last("room").path("code").asText() + "\"}");
         int aiko = anna.last("room").path("riders").get(1).path("id").asInt();
         ben.say("{\"t\":\"computers\",\"count\":4}");
@@ -261,7 +261,7 @@ class RacesTest {
     @Test
     void aPersonTakesTheComputersPlace() {
         Phone anna = new Phone("Anna");
-        anna.say("{\"t\":\"create\",\"track\":\"sakura\",\"computers\":9}");
+        anna.say("{\"t\":\"create\",\"track\":\"seaside\",\"computers\":9}");
         assertEquals(Races.MAX_RIDERS, anna.last("room").path("riders").size(), "no more than fit");
         Phone ben = new Phone("Ben");
         assertEquals(1, ben.last("rooms").path("rooms").size(), "still open to people");
@@ -283,7 +283,7 @@ class RacesTest {
     void eachCourseLevelHasItsOwnLeaderboard() {
         Phone anna = new Phone("Anna");
         Phone ben = new Phone("Ben");
-        anna.say("{\"t\":\"create\",\"track\":\"mountain\",\"courseLevel\":\"medium\",\"computerLevel\":\"hard\"}");
+        anna.say("{\"t\":\"create\",\"track\":\"forest\",\"courseLevel\":\"medium\",\"computerLevel\":\"hard\"}");
         assertEquals("medium", anna.last("room").path("courseLevel").asText());
         assertEquals("hard", anna.last("room").path("computerLevel").asText());
         assertEquals("medium", ben.last("rooms").path("rooms").get(0).path("courseLevel").asText());
@@ -303,9 +303,9 @@ class RacesTest {
         anna.say("{\"t\":\"finish\"}");
         ben.say("{\"t\":\"finish\"}");
         assertEquals("hard", ben.last("results").path("level").asText());
-        assertEquals(2, leaderboard.top("moto-mountain-hard").size());
-        assertEquals(0, leaderboard.top("moto-mountain").size());
-        assertEquals("moto-city", Races.board("city", "easy"));
+        assertEquals(2, leaderboard.top("moto-forest-hard").size());
+        assertEquals(0, leaderboard.top("moto-forest").size());
+        assertEquals("moto-canyon", Races.board("canyon", "easy"));
     }
 
     @Test

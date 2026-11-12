@@ -1,15 +1,15 @@
 // Moto Race's courses and riding, without drawing or network, so it runs in Node too (tests). All in meters and seconds.
 // A course is a road from a start to a goal, built from short straight pieces (segments), each with its own bend and
-// height; the road is drawn from those as seen from behind the bike. Walls line it (a hedge, a fence, shop fronts, a
-// guardrail): the solid ones keep a bike on the road, and riding into one slows it. Things stand beside it (trees, lamps,
-// signs), behind the walls. On a medium or hard course, things stand on the road too (a car, rocks, a stump, cones):
-// riding into one stops the bike short. z is how far a bike has come from the start line; x is how far it is from the
-// middle of the road (negative: left).
+// height; the road is drawn from those as seen from behind the bike. Beside it is open ground with things standing on
+// it (palms, rocks, cacti, pines): off the road the bike is slower, and riding into one of them is a crash. On a medium
+// or hard course, things stand on the road too (a car, rocks, a stump, cones): riding into one stops the bike short. z is
+// how far a bike has come from the start line; x is how far it is from the middle of the road (negative: left).
 const Track = (() => {
     const SEGMENT = 4;
     const ROAD = 4; // half the road
+    const EDGE = ROAD + 8; // no further off the road than this
     const TOP_SPEED = 62; // 223 km/h
-    const SIDE_SPEED = 40; // on the kerb, between the road and a wall
+    const OFF_ROAD_SPEED = 24;
     const PULL = 21; // how quickly the bike speeds up
     const BRAKE = 34;
     const STEER = 9.5; // sideways, at full steer and speed
@@ -17,83 +17,50 @@ const Track = (() => {
     const DRAFT_BOOST = 0.1; // riding right behind another bike: up to this much faster
     const DRAFT_FROM = 2.5;
     const DRAFT_TO = 22;
-    const SCRAPE = 0.75; // riding into a wall cuts the speed to this share, and scraping along it slows on
+    const SCRAPE = 0.75; // riding along something on the road cuts the speed to this share
+    const CRASH_SECONDS = 1.4; // after hitting a tree or a rock beside the road: no steering, and carried back onto it
+    const GHOST_SECONDS = 1.2; // then: through everything, so it can't be hit again straight away
     const BIKE_HALF_WIDTH = 0.45;
     const BIKE_LENGTH = 2;
     const BEND = 0.0042; // turn of the road per segment, per step of its bend (radians); for the drawing
     const RUN_UP = 30; // segments before the start line, for the grid
     const RUN_OUT = 160; // segments after the goal: to stop on, and to see ahead to the end
 
-    // The courses follow the user's pictures (MotoRace_*.png, 2026-11-11). Sections: [segments, bend (- left, + right, up
-    // to 6), climb in m]; every section eases into its bend and out of it. kerb: how wide the kerb is left and right of
-    // the road. walls: per side, x from the middle; things: rows beside the road, one every `every` segments.
+    // Sections: [segments, bend (- left, + right, up to 6), climb in m]. Every section eases into its bend and out of it.
+    // The climbs of a course add up to 0, so its sections can be ridden again: laps of them, one after the other, make the
+    // way from the start to the goal (three, as the first races had, so their times on the leaderboards still compare).
     const TRACKS = {
-        sakura: {
-            name: 'Sakura River',
-            about: 'Along the river, day into night',
-            sections: [[65, 0, 0], [90, 1.5, 0], [65, 0, 2], [50, 0, -2], [105, -2, 0], [50, 0, 0], [90, 3, 1], [65, 0, -1],
-                [90, -1.5, 0], [50, 0, 3], [50, 0, -3], [105, 2.5, 0], [65, 0, 0], [80, -3.5, 2], [65, 0, -2], [90, 1.5, 0],
-                [80, -4, 0], [65, 0, 0], [80, 2, 0], [65, 0, 0]],
-            kerb: [0.8, 0.9],
-            walls: [
-                {side: -1, x: ROAD + 1, height: 0.9, look: 'hedge', solid: true},
-                {side: -1, x: ROAD + 7.5, height: 3.4, look: 'bank'},
-                {side: 1, x: ROAD + 1.2, height: 1.15, look: 'fence', solid: true}
-            ],
-            things: [
-                {kind: 'cherry', side: -1, x: [ROAD + 2.6, ROAD + 3.6], every: 2, chance: 0.95, size: [1.05, 1.35]},
-                {kind: 'cherry', side: -1, x: [ROAD + 4.8, ROAD + 6.6], every: 2, offset: 1, chance: 0.85, size: [0.95, 1.2]},
-                {kind: 'lamp', side: -1, x: ROAD + 1.15, every: 8},
-                {kind: 'lantern', side: 1, x: ROAD + 1.25, every: 4, offset: 2}
-            ],
-            sign: 'chevron-yellow',
-            obstacles: ['car', 'stump', 'cones', 'car']
+        seaside: {
+            name: 'Seaside',
+            about: 'Long bends along the sea',
+            scenery: ['palm', 'palm', 'rock', 'hut'],
+            sections: [[40, 0, 0], [60, 2, 4], [40, 0, -4], [80, -3, 0], [50, 0, 6], [70, 4, -6], [40, 0, 0], [60, -2, 3],
+                [60, 3, -3], [50, 0, 0]],
+            laps: 3,
+            obstacles: ['car', 'cones', 'rock', 'car']
         },
-        city: {
-            name: 'Neon City',
-            about: 'Through the streets at night',
-            sections: [[65, 0, 0], [40, 5, 0], [90, 0, 0], [40, -5, 0], [65, 0, 1], [50, 6, -1], [50, -2, 0], [80, 0, 2],
-                [40, -6, -2], [90, 0, 0], [40, 5, 0], [50, 0, 2], [50, 0, -2], [40, -5, 0], [105, 0, 0], [50, 3, 0],
-                [50, -3, 0], [40, 6, 0], [80, 0, 0], [40, -4, 0], [65, 0, 0]],
-            kerb: [0.6, 0.7],
-            walls: [
-                {side: -1, x: ROAD + 0.6, height: 0.95, look: 'railing', solid: true},
-                {side: -1, x: ROAD + 4.5, height: 15, look: 'shops'}, // flats over shops
-                {side: 1, x: ROAD + 0.7, height: 0.85, look: 'barrier', solid: true},
-                {side: 1, x: ROAD + 4, height: 18, look: 'flats'} // two floors of flats
-            ],
-            things: [
-                {kind: 'city-cherry', side: -1, x: [ROAD + 2.2, ROAD + 2.8], every: 5, chance: 0.85, size: [0.75, 0.95]},
-                {kind: 'streetlamp', side: -1, x: ROAD + 1.3, every: 9, offset: 3},
-                {kind: 'streetlamp', side: 1, x: ROAD + 1.1, every: 9, offset: 7},
-                {kind: 'overpass', side: 1, x: 0, every: 150, offset: 60}
-            ],
-            sign: 'chevron-yellow',
-            obstacles: ['car', 'cones', 'car']
+        canyon: {
+            name: 'Canyon',
+            about: 'Sharp turns and steep hills',
+            scenery: ['cactus', 'boulder', 'cactus', 'mesa'],
+            sections: [[30, 0, 0], [50, 5, 0], [30, 0, 12], [40, -6, -12], [50, 0, 0], [40, 6, 9], [30, -4, 0], [60, 0, -9],
+                [40, -5, 6], [40, 5, -6], [40, 0, 0]],
+            laps: 3,
+            obstacles: ['rock', 'rock', 'car', 'cones']
         },
-        mountain: {
-            name: 'Mountain Pass',
-            about: 'Up the mountain at sunset',
-            sections: [[50, 0, 0], [65, 4, 8], [40, 0, 4], [65, -5, 10], [40, 0, 4], [65, 6, 10], [50, -3, 6], [50, 4, 8],
-                [40, 0, 2], [65, -6, 10], [40, 0, 4], [65, 5, 10], [50, -4, 6], [80, 3, 0], [50, -5, -6], [65, 0, 6],
-                [50, 6, 8], [65, -3, 4], [50, 0, 0], [50, 4, 2], [65, 0, 0]],
-            kerb: [0.9, 0.8],
-            walls: [
-                {side: -1, x: ROAD + 1.1, height: 7, look: 'stone', solid: true},
-                {side: 1, x: ROAD + 0.9, height: 0.85, look: 'guardrail', solid: true}
-            ],
-            things: [
-                {kind: 'sunset-cherry', side: -1, x: [ROAD + 2.4, ROAD + 4], base: 6.4, every: 3, chance: 0.75, size: [1, 1.3]},
-                {kind: 'dark-tree', side: -1, x: [ROAD + 3.5, ROAD + 8], base: 6.6, every: 2, offset: 1, chance: 0.9, size: [1, 1.4]},
-                {kind: 'raillight', side: 1, x: ROAD + 0.9, every: 5}
-            ],
-            sign: 'chevron-red',
-            obstacles: ['rock', 'stump', 'rock', 'car']
+        forest: {
+            name: 'Forest',
+            about: 'Winding through the trees at dusk',
+            scenery: ['pine', 'pine', 'birch', 'log'],
+            sections: [[40, 0, 0], [30, -3, 3], [30, 3, -3], [30, -4, 4], [30, 4, -4], [50, 0, 0], [60, -5, 7], [40, 0, -7],
+                [30, 3, 2], [30, -3, -2], [50, 4, 0], [40, 0, 0]],
+            laps: 3,
+            obstacles: ['stump', 'stump', 'rock', 'car']
         }
     };
+    // How wide what stands beside the road is, to ride into (half, in m)
+    const SOLID = {palm: 0.5, rock: 0.9, hut: 1.8, cactus: 0.5, boulder: 1.1, mesa: 0, pine: 0.6, birch: 0.4, log: 1.2, sign: 0.4};
 
-    // How hard a course is: what stands on the road. every: m from one to the next; bend: not in a bend sharper than this;
-    // pairs: how often a second one stands beside it, across the road
     const COURSE_LEVELS = {
         easy: null,
         medium: {every: [360, 540], bend: 2, pairs: 0},
@@ -148,27 +115,32 @@ const Track = (() => {
             height = start + climb;
         };
         add(RUN_UP, 0, 0);
-        for (const [count, bend, climb] of spec.sections) {
-            add(count, bend, climb);
+        for (let lap = 0; lap < spec.laps; lap++) {
+            for (const [count, bend, climb] of spec.sections) {
+                add(count, bend, climb);
+            }
         }
         const goal = segments.length;
         add(RUN_OUT, 0, 0);
 
         const random = seeded(name.length * 7919 + name.charCodeAt(0) * 104729);
-        const limit = side => Math.min(...spec.walls.filter(wall => wall.side === side && wall.solid).map(wall => wall.x));
         segments.forEach((segment, i) => {
-            for (const row of spec.things) {
-                if ((i + (row.offset || 0)) % row.every !== 0 || random() >= (row.chance ?? 1)) {
-                    continue;
-                }
-                const x = Array.isArray(row.x) ? row.x[0] + random() * (row.x[1] - row.x[0]) : row.x;
-                const size = row.size ? row.size[0] + random() * (row.size[1] - row.size[0]) : 1;
-                segment.things.push({kind: row.kind, x: row.side * x, base: row.base || 0, size, look: random()});
+            // Signs on the outside of a sharp bend, so it can be seen coming
+            if (Math.abs(segment.bend) >= 3.5 && i % 5 === 0) {
+                segment.things.push({kind: 'sign', x: Math.sign(segment.bend) * (ROAD + 1.6), base: 0, size: 1, left: segment.bend > 0});
             }
-            // Signs on the wall on the outside of a sharp bend, so it can be seen coming, pointing the way it goes
-            if (Math.abs(segment.bend) >= 3.5 && i % 6 === 0) {
-                const side = segment.bend > 0 ? -1 : 1;
-                segment.things.push({kind: spec.sign, x: side * (limit(side) + 0.05), base: 0, size: 1, right: segment.bend > 0});
+            if (Math.abs(i - RUN_UP - 3) < 5 || Math.abs(i - goal - 3) < 5) {
+                return; // kept clear by the banners
+            }
+            for (const side of [-1, 1]) {
+                if (random() < 0.38) {
+                    const kind = spec.scenery[Math.floor(random() * spec.scenery.length)];
+                    const near = kind === 'mesa' ? 30 : 2.2;
+                    const x = side * (ROAD + near + SOLID[kind] + random() * (kind === 'mesa' ? 30 : 13));
+                    if (!segment.things.some(thing => Math.abs(thing.x - x) < 2.5)) {
+                        segment.things.push({kind, x, base: 0, flip: random() < 0.5, size: 0.8 + random() * 0.45});
+                    }
+                }
             }
         });
         segments[RUN_UP].things.push({kind: 'start', x: 0, base: 0, size: 1});
@@ -176,8 +148,8 @@ const Track = (() => {
         const length = (goal - RUN_UP) * SEGMENT;
         const track = {
             ...spec, key: name, level, segments,
+            left: EDGE, right: EDGE, // how far from the middle a bike can go
             length, // from the start line to the goal
-            left: limit(-1), right: limit(1), // how far the solid walls are from the middle
             obstacles: placeObstacles(spec, segments, length, COURSE_LEVELS[level], seeded(name.length * 3571 + level.length * 613))
         };
         built[key] = track;
@@ -237,8 +209,10 @@ const Track = (() => {
             speed: 0,
             steer: 0,
             draft: 0,
+            crash: 0, // seconds left of a crash
+            ghost: 0, // seconds left of riding through things and bikes, after a crash
+            back: 0, // where on the road a crash carries the bike
             offRoad: false,
-            scraping: false,
             bumped: false,
             hit: null, // what on the road it ran into, until it is past it
             stopped: false, // held behind it
@@ -247,15 +221,23 @@ const Track = (() => {
     }
 
     // One step of riding. input: steer (-1 to 1), brake, gas (false: rolls out, e.g. in the menu).
-    // others: the other bikes, {z, x, speed}. Says what happened: 'crash' (into something on the road), 'scrape' (into a
-    // wall or along something on the road), 'bump' (into a bike) or ''.
+    // others: the other bikes, {z, x, speed}. Says what happened: 'crash' (into something beside the road or on it),
+    // 'scrape' (along something on the road), 'bump' (into a bike) or ''.
     function ride(bike, track, input, others, seconds) {
         let happened = '';
         const segment = segmentAt(track, bike.z);
         const share = bike.speed / TOP_SPEED;
-        bike.steer += (input.steer - bike.steer) * Math.min(1, seconds * 9);
+        const steering = bike.crash > 0 ? 0 : input.steer;
+        bike.steer += (steering - bike.steer) * Math.min(1, seconds * 9);
+        const crashed = bike.crash > 0;
+        bike.crash = Math.max(0, bike.crash - seconds);
+        if (crashed && bike.crash === 0) {
+            bike.ghost = GHOST_SECONDS;
+        } else {
+            bike.ghost = Math.max(0, bike.ghost - seconds);
+        }
 
-        // Speed: up to the top, less on the kerb, more right behind someone
+        // Speed: up to the top, less off the road, more right behind someone
         let draftWanted = 0;
         for (const other of others) {
             const ahead = other.z - bike.z;
@@ -265,8 +247,10 @@ const Track = (() => {
         }
         bike.draft += (draftWanted - bike.draft) * Math.min(1, seconds * 1.5);
         bike.offRoad = Math.abs(bike.x) > ROAD + 0.2;
-        const top = (bike.offRoad ? SIDE_SPEED : TOP_SPEED) * (bike.power || 1) * (1 + DRAFT_BOOST * bike.draft);
-        if (input.brake) {
+        const top = (bike.offRoad ? OFF_ROAD_SPEED : TOP_SPEED) * (bike.power || 1) * (1 + DRAFT_BOOST * bike.draft);
+        if (bike.crash > 0) {
+            bike.speed = Math.max(3, bike.speed - BRAKE * seconds); // creeps on, back onto the road
+        } else if (input.brake) {
             bike.speed = Math.max(0, bike.speed - BRAKE * seconds);
         } else if (!input.gas) {
             bike.speed = Math.max(0, bike.speed - 8 * seconds);
@@ -277,24 +261,30 @@ const Track = (() => {
             bike.speed = Math.min(bike.speed, top);
         }
 
-        // Sideways: the rider steers, the bend pushes outwards
-        bike.x += bike.steer * STEER * Math.min(1, 0.25 + share * 1.2) * seconds;
-        bike.x -= segment.bend * OUTWARD * share * share * seconds;
-
-        // Along a wall: held off it, slowed when it is hit and while it scrapes
+        // Sideways: the rider steers, the bend pushes outwards; after a crash, carried back onto the road
+        if (bike.crash > 0) {
+            bike.x += (bike.back - bike.x) * Math.min(1, seconds * 4);
+        } else {
+            bike.x += bike.steer * STEER * Math.min(1, 0.25 + share * 1.2) * seconds;
+            bike.x -= segment.bend * OUTWARD * share * share * seconds;
+        }
         const leftmost = -track.left + BIKE_HALF_WIDTH;
         const rightmost = track.right - BIKE_HALF_WIDTH;
-        const touching = bike.x < leftmost || bike.x > rightmost;
-        if (touching) {
-            bike.x = bike.x < leftmost ? leftmost + 0.05 : rightmost - 0.05;
-            if (!bike.scraping) {
-                bike.speed *= SCRAPE;
-                happened = 'scrape';
-            } else {
-                bike.speed = Math.max(0, bike.speed - 6 * seconds);
+        bike.x = Math.max(leftmost, Math.min(rightmost, bike.x));
+
+        // Into a tree or a rock beside the road: slowed right down, and back onto the edge of the road on that side
+        if (bike.offRoad && bike.crash === 0 && bike.ghost === 0) {
+            for (const thing of segmentAt(track, bike.z + 1).things) {
+                const half = thing.obstacle ? 0 : (SOLID[thing.kind] || 0) * (thing.size || 1);
+                if (half > 0 && Math.abs(thing.x - bike.x) < half + BIKE_HALF_WIDTH) {
+                    bike.crash = CRASH_SECONDS;
+                    bike.speed = Math.min(bike.speed, 5);
+                    bike.back = Math.sign(bike.x) * (ROAD - 1);
+                    happened = 'crash';
+                    break;
+                }
             }
         }
-        bike.scraping = touching;
 
         const frontBefore = bike.z + BIKE_LENGTH / 2;
         bike.z += bike.speed * seconds;
@@ -305,13 +295,13 @@ const Track = (() => {
             bike.hit = null;
         }
         let stopped = false;
-        for (const obstacle of track.obstacles) {
+        for (const obstacle of bike.crash > 0 || bike.ghost > 0 ? [] : track.obstacles) {
             const reach = obstacle.half + BIKE_HALF_WIDTH;
             if (obstacle.z > bike.z + BIKE_LENGTH / 2 || obstacle.z + obstacle.length < bike.z - BIKE_LENGTH / 2
                 || Math.abs(bike.x - obstacle.x) >= reach) {
                 continue;
             }
-            // Round it on the nearer side, unless a wall or something beside it is in the way there
+            // Round it on the nearer side, unless something beside it is in the way there
             const clear = x => x > leftmost && x < rightmost && !track.obstacles.some(other => other !== obstacle
                 && other.z < bike.z + BIKE_LENGTH && other.z + other.length > bike.z - BIKE_LENGTH
                 && Math.abs(other.x - x) < other.half + BIKE_HALF_WIDTH);
@@ -340,7 +330,7 @@ const Track = (() => {
 
         // Into another bike: the one behind slows down, both are pushed apart
         bike.bumped = false;
-        for (const other of others) {
+        for (const other of bike.crash > 0 || bike.ghost > 0 ? [] : others) {
             const ahead = other.z - bike.z;
             const apart = bike.x - other.x;
             if (Math.abs(ahead) < BIKE_LENGTH && Math.abs(apart) < BIKE_HALF_WIDTH * 2) {
@@ -421,7 +411,7 @@ const Track = (() => {
                 // The nearer way round that stays on the road and clear of what stands beside it
                 // (close to it, only on the side it is already on: it can't get across any more)
                 const ways = [obstacle.x - room, obstacle.x + room]
-                    .filter(x => x > -track.left + 0.8 && x < track.right - 0.8)
+                    .filter(x => Math.abs(x) < ROAD + 0.3) // on the road: beside it, the bike is much slower
                     .filter(x => !track.obstacles.some(other => other !== obstacle && Math.abs(other.z - obstacle.z) < 16
                         && Math.abs(other.x - x) < other.half + 0.8))
                     .filter((x, i, all) => ahead > 8 || all.length < 2 || Math.sign(x - obstacle.x) === Math.sign(bike.x - obstacle.x))
@@ -444,7 +434,7 @@ const Track = (() => {
     }
 
     return {
-        SEGMENT, ROAD, TOP_SPEED, BEND, RUN_UP, TRACKS, COMPUTERS, COMPUTER_LEVELS, COURSE_LEVELS,
+        SEGMENT, ROAD, EDGE, TOP_SPEED, BEND, RUN_UP, GHOST_SECONDS, TRACKS, COMPUTERS, COMPUTER_LEVELS, COURSE_LEVELS,
         build, segmentAt, heightAt, newBike, ride, cruise, computer
     };
 })();

@@ -8,7 +8,7 @@
 // riders each have a level: easy, medium or hard (things on the road; how fast and sharp the computer riders are).
 const SEND_SECONDS = 1 / 15;
 const ON_THE_WAY_MS = 40; // about how long a message takes from the server to a phone
-const motoSettings = {track: 'sakura', computers: 0, courseLevel: 'easy', computerLevel: 'medium', steeredBefore: false,
+const motoSettings = {track: 'seaside', computers: 0, courseLevel: 'easy', computerLevel: 'medium', steeredBefore: false,
     ...remembered('moto-settings')};
 const LEVELS = ['easy', 'medium', 'hard'];
 const LEVEL_NAMES = {easy: 'Easy', medium: 'Medium', hard: 'Hard'};
@@ -733,7 +733,7 @@ async function loadFastest(board) {
 function setUpEvents() {
     $('new-race').addEventListener('click', () => {
         Sound.unlock();
-        send({t: 'create', track: motoSettings.track in Track.TRACKS ? motoSettings.track : 'sakura', computers: motoSettings.computers,
+        send({t: 'create', track: motoSettings.track in Track.TRACKS ? motoSettings.track : 'seaside', computers: motoSettings.computers,
             courseLevel: motoSettings.courseLevel, computerLevel: motoSettings.computerLevel});
     });
     $('start').addEventListener('click', () => {
@@ -824,7 +824,7 @@ setUpGame({
     resume() {
         pointers.clear();
     },
-    leaderboardUrl: () => '/api/leaderboard/' + (room ? boardOf(room.track, room.courseLevel) : 'moto-sakura'),
+    leaderboardUrl: () => '/api/leaderboard/' + (room ? boardOf(room.track, room.courseLevel) : 'moto-seaside'),
     leaderboardTitle: () => 'Fastest'
 });
 setUpMenuForRace();

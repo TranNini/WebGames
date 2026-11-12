@@ -230,6 +230,69 @@
     text-align: center;
 }
 
+/* Easy, medium, hard: for the course and for the computer riders */
+.level-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 18px;
+}
+
+.level-row[hidden] {
+    display: none;
+}
+
+.level-row > span {
+    flex: none;
+    width: 30%;
+    max-width: 140px;
+}
+
+.levels {
+    flex: 1;
+    min-width: 0;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+    padding: 4px;
+    border-radius: 16px;
+    background: var(--card);
+}
+
+.level-choice {
+    min-width: 0;
+    min-height: 40px;
+    padding: 0 2px;
+    border: 0;
+    border-radius: 12px;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.level-choice[aria-pressed="true"] {
+    background: var(--text);
+    color: var(--bg);
+}
+
+.level-choice:disabled {
+    cursor: default;
+}
+
+.level-choice[aria-pressed="false"]:disabled {
+    opacity: 0.45;
+}
+
+.level-about {
+    margin: -6px 0 0;
+    color: var(--muted);
+    font-size: 15px;
+    text-align: right;
+}
+
 /* How many computer riders, under the riders: for the one who opened the race */
 .computers {
     min-height: 56px;

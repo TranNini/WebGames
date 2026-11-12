@@ -21,12 +21,15 @@ import java.util.function.LongSupplier;
 // the race, counts the start down, keeps the finishing order and puts the times on the track's leaderboard. One rider
 // opens a race, the others see it in the list and join; the one who opened it starts it. It can also add computer riders:
 // the host's phone rides them and sends where they are with its own bike, and their times aren't on the leaderboard.
+// The course and the computer riders each have a level (easy, medium, hard); each course level has its own leaderboard.
 // All messages are small JSON objects with a type in "t" (see moto.js for the other side).
 @Component
 public class Races {
     public static final int MAX_RIDERS = 6;
     // The courses, from a start to a goal (track.js has their roads)
     public static final Set<String> TRACKS = Set.of("sakura", "city", "mountain");
+    // Easy: a clear road; medium and hard: things on it (track.js). For the computer riders: how good they are.
+    public static final List<String> LEVELS = List.of("easy", "medium", "hard");
     static final long COUNTDOWN_MS = 4000;
     // The others have this long to finish after the winner
     static final long AFTER_THE_WINNER_MS = 60_000;
@@ -71,6 +74,8 @@ public class Races {
     static final class Room {
         final String code;
         String track;
+        String courseLevel = "easy";
+        String computerLevel = "medium";
         Rider host;
         Phase phase = Phase.LOBBY;
         long startAt;
@@ -140,7 +145,9 @@ public class Races {
         }
         switch (message.path("t").asText()) {
             case "hello" -> hello(rider, message.path("name").asText());
-            case "create" -> create(rider, message.path("track").asText(), message.path("computers").asInt(0));
+            case "create" -> create(rider, message.path("track").asText(), message.path("computers").asInt(0),
+                    message.path("courseLevel").asText("easy"), message.path("computerLevel").asText("medium"));
+            case "level" -> chooseLevel(rider, message.path("of").asText(), message.path("level").asText());
             case "computers" -> chooseComputers(rider, message.path("count").asInt(-1));
             case "join" -> join(rider, message.path("code").asText());
             case "leave" -> leave(rider, true);
@@ -194,7 +201,7 @@ public class Races {
         }
     }
 
-    private void create(Rider rider, String track, int computers) {
+    private void create(Rider rider, String track, int computers, String courseLevel, String computerLevel) {
         if (!TRACKS.contains(track)) {
             return;
         }
@@ -204,6 +211,12 @@ public class Races {
             code = newCode();
         } while (rooms.containsKey(code));
         Room room = new Room(code, track, rider);
+        if (LEVELS.contains(courseLevel)) {
+            room.courseLevel = courseLevel;
+        }
+        if (LEVELS.contains(computerLevel)) {
+            room.computerLevel = computerLevel;
+        }
         rooms.put(code, room);
         addToRoom(rider, room);
         if (computers > 0) {
@@ -238,6 +251,27 @@ public class Races {
             room.riders.remove(room.computers().get(room.computers().size() - 1));
         }
         addToRoom(rider, room);
+    }
+
+    private void chooseLevel(Rider rider, String of, String level) {
+        Room room = rider.room;
+        if (room == null || room.host != rider || room.phase != Phase.LOBBY || !LEVELS.contains(level)) {
+            return;
+        }
+        switch (of) {
+            case "course" -> room.courseLevel = level;
+            case "computers" -> room.computerLevel = level;
+            default -> {
+                return;
+            }
+        }
+        sendRoom(room);
+        sendRoomsToLobby();
+    }
+
+    // The leaderboard of a course at a level: the easy one has the course's own name
+    static String board(String track, String level) {
+        return "moto-" + track + ("easy".equals(level) ? "" : "-" + level);
     }
 
     private void chooseComputers(Rider rider, int count) {
@@ -336,7 +370,7 @@ public class Races {
             each.speed = 0;
             grid.add(each.id);
         }
-        sendToRoom(room, Map.of("t", "start", "in", COUNTDOWN_MS, "track", room.track, "grid", grid));
+        sendToRoom(room, Map.of("t", "start", "in", COUNTDOWN_MS, "track", room.track, "level", room.courseLevel, "grid", grid));
         sendRoomsToLobby();
     }
 
@@ -389,7 +423,7 @@ public class Races {
         if (room.firstFinishAt < 0) {
             room.firstFinishAt = now;
         }
-        leaderboard.submit("moto-" + room.track, rider.name, (int) Math.round(after / 100.0));
+        leaderboard.submit(board(room.track, room.courseLevel), rider.name, (int) Math.round(after / 100.0));
         finished(room, rider, after);
     }
 
@@ -438,7 +472,7 @@ public class Races {
             result.put("time", rider.finished() ? rider.finishedAfter : null);
             results.add(result);
         }
-        sendToRoom(room, Map.of("t", "results", "track", room.track, "results", results));
+        sendToRoom(room, Map.of("t", "results", "track", room.track, "level", room.courseLevel, "results", results));
         sendRoom(room);
     }
 
@@ -465,7 +499,8 @@ public class Races {
             list.add(Map.of("id", rider.id, "name", rider.name, "color", rider.color, "computer", rider.computer));
         }
         sendToRoom(room, Map.of("t", "room", "code", room.code, "track", room.track, "host", room.host.id,
-                "phase", room.phase.name().toLowerCase(), "riders", list));
+                "phase", room.phase.name().toLowerCase(), "riders", list, "courseLevel", room.courseLevel,
+                "computerLevel", room.computerLevel));
     }
 
     // The races that can be joined, newest first
@@ -475,7 +510,7 @@ public class Races {
             int people = room.people().size();
             if (room.phase == Phase.LOBBY && people < MAX_RIDERS) {
                 open.add(0, Map.of("code", room.code, "host", room.host.name, "track", room.track, "riders", people,
-                        "computers", room.computers().size()));
+                        "computers", room.computers().size(), "courseLevel", room.courseLevel));
             }
         }
         send(rider, Map.of("t", "rooms", "rooms", open));

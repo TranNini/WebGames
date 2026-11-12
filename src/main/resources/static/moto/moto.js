@@ -4,10 +4,21 @@
 // its own bike (track.js) and sends where it is 15 times a second; the others' bikes are worked out to now from their last
 // message, smoothly. The server keeps the order at the goal, by its own clock, and puts the times on the course's leaderboard.
 // The one who opened the race can add computer riders (Track.computer): their phone rides them along with their own bike
-// and sends where they are too; if they leave, the next person's phone takes them over.
+// and sends where they are too; if they leave, the next person's phone takes them over. The course and the computer
+// riders each have a level: easy, medium or hard (things on the road; how fast and sharp the computer riders are).
 const SEND_SECONDS = 1 / 15;
 const ON_THE_WAY_MS = 40; // about how long a message takes from the server to a phone
-const motoSettings = {track: 'sakura', computers: 0, steeredBefore: false, ...remembered('moto-settings')};
+const motoSettings = {track: 'sakura', computers: 0, courseLevel: 'easy', computerLevel: 'medium', steeredBefore: false,
+    ...remembered('moto-settings')};
+const LEVELS = ['easy', 'medium', 'hard'];
+const LEVEL_NAMES = {easy: 'Easy', medium: 'Medium', hard: 'Hard'};
+const COURSE_ABOUT = {
+    easy: 'A clear road',
+    medium: 'Something on the road now and then',
+    hard: 'Lots on the road'
+};
+// The leaderboard of a course at a level (the easy one has the course's own name)
+const boardOf = (track, level) => 'moto-' + track + (level && level !== 'easy' ? '-' + level : '');
 const MAX_RIDERS = 6;
 
 let socket = null;
@@ -175,7 +186,7 @@ function takeOverComputers() {
 function newComputer(rider, bike, index) {
     return {
         id: rider.id, name: rider.name, color: rider.color, bike,
-        brain: {...Track.COMPUTERS[index % Track.COMPUTERS.length]},
+        brain: {...Track.COMPUTERS[index % Track.COMPUTERS.length], level: Track.COMPUTER_LEVELS[room.computerLevel]},
         done: race.finished.has(rider.id), braking: false, sentGuess: false
     };
 }
@@ -217,7 +228,8 @@ function renderLobby() {
         who.className = 'race-host';
         who.textContent = open.host;
         const what = document.createElement('small');
-        what.textContent = Track.TRACKS[open.track].name + ' · ' + open.riders + (open.riders === 1 ? ' rider' : ' riders')
+        what.textContent = Track.TRACKS[open.track].name + (open.courseLevel !== 'easy' ? ' (' + LEVEL_NAMES[open.courseLevel] + ')' : '')
+            + ' · ' + open.riders + (open.riders === 1 ? ' rider' : ' riders')
             + (open.computers ? ' · ' + open.computers + ' computer' : '');
         who.append(what);
         const join = document.createElement('b');
@@ -264,6 +276,7 @@ function renderRoom() {
     }));
     $('rider-count').textContent = room.riders.length + ' of ' + MAX_RIDERS;
     $('riders').replaceChildren(...room.riders.map(rider => riderRow(rider, rider.id === room.host ? 'opened it' : '')));
+    renderLevels();
     renderComputers();
     const people = room.riders.filter(rider => !rider.computer).length;
     $('start').hidden = !isHost();
@@ -271,6 +284,34 @@ function renderRoom() {
     $('room-note').textContent = isHost()
         ? (people > 1 ? 'Start when everyone is in.' : 'Friends can join from Moto Race on their phones until you start.')
         : 'Waiting for ' + hostName() + ' to start the race.';
+}
+
+// Easy, medium, hard: for the course and for the computer riders. The host chooses; the others see what was chosen.
+function levelButtons(element, chosen, choose) {
+    element.replaceChildren(...LEVELS.map(level => {
+        const button = document.createElement('button');
+        button.className = 'level-choice';
+        button.textContent = LEVEL_NAMES[level];
+        button.setAttribute('aria-pressed', String(chosen === level));
+        button.disabled = !isHost();
+        button.addEventListener('click', () => choose(level));
+        return button;
+    }));
+}
+
+function renderLevels() {
+    levelButtons($('course-level'), room.courseLevel, level => {
+        motoSettings.courseLevel = level;
+        remember('moto-settings', motoSettings);
+        send({t: 'level', of: 'course', level});
+    });
+    $('course-about').textContent = COURSE_ABOUT[room.courseLevel];
+    levelButtons($('computer-level'), room.computerLevel, level => {
+        motoSettings.computerLevel = level;
+        remember('moto-settings', motoSettings);
+        send({t: 'level', of: 'computers', level});
+    });
+    $('computer-level-row').hidden = !room.riders.some(rider => rider.computer);
 }
 
 // How many computer riders: the host chooses, from none to as many as fit next to the people
@@ -320,7 +361,7 @@ function riderRow(rider, extra, time) {
 
 function startRide(message) {
     const now = performance.now();
-    const track = Track.build(message.track);
+    const track = Track.build(message.track, message.level);
     const others = new Map();
     const computers = [];
     race = {finished: new Map()};
@@ -445,7 +486,10 @@ function frame(now) {
         }
         const before = Track.segmentAt(track, bike.z);
         const happened = Track.ride(bike, track, input, others, seconds);
-        if (happened === 'scrape') {
+        if (happened === 'crash') {
+            Sound.miss();
+            navigator.vibrate?.(150);
+        } else if (happened === 'scrape') {
             Sound.miss();
         } else if (happened === 'bump') {
             Sound.tap(0);
@@ -629,10 +673,11 @@ function showResults(message) {
         row.prepend(Object.assign(document.createElement('b'), {className: 'rider-place', textContent: result.place}));
         return row;
     }));
-    $('fastest-title').textContent = 'Fastest · ' + Track.TRACKS[message.track].name;
+    $('fastest-title').textContent = 'Fastest · ' + Track.TRACKS[message.track].name
+        + (message.level !== 'easy' ? ' (' + LEVEL_NAMES[message.level] + ')' : '');
     $('fastest').replaceChildren();
     $('fastest-note').hidden = true;
-    loadFastest(message.track);
+    loadFastest(boardOf(message.track, message.level));
     renderResultButtons();
     setScreen('results');
 }
@@ -645,17 +690,17 @@ function renderResultButtons() {
     $('results-note').textContent = isHost() || room.riders.length < 2 ? '' : 'Waiting for ' + hostName() + ' to race again.';
 }
 
-async function loadFastest(track) {
+async function loadFastest(board) {
     let list = null;
     try {
-        const response = await fetch('/api/leaderboard/moto-' + track, {signal: AbortSignal.timeout(5000)});
+        const response = await fetch('/api/leaderboard/' + board, {signal: AbortSignal.timeout(5000)});
         if (response.ok) {
             list = await response.json();
         }
     } catch (e) {
         list = null;
     }
-    if (!results || results.track !== track) {
+    if (!results || boardOf(results.track, results.level) !== board) {
         return;
     }
     if (list === null) {
@@ -688,7 +733,8 @@ async function loadFastest(track) {
 function setUpEvents() {
     $('new-race').addEventListener('click', () => {
         Sound.unlock();
-        send({t: 'create', track: motoSettings.track in Track.TRACKS ? motoSettings.track : 'sakura', computers: motoSettings.computers});
+        send({t: 'create', track: motoSettings.track in Track.TRACKS ? motoSettings.track : 'sakura', computers: motoSettings.computers,
+            courseLevel: motoSettings.courseLevel, computerLevel: motoSettings.computerLevel});
     });
     $('start').addEventListener('click', () => {
         Sound.unlock();
@@ -778,7 +824,7 @@ setUpGame({
     resume() {
         pointers.clear();
     },
-    leaderboardUrl: () => '/api/leaderboard/moto-' + (room ? room.track : 'sakura'),
+    leaderboardUrl: () => '/api/leaderboard/' + (room ? boardOf(room.track, room.courseLevel) : 'moto-sakura'),
     leaderboardTitle: () => 'Fastest'
 });
 setUpMenuForRace();

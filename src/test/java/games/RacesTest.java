@@ -280,6 +280,35 @@ class RacesTest {
     }
 
     @Test
+    void eachCourseLevelHasItsOwnLeaderboard() {
+        Phone anna = new Phone("Anna");
+        Phone ben = new Phone("Ben");
+        anna.say("{\"t\":\"create\",\"track\":\"mountain\",\"courseLevel\":\"medium\",\"computerLevel\":\"hard\"}");
+        assertEquals("medium", anna.last("room").path("courseLevel").asText());
+        assertEquals("hard", anna.last("room").path("computerLevel").asText());
+        assertEquals("medium", ben.last("rooms").path("rooms").get(0).path("courseLevel").asText());
+        ben.say("{\"t\":\"join\",\"code\":\"" + anna.last("room").path("code").asText() + "\"}");
+
+        ben.say("{\"t\":\"level\",\"of\":\"course\",\"level\":\"easy\"}");
+        anna.say("{\"t\":\"level\",\"of\":\"course\",\"level\":\"impossible\"}");
+        assertEquals("medium", ben.last("room").path("courseLevel").asText(), "only the host, only a level");
+        anna.say("{\"t\":\"level\",\"of\":\"course\",\"level\":\"hard\"}");
+        anna.say("{\"t\":\"level\",\"of\":\"computers\",\"level\":\"easy\"}");
+        assertEquals("hard", ben.last("room").path("courseLevel").asText());
+        assertEquals("easy", ben.last("room").path("computerLevel").asText());
+
+        anna.say("{\"t\":\"start\"}");
+        assertEquals("hard", ben.last("start").path("level").asText(), "every phone builds the same things on the road");
+        later(Races.COUNTDOWN_MS + Races.SHORTEST_RACE_MS + 50_000);
+        anna.say("{\"t\":\"finish\"}");
+        ben.say("{\"t\":\"finish\"}");
+        assertEquals("hard", ben.last("results").path("level").asText());
+        assertEquals(2, leaderboard.top("moto-mountain-hard").size());
+        assertEquals(0, leaderboard.top("moto-mountain").size());
+        assertEquals("moto-city", Races.board("city", "easy"));
+    }
+
+    @Test
     void nonsenseIsIgnored() {
         Phone anna = new Phone("Anna");
         anna.say("not json");

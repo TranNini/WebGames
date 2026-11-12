@@ -37,6 +37,11 @@
         <div class="page-text">
             <h1 id="room-title">Your race</h1>
             <div id="tracks" class="tracks" role="group" aria-label="Course"></div>
+            <div class="level-row">
+                <span id="course-level-label">Course</span>
+                <div id="course-level" class="levels" role="group" aria-labelledby="course-level-label"></div>
+            </div>
+            <p id="course-about" class="level-about"></p>
             <h2 class="list-title">Riders <span id="rider-count"></span></h2>
             <ol id="riders" class="riders"></ol>
             <div id="computers" class="computers" role="group" aria-labelledby="computers-label">
@@ -44,6 +49,10 @@
                 <button id="fewer-computers" class="step" aria-label="Fewer computer riders">−</button>
                 <b id="computer-count" aria-live="polite">None</b>
                 <button id="more-computers" class="step" aria-label="More computer riders">+</button>
+            </div>
+            <div id="computer-level-row" class="level-row">
+                <span id="computer-level-label">Computer riders</span>
+                <div id="computer-level" class="levels" role="group" aria-labelledby="computer-level-label"></div>
             </div>
             <p id="room-note" class="status"></p>
         </div>

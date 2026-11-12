@@ -125,6 +125,16 @@ so a race stays close. Their times aren't on the leaderboard; when the people ar
 gets its time at the speed it has. A person joining a full race takes a computer rider's place. If the one who opened it
 leaves during the race, the next person's phone rides the computer riders on.
 
+Levels: the one who opened the race picks **Easy**, **Medium** or **Hard** for the course and for the computer riders.
+- The course: Easy is a clear road; Medium has something standing on it every 360 to 540 m (not in sharp bends); Hard every
+  140 to 220 m, also in bends, often two on both sides of the road with the way through between them. A standing car with
+  its hazard lights on, rocks, a tree stump or traffic cones, by course (`Track.TRACKS[...].obstacles`), the same on every
+  phone. Riding into one from behind stops the bike short, and it slides round to the side with room; along one, it is held
+  off it. Each course level has its own leaderboard (`moto-city`, `moto-city-medium`, `moto-city-hard`).
+- The computer riders (`Track.COMPUTER_LEVELS`): Easy ease off a lot when ahead and see what is on the road late; Medium
+  ride faster and ease off less; Hard are faster still, with a little more top speed than a bike has, hardly ease off and see
+  far ahead.
+
 The three courses follow the user's pictures (2026-11-11): **Sakura River** (along the river under cherry trees, from day
 into night: the user's day and night pictures as one ride), **Neon City** (shop fronts and neon at night, under an overpass)
 and **Mountain Pass** (up a winding road at sunset, a stone wall on one side and the valley on the other). The far view,

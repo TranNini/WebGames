@@ -671,6 +671,10 @@ const Scene = (() => {
         if (size < 0.4 || p.x < -size * 12 || p.x > width + size * 12) {
             return;
         }
+        if (thing.obstacle) {
+            drawObstacle(thing, p, size * OBSTACLE_SCALE, frame);
+            return;
+        }
         const flip = thing.x > 0; // trees lean over the road: those on the right are mirrored
         const tree = TREES[thing.kind];
         if (tree) {
@@ -769,6 +773,87 @@ const Scene = (() => {
                 break;
             default:
         }
+    }
+
+    // --- On the road (medium and hard courses), seen from behind, in the bikes' flat look ---
+
+    const OBSTACLE_SCALE = 1.4; // bigger than they are, as the bikes are, to be seen in time (track.js counts them so)
+    const CAR_COLORS = ['#d9dde4', '#2f6fb5', '#c43c3c', '#f1efe8', '#3a3d45', '#e0b33a'];
+    const ROCK_COLORS = [['#7a7380', '#958d9a', '#57505d'], ['#6e6a66', '#8c8781', '#504c48']];
+
+    function drawObstacle(thing, p, size, frame) {
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.scale(size, size);
+        switch (thing.kind) {
+            case 'car':
+                drawCar(thing.look, frame.look.lights);
+                break;
+            case 'rock': {
+                const [body, lit, dark] = ROCK_COLORS[Math.floor(thing.look * 2)];
+                blob('rgba(0,0,0,0.3)', 0, 0, 0.95, 0.1);
+                shape(body, [[-0.82, 0], [-0.88, -0.36], [-0.58, -0.8], [-0.12, -0.98], [0.38, -0.86], [0.78, -0.5], [0.84, 0]]);
+                shape(lit, [[-0.58, -0.8], [-0.12, -0.98], [0.38, -0.86], [0.1, -0.62], [-0.4, -0.58]]);
+                shape(dark, [[0.38, -0.86], [0.78, -0.5], [0.84, 0], [0.42, 0], [0.3, -0.45]]);
+                shape(body, [[0.62, 0], [0.7, -0.22], [0.98, -0.28], [1.12, 0]]);
+                shape(dark, [[-1.15, 0], [-1.05, -0.2], [-0.84, -0.18], [-0.8, 0]]);
+                break;
+            }
+            case 'stump':
+                blob('rgba(0,0,0,0.3)', 0, 0, 0.66, 0.09);
+                shape('#5b3f2b', [[-0.68, 0], [-0.5, -0.12], [-0.48, -0.62], [0.48, -0.62], [0.5, -0.12], [0.68, 0]]);
+                shape('#4a3322', [[-0.2, -0.04], [-0.16, -0.6], [-0.08, -0.6], [-0.1, -0.04]]);
+                shape('#4a3322', [[0.22, -0.04], [0.26, -0.6], [0.34, -0.6], [0.3, -0.04]]);
+                blob('#c9a27a', 0, -0.62, 0.48, 0.15);
+                ctx.strokeStyle = '#9e7650';
+                ctx.lineWidth = 0.03;
+                ctx.beginPath();
+                ctx.ellipse(0, -0.62, 0.3, 0.09, 0, 0, Math.PI * 2);
+                ctx.ellipse(0, -0.62, 0.14, 0.04, 0, 0, Math.PI * 2);
+                ctx.stroke();
+                break;
+            case 'cones':
+                for (const x of [-0.85, 0, 0.85]) {
+                    blob('rgba(0,0,0,0.28)', x, 0, 0.3, 0.06);
+                    shape('#24252b', [[x - 0.24, 0], [x - 0.24, -0.06], [x + 0.24, -0.06], [x + 0.24, 0]]);
+                    shape('#f26a1b', [[x - 0.17, -0.06], [x - 0.04, -0.74], [x + 0.04, -0.74], [x + 0.17, -0.06]]);
+                    shape('#f4f4f0', [[x - 0.13, -0.3], [x - 0.09, -0.48], [x + 0.09, -0.48], [x + 0.13, -0.3]]);
+                }
+                break;
+            default:
+        }
+        ctx.restore();
+    }
+
+    // A car standing on the road, its hazard lights blinking
+    function drawCar(look, lights) {
+        const body = CAR_COLORS[Math.floor(look * CAR_COLORS.length)];
+        blob('rgba(0,0,0,0.32)', 0, 0, 1.12, 0.12);
+        shape('#18181c', [[-0.92, 0], [-0.92, -0.36], [-0.6, -0.36], [-0.6, 0]]);
+        shape('#18181c', [[0.6, 0], [0.6, -0.36], [0.92, -0.36], [0.92, 0]]);
+        shape(body, [[-0.97, -0.24], [-1, -0.86], [-0.84, -0.94], [0.84, -0.94], [1, -0.86], [0.97, -0.24]]);
+        shape('rgba(0,0,0,0.18)', [[-0.84, -0.94], [-0.66, -1.42], [0.66, -1.42], [0.84, -0.94]]);
+        shape(body, [[-0.8, -0.92], [-0.64, -1.4], [0.64, -1.4], [0.8, -0.92]]);
+        shape('#27303c', [[-0.68, -0.96], [-0.55, -1.33], [0.55, -1.33], [0.68, -0.96]]);
+        shape('rgba(255,255,255,0.16)', [[-0.5, -1.0], [-0.38, -1.3], [-0.2, -1.3], [-0.32, -1.0]]);
+        shape('#2a2b31', [[-0.98, -0.24], [-0.98, -0.4], [0.98, -0.4], [0.98, -0.24]]);
+        shape('#f2f2ea', [[-0.22, -0.44], [-0.22, -0.56], [0.22, -0.56], [0.22, -0.44]]);
+        const blinking = performance.now() % 900 < 450;
+        for (const side of [-1, 1]) {
+            shape('#b01e24', [[side * 0.7, -0.64], [side * 0.7, -0.8], [side * 0.95, -0.8], [side * 0.95, -0.64]]);
+            shape(blinking ? '#ffb020' : '#8a5a1a', [[side * 0.7, -0.54], [side * 0.7, -0.63], [side * 0.95, -0.63], [side * 0.95, -0.54]]);
+        }
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        for (const side of [-1, 1]) {
+            if (lights > 0.3) {
+                blob('rgba(255,50,50,0.35)', side * 0.82, -0.72, 0.32, 0.16);
+            }
+            if (blinking) {
+                blob(`rgba(255,170,40,${0.35 + lights * 0.35})`, side * 0.82, -0.58, 0.4 + lights * 0.25, 0.2 + lights * 0.1);
+            }
+        }
+        ctx.restore();
     }
 
     function drawImage(image, x, y, w, h, flip) {

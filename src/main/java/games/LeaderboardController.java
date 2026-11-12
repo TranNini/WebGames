@@ -18,7 +18,8 @@ public class LeaderboardController {
     private static final Set<String> GAMES = Set.of("reflex-easy", "reflex-medium", "reflex-hard", "dodge", "math", "mission",
             "solitaire-moves-1", "solitaire-moves-3", "mahjong-easy", "mahjong-medium", "mahjong-hard",
             "mahjong-easy-nohints", "mahjong-medium-nohints", "mahjong-hard-nohints",
-            "moto-sakura", "moto-city", "moto-mountain");
+            "moto-sakura", "moto-city", "moto-mountain", "moto-sakura-medium", "moto-city-medium", "moto-mountain-medium",
+            "moto-sakura-hard", "moto-city-hard", "moto-mountain-hard");
     private static final int MAX_NAME_LENGTH = 16;
     private static final int MAX_SCORE = 1_000_000;
 

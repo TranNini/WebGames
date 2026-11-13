@@ -136,9 +136,11 @@ Levels: the one who opened the race picks **Easy**, **Medium** or **Hard** for t
   ride faster and ease off less; Hard are faster still, with a little more top speed than a bike has, hardly ease off and see
   far ahead.
 
-The three courses, all drawn in code: **Seaside** (long bends along the sea, palms, rocks and huts), **Canyon** (sharp
-turns and steep hills, cacti, boulders and mesas) and **Forest** (winding through pines and birches at dusk). Each is its
-loop of bends and hills ridden three times over, one after the other, from the start to the goal. (From 2026-11-11 to
+The four courses, all drawn in code: **Seaside** (long bends along the sea, palms, rocks and huts), **Canyon** (sharp
+turns and steep hills, cacti, boulders and mesas), **Forest** (winding through pines and birches at dusk) and **Chongqing**
+(up and down the mountain city at night: lit towers on the hills, a river with an arch bridge, houses on stilts, red
+lanterns, big fig trees, and a monorail over the road with its train going by; bamboo baskets of oranges on the road).
+Each is its loop of bends and hills ridden three times over, one after the other, from the start to the goal. (From 2026-11-11 to
 2026-11-13 the courses were Sakura River, Neon City and Mountain Pass, made from the user's pictures; the user took them
 out again. Their times stay in the database, unlisted.)
 
@@ -146,7 +148,7 @@ The phones talk to the server over a WebSocket (`/api/race`, checked by the acce
 rides its own bike (`track.js`) and sends where it is 15 times a second; the server passes that on to the others with how
 old it is, and each phone draws the others where they should be now. The server counts the start down, keeps the order
 at the goal by its own clock, gives the others a minute after the winner, and puts each finish on the course's
-leaderboard of fastest times (`moto-seaside`, `moto-canyon`, `moto-forest`; only the server adds to them). The menu
+leaderboard of fastest times (`moto-seaside`, `moto-canyon`, `moto-forest`, `moto-chongqing`; only the server adds to them). The menu
 doesn't stop the race. Afterwards the one who opened the race can start another with the same riders. It has its own
 music and an engine sound that follows the speed.
 

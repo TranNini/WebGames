@@ -124,10 +124,10 @@
     font-weight: 600;
 }
 
-/* The three courses, each with its colors */
+/* The four courses, two by two, each with its colors */
 .tracks {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
 }
 
@@ -158,6 +158,7 @@
 .track-choice.seaside { background: linear-gradient(#8fcdf2, #e9d7a4); }
 .track-choice.canyon { background: linear-gradient(#f6b27a, #d9a066); }
 .track-choice.forest { background: linear-gradient(#a77a9a, #5f9a63); color: #fff; }
+.track-choice.chongqing { background: linear-gradient(#1c2447, #8a5d80); color: #fff; }
 
 .track-choice[aria-pressed="true"] {
     border-color: var(--text);
@@ -642,8 +643,13 @@
         min-height: 52px;
     }
 
+    /* Two by two, just the names, so the level choice stays in sight */
     .track-choice {
-        min-height: 56px;
+        min-height: 44px;
+    }
+
+    .track-choice small {
+        display: none;
     }
 
     .trip {

@@ -1,7 +1,7 @@
 // Moto Race's courses and riding, without drawing or network, so it runs in Node too (tests). All in meters and seconds.
 // A course is a road from a start to a goal, built from short straight pieces (segments), each with its own bend and
 // height; the road is drawn from those as seen from behind the bike. Beside it is open ground with things standing on
-// it (palms, rocks, cacti, pines): off the road the bike is slower, and riding into one of them is a crash. On a medium
+// it (palms, rocks, cacti, pines, towers): off the road the bike is slower, and riding into one of them is a crash. On a medium
 // or hard course, things stand on the road too (a car, rocks, a stump, cones): riding into one stops the bike short. z is
 // how far a bike has come from the start line; x is how far it is from the middle of the road (negative: left).
 const Track = (() => {
@@ -56,10 +56,24 @@ const Track = (() => {
                 [30, 3, 2], [30, -3, -2], [50, 4, 0], [40, 0, 0]],
             laps: 3,
             obstacles: ['stump', 'stump', 'rock', 'car']
+        },
+        chongqing: {
+            name: 'Chongqing',
+            about: 'Up and down the mountain city at night',
+            scenery: ['tower', 'tower', 'stilt', 'lantern', 'ficus'],
+            sections: [[30, 0, 0], [40, -4, 10], [30, 5, 8], [40, -5, 6], [40, 0, -8], [50, 6, -10], [30, 0, 0], [40, -3, -6],
+                [40, 3, 6], [50, -5, -6], [40, 0, 0], [40, 4, 0]],
+            laps: 3,
+            obstacles: ['car', 'cones', 'baskets', 'car'],
+            monorail: 110 // a monorail over the road, on a straight, at most every this many segments
         }
     };
     // How wide what stands beside the road is, to ride into (half, in m)
-    const SOLID = {palm: 0.5, rock: 0.9, hut: 1.8, cactus: 0.5, boulder: 1.1, mesa: 0, pine: 0.6, birch: 0.4, log: 1.2, sign: 0.4};
+    const SOLID = {palm: 0.5, rock: 0.9, hut: 1.8, cactus: 0.5, boulder: 1.1, mesa: 0, pine: 0.6, birch: 0.4, log: 1.2, sign: 0.4,
+        tower: 0, stilt: 2, lantern: 0.3, ficus: 0.7, pillar: 0.6, monorail: 0};
+    // What stands further off: at least this far from the road's edge, and up to this much further
+    const FAR = {mesa: [30, 30], tower: [20, 34]};
+    const PILLAR = ROAD + 2.8; // the monorail's pillars, both sides
 
     const COURSE_LEVELS = {
         easy: null,
@@ -72,7 +86,8 @@ const Track = (() => {
         car: {half: 1.15, length: 4.2},
         rock: {half: 1, length: 1.6},
         stump: {half: 0.7, length: 1},
-        cones: {half: 1.35, length: 0.5}
+        cones: {half: 1.35, length: 0.5},
+        baskets: {half: 0.9, length: 0.9}
     };
     const LANES = [-2.3, 0, 2.3];
 
@@ -124,7 +139,14 @@ const Track = (() => {
         add(RUN_OUT, 0, 0);
 
         const random = seeded(name.length * 7919 + name.charCodeAt(0) * 104729);
+        let lastRail = RUN_UP;
         segments.forEach((segment, i) => {
+            if (spec.monorail && i - lastRail >= spec.monorail && i > RUN_UP + 20 && i < goal - 12 && Math.abs(segment.bend) < 1) {
+                // Pillars first, so the beam is drawn over them
+                segment.things.push({kind: 'pillar', x: -PILLAR, base: 0, size: 1}, {kind: 'pillar', x: PILLAR, base: 0, size: 1},
+                    {kind: 'monorail', x: 0, base: 0, size: 1, phase: (i * 0.618) % 1});
+                lastRail = i;
+            }
             // Signs on the outside of a sharp bend, so it can be seen coming
             if (Math.abs(segment.bend) >= 3.5 && i % 5 === 0) {
                 segment.things.push({kind: 'sign', x: Math.sign(segment.bend) * (ROAD + 1.6), base: 0, size: 1, left: segment.bend > 0});
@@ -135,8 +157,8 @@ const Track = (() => {
             for (const side of [-1, 1]) {
                 if (random() < 0.38) {
                     const kind = spec.scenery[Math.floor(random() * spec.scenery.length)];
-                    const near = kind === 'mesa' ? 30 : 2.2;
-                    const x = side * (ROAD + near + SOLID[kind] + random() * (kind === 'mesa' ? 30 : 13));
+                    const [near, spread] = FAR[kind] || [2.2, 13];
+                    const x = side * (ROAD + near + SOLID[kind] + random() * spread);
                     if (!segment.things.some(thing => Math.abs(thing.x - x) < 2.5)) {
                         segment.things.push({kind, x, base: 0, flip: random() < 0.5, size: 0.8 + random() * 0.45});
                     }

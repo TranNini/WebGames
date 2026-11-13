@@ -43,8 +43,9 @@ const Track = (() => {
             name: 'Canyon',
             about: 'Sharp turns and steep hills',
             scenery: ['cactus', 'boulder', 'cactus', 'mesa'],
-            sections: [[30, 0, 0], [50, 5, 0], [30, 0, 12], [40, -6, -12], [50, 0, 0], [40, 6, 9], [30, -4, 0], [60, 0, -9],
-                [40, -5, 6], [40, 5, -6], [40, 0, 0]],
+            // Rolling crests on the straights, over which the road can't be seen
+            sections: [[30, 0, 0], [50, 5, 4], [30, 0, 10], [40, -6, -12], [20, 0, -5], [15, 0, 6], [15, 0, -5], [40, 6, 9],
+                [30, -4, 2], [20, 0, -6], [20, 0, 5], [20, 0, -8], [40, -5, 6], [40, 5, -6], [20, 0, 4], [20, 0, -4]],
             laps: 3,
             obstacles: ['rock', 'rock', 'car', 'cones']
         },

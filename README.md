@@ -72,6 +72,24 @@ For trying it out, the settings have **Unlimited hearts** (such a run doesn't go
 
 She comes from the user's sprite sheet (`frames.js`), the kittens and first obstacles from their picture, the drones, cat screen and banner from their warning sheet, and the obstacles of the areas from their obstacle sheet (`ob-*`): `mission/art` holds the pieces, upscaled, and `mission/scene.js` puts them together with the lab it draws behind them.
 
+## Survive: Lost Island
+
+A 3D survival game in the browser. After a plane crash (a film you can skip) you wake up alone on the beach of a tropical island, and have to stay alive for 30 days. From the morning of day 31 a rescue helicopter searches at 9 o'clock each day, and it only sees you if a big SOS of 34 stones lies on open sand. Without one it flies on and comes back the next day.
+
+A day takes 8 minutes, so 30 days are about 4 hours, less when you sleep through the nights. The game saves itself on the device, so you can leave at any time and go on later; a new device starts a new island life. Dying ends that life.
+
+- **Your body:** health, hunger, thirst, energy, rest and body temperature. Nights are cold, rain makes you wet, and a fire, clothes or a roof help. Raw food and river water can make you sick, snakes poison you, and underwater you run out of air.
+- **The island:** beaches, open jungle, meadows, rivers, a swamp, a lagoon, caves, reefs and three small islands. The same island in every game; what you take grows back after some days.
+- **Crafting and building:** axes, pickaxes, a shovel, knives, spears, a bow, a fishing rod, torches and clothes, in stone and in iron. Campfire, workbench, furnace, chests, beds, garden plots, rain collectors, a ready hut or large house, or your own from floors, walls, doors, windows and roofs that snap together; fences, bridges and a boat.
+- **Animals:** parrots, monkeys, turtles, crabs, fish, wild boars, snakes, crocodiles and jaguars. An animal you hit shows a life bar. Some can be tamed with the right food and then stay with you: a monkey (bananas), a parrot (berries), a boar (coconuts) or a jaguar (grilled meat).
+- **The night:** a tall dark figure with a white, faceless head walks at night. When it sees you there is a sound; it follows you, and when it reaches you, you are dead. It stays out of the light of a fire and out of deep water, and it is gone at sunrise.
+- **Weather:** sunshine, clouds, rain, thunderstorms, fog and storms, and day and night.
+- **Secrets:** the airplane wreckage, abandoned huts, hidden camps, an old weather station, caves, two shipwrecks, the islets and a buried treasure, with pages that tell the island's past.
+
+On a phone or tablet: left thumb to walk, right thumb to look, the running figure switches running on and off (walking costs no energy, running does), and the yellow button does what it says. On a computer: WASD and the mouse, E or left click for the yellow button, F or right click for the other one; the journal lists all keys. The settings also have **Graphics** (auto, low, medium, high). The score is 100 points per day survived, plus places found, pages read and gold coins, and 2000 for being rescued; it goes on the leaderboard when the game ends.
+
+Plants, bark, rock, wood and ground come from CC0 photos and scans by Poly Haven and ambientCG (`survive/art/LICENSE.txt`); rain and crickets are CC0 recordings from Freesound; shapes and the other sounds are made in code. 3D by [three.js](https://threejs.org) (MIT license, `survive/lib/`).
+
 ## Solitaire
 
 Klondike, with no timer and made for one thumb. Build each suit from ace to king on the foundations; in the columns, cards go
@@ -156,7 +174,7 @@ music and an engine sound that follows the speed.
 
 ## Leaderboards
 
-Each mode of Reflex Tap has its own top 20, and Lane Dodge, Scribble Math and Mission: Meow have one each. A name is on it once, with its best score. Of two equal scores the one reached first ranks higher, and on a
+Each mode of Reflex Tap has its own top 20, and Lane Dodge, Scribble Math, Mission: Meow and Survive: Lost Island have one each. A name is on it once, with its best score. Of two equal scores the one reached first ranks higher, and on a
 full list a new name needs more than last place. The game over screen shows the top 3 and your own place.
 
 Everyone enters a name once on their device, after the access code. It applies to all games and leaderboards, and scores are saved under it automatically. The start page has a link to change it; scores already on a list stay under the old name.
@@ -185,6 +203,7 @@ and open `http://<the Mac's address>:8083`.
 | `src/main/resources/static/dodge/` | Lane Dodge |
 | `src/main/resources/static/math/` | Scribble Math |
 | `src/main/resources/static/mission/` | Mission: Meow |
+| `src/main/resources/static/survive/` | Survive: Lost Island |
 | `src/main/resources/static/solitaire/` | Solitaire |
 | `src/main/resources/static/mahjong/` | Mahjong (`board.js` the rules, `faces.js` the tiles) |
 | `src/main/resources/static/moto/` | Moto Race (`track.js` the courses and riding, `scene.js` the drawing, `moto.js` the game, `art/` the pieces of the user's pictures) |

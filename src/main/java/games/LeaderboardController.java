@@ -15,7 +15,7 @@ import java.util.Set;
 @RestController
 @RequestMapping("/api/leaderboard/{game}")
 public class LeaderboardController {
-    private static final Set<String> GAMES = Set.of("reflex-easy", "reflex-medium", "reflex-hard", "dodge", "math", "mission",
+    private static final Set<String> GAMES = Set.of("reflex-easy", "reflex-medium", "reflex-hard", "dodge", "math", "mission", "survive",
             "solitaire-moves-1", "solitaire-moves-3", "mahjong-easy", "mahjong-medium", "mahjong-hard",
             "mahjong-easy-nohints", "mahjong-medium-nohints", "mahjong-hard-nohints",
             "moto-seaside", "moto-canyon", "moto-forest", "moto-seaside-medium", "moto-canyon-medium", "moto-forest-medium",

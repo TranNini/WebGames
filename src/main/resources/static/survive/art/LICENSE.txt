@@ -1,0 +1,9 @@
+The pictures in this folder are made from CC0 (public domain) photos and scans:
+
+Poly Haven (polyhaven.com): sand_01, forest_leaves_02, brown_mud_03, rock_boulder_dry, mossy_rock, palm_tree_bark,
+weathered_planks, wood_planks_grey, thatch_roof_angled, corrugated_iron, rusty_metal, island_tree_01, jacaranda_tree,
+pachira_aquatica_01, anthurium_botany_01, calathea_orbifolia_01, fern_02, shrub_02.
+
+ambientCG (ambientcg.com): Grass004, LeafSet024.
+
+Sounds, CC0, from Freesound (freesound.org), both by Borgory: 651189 "Heavy Rain Regen Starkregen" (rain.mp3), 751472 "Crickets in the Night 002" (crickets.mp3).

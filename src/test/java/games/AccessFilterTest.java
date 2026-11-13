@@ -122,4 +122,9 @@ class AccessFilterTest {
     void missionMeowHasALeaderboard() throws Exception {
         mvc.perform(get("/api/leaderboard/mission")).andExpect(status().isOk());
     }
+
+    @Test
+    void surviveHasALeaderboard() throws Exception {
+        mvc.perform(get("/api/leaderboard/survive")).andExpect(status().isOk());
+    }
 }

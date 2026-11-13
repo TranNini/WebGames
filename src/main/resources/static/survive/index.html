@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+    <meta name="theme-color" content="#17161c">
+    <script src="/theme.js"></script>
+    <script src="/player.js"></script>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Games">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" href="/favicon.png" type="image/png">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <title>Survive: Lost Island</title>
+    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="/game.css">
+    <link rel="stylesheet" href="survive.css">
+</head>
+<body>
+<div class="screen">
+    <main id="title" class="title">
+        <div class="title-text">
+            <h1>SURVIVE: LOST ISLAND</h1>
+            <p class="tagline">30 Days. One Island. One Goal: Survive. 🌴</p>
+            <p id="how" class="how">Your plane has crashed on a deserted tropical island. Stay alive for 30 days, then a rescue helicopter will come looking. It will only see you if you have laid a big SOS in stones on the beach.</p>
+        </div>
+        <div class="title-buttons">
+            <button id="continue" class="button primary" hidden>Continue</button>
+            <button id="start" class="button primary">New game</button>
+            <p id="loading" class="loading" hidden>Finding the island…</p>
+        </div>
+    </main>
+
+    <main id="world" class="world" hidden>
+        <canvas id="view" aria-label="The island, seen through your eyes"></canvas>
+        <div id="touch" class="touch"></div>
+        <div id="lid-top" class="lid top"></div>
+        <div id="lid-bottom" class="lid bottom"></div>
+        <div id="hurt" class="hurt"></div>
+        <div id="fade" class="fade"><div id="fade-text"></div></div>
+        <div id="subtitle" class="subtitle" hidden></div>
+        <button id="skip" class="skip" hidden>Skip</button>
+
+        <div id="hud" class="hud" hidden>
+            <div id="stats" class="stats"></div>
+            <div class="clock"><b id="clock-day"></b><span id="clock-time"></span><span id="compass"></span></div>
+            <div id="status" class="status"></div>
+            <div class="side">
+                <button class="round" data-tab="bag" aria-label="Bag">🎒</button>
+                <button class="round" data-tab="craft" aria-label="Craft">🔨</button>
+                <button class="round" data-tab="build" aria-label="Build">🏠</button>
+                <button class="round" data-tab="journal" aria-label="Journal">📖</button>
+            </div>
+            <div id="feed" class="feed"></div>
+            <div class="crosshair"></div>
+            <div id="joystick" class="joystick" hidden><i id="stick"></i></div>
+            <div class="actions">
+                <button id="dive" class="round big" aria-label="Dive" hidden>⬇️</button>
+                <button id="run" class="round big" aria-label="Run">🏃</button>
+                <button id="jump" class="round big" aria-label="Jump or swim up">⬆️</button>
+                <button id="act2" class="act" hidden></button>
+                <button id="act1" class="act main" hidden></button>
+            </div>
+            <div id="placing" class="placing" hidden>
+                <button id="place-cancel" class="act">Cancel</button>
+                <button id="place-turn" class="act">Turn</button>
+                <button id="place-ok" class="act main">Place</button>
+            </div>
+            <div id="hotbar" class="hotbar"></div>
+        </div>
+
+        <section id="panel" class="panel" hidden>
+            <header class="panel-head">
+                <nav id="tabs" class="tabs">
+                    <button data-tab="bag">Bag</button>
+                    <button data-tab="craft">Craft</button>
+                    <button data-tab="build">Build</button>
+                    <button data-tab="journal">Journal</button>
+                    <button data-tab="map">Map</button>
+                </nav>
+                <button id="panel-close" class="close" aria-label="Close">✕</button>
+            </header>
+            <div id="panel-body" class="panel-body"></div>
+        </section>
+    </main>
+</div>
+<script src="/sound.js"></script>
+<script src="/game.js"></script>
+<script type="module" src="survive.js"></script>
+</body>
+</html>

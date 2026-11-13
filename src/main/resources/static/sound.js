@@ -146,7 +146,12 @@ const Sound = (() => {
         }
     };
 
+    // Spice on the music while an alarm is on: beats per minute on top of the tune's, for each level
+    const ALARM_BPM = [0, 0, 8, 16];
+
     let ctx = null;
+    let noiseSamples = null;
+    let alarm = 0;
     let soundGain = null;
     let musicGain = null;
     let soundLevel = 0;
@@ -235,6 +240,10 @@ const Sound = (() => {
         });
     }
 
+    function zap() {
+        play(now => tone(soundGain, 'square', 1500, now, 0.11, 0.1, 420));
+    }
+
     function meow() {
         play(now => {
             tone(soundGain, 'triangle', 640, now, 0.13, 0.5, 980);
@@ -274,9 +283,68 @@ const Sound = (() => {
             if (tune.beat && note % 4 === 2) {
                 tone(musicGain, 'triangle', 330, nextNoteAt, 0.09, 0.35, 150);
             }
+            addAlarmSpice(bar, note, nextNoteAt);
             step++;
-            nextNoteAt += 30 / (tune.slowBpm + (tune.fastBpm - tune.slowBpm) * speed);
+            nextNoteAt += 30 / (tune.slowBpm + (tune.fastBpm - tune.slowBpm) * speed + ALARM_BPM[alarm]);
         }
+    }
+
+    // A short burst of hiss, for a hi-hat or a snare
+    function noise(at, seconds, loudness, lowestFrequency) {
+        if (!noiseSamples) {
+            noiseSamples = ctx.createBuffer(1, ctx.sampleRate / 2, ctx.sampleRate);
+            noiseSamples.getChannelData(0).forEach((_, index, samples) => {
+                samples[index] = Math.random() * 2 - 1;
+            });
+        }
+        const source = ctx.createBufferSource();
+        const filter = ctx.createBiquadFilter();
+        const gain = ctx.createGain();
+        source.buffer = noiseSamples;
+        filter.type = 'highpass';
+        filter.frequency.value = lowestFrequency;
+        gain.gain.setValueAtTime(loudness, at);
+        gain.gain.exponentialRampToValueAtTime(0.0001, at + seconds);
+        source.connect(filter).connect(gain).connect(musicGain);
+        source.start(at);
+        source.stop(at + seconds + 0.02);
+    }
+
+    // Level 1: a tense chord at the start of a bar and a pulse under the tune. 2: also a hi-hat and the tune doubled, lower and rougher.
+    // 3: also a drum on every beat, a snare and a rising wail.
+    function addAlarmSpice(bar, note, at) {
+        if (alarm >= 1) {
+            if (note % 2 === 1) {
+                tone(musicGain, 'sawtooth', bar.bass * 4, at, 0.22, 0.15); // high enough for a phone's speaker
+            }
+            if (note === 0) {
+                tone(musicGain, 'square', bar.bass * 2 * Math.SQRT2, at, 0.5, 0.1); // the tritone: it never sounds at ease
+            }
+        }
+        if (alarm >= 2) {
+            if (note % 2 === 1) {
+                noise(at, 0.07, 0.22, 7000);
+            }
+            if (bar.notes[note]) {
+                tone(musicGain, 'sawtooth', bar.notes[note] / 2, at, 0.22, 0.15);
+            }
+        }
+        if (alarm >= 3) {
+            if (note % 2 === 0 && note % 4 !== 0) {
+                tone(musicGain, 'sine', 170, at, 0.1, 0.5, 50);
+            }
+            if (note === 4) {
+                noise(at, 0.2, 0.3, 1500);
+            }
+            if (note === 0) {
+                tone(musicGain, 'sawtooth', bar.bass * 4, at, 0.8, 0.12, bar.bass * 8);
+            }
+        }
+    }
+
+    // 0 for none, then 1 to 3
+    function setMusicAlarm(level) {
+        alarm = level;
     }
 
     function setTune(name) {
@@ -370,5 +438,5 @@ const Sound = (() => {
         }
     }
 
-    return {unlock, setSoundVolume, setMusicVolume, tap, meow, warn, siren, miss, start, gameOver, startMusic, stopMusic, setMusicSpeed, setTune, setEngine, sleep};
+    return {unlock, setSoundVolume, setMusicVolume, tap, meow, warn, siren, zap, miss, start, gameOver, startMusic, stopMusic, setMusicSpeed, setMusicAlarm, setTune, setEngine, sleep};
 })();

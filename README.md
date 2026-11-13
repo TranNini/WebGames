@@ -149,14 +149,15 @@ leaves during the race, the next person's phone rides the computer riders on.
 Levels: the one who opened the race picks **Easy**, **Medium** or **Hard** for the course and for the computer riders.
 - The course: Easy is a clear road; Medium has something standing on it every 360 to 540 m (not in sharp bends); Hard every
   140 to 220 m, also in bends, often two on both sides of the road with the way through between them. A standing car with
-  its hazard lights on, rocks, a tree stump or traffic cones, by course (`Track.TRACKS[...].obstacles`), the same on every
+  its hazard lights on, rocks, crabs, a tree stump or traffic cones, by course (`Track.TRACKS[...].obstacles`), the same on every
   phone. Riding into one from behind stops the bike short, and it slides round to the side with room; along one, it is held
   off it. Each course level has its own leaderboard (`moto-canyon`, `moto-canyon-medium`, `moto-canyon-hard`).
 - The computer riders (`Track.COMPUTER_LEVELS`): Easy ease off a lot when ahead and see what is on the road late; Medium
   ride faster and ease off less; Hard are faster still, with a little more top speed than a bike has, hardly ease off and see
   far ahead.
 
-The four courses, all drawn in code: **Seaside** (long bends along the sea, palms, rocks and huts), **Canyon** (sharp
+The four courses, all drawn in code: **Seaside** (long bends along the sea, palms, rocks, huts
+and sun umbrellas with a swim ring and a sun chair; crabs crossing the road), **Canyon** (sharp
 turns and steep hills, cacti, boulders and mesas; its medium has as much on the road as hard elsewhere, and its hard is
 that on a wilder road with higher crests, deeper drops and bends to brake for), **Forest** (winding through pines and birches at dusk) and **Chongqing**
 (up and down the mountain city at night: lit towers on the hills, a river with an arch bridge, houses on stilts, red

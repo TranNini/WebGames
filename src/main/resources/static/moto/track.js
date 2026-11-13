@@ -34,11 +34,12 @@ const Track = (() => {
         seaside: {
             name: 'Seaside',
             about: 'Long bends along the sea',
-            scenery: ['palm', 'palm', 'rock', 'hut'],
+            // Half the huts are beach spots: a sun umbrella, a swim ring and a sun chair
+            scenery: ['palm', 'palm', 'palm', 'palm', 'rock', 'rock', 'hut', 'beach'],
             sections: [[40, 0, 0], [60, 2, 4], [40, 0, -4], [80, -3, 0], [50, 0, 6], [70, 4, -6], [40, 0, 0], [60, -2, 3],
                 [60, 3, -3], [50, 0, 0]],
             laps: 3,
-            obstacles: ['car', 'cones', 'rock', 'car']
+            obstacles: ['car', 'cones', 'crabs', 'car']
         },
         canyon: {
             name: 'Canyon',
@@ -83,7 +84,7 @@ const Track = (() => {
         }
     };
     // How wide what stands beside the road is, to ride into (half, in m)
-    const SOLID = {palm: 0.5, rock: 0.9, hut: 1.8, cactus: 0.5, boulder: 1.1, mesa: 0, pine: 0.6, birch: 0.4, log: 1.2, sign: 0.4,
+    const SOLID = {palm: 0.5, rock: 0.9, hut: 1.8, cactus: 0.5, boulder: 1.1, mesa: 0, pine: 0.6, birch: 0.4, log: 1.2, sign: 0.4, beach: 1.3,
         tower: 0, stilt: 2, lantern: 0.3, ficus: 0.7, pillar: 0.6, monorail: 0};
     // What stands further off: at least this far from the road's edge, and up to this much further
     const FAR = {mesa: [30, 30], tower: [20, 34]};
@@ -101,6 +102,7 @@ const Track = (() => {
         rock: {half: 1, length: 1.6},
         stump: {half: 0.7, length: 1},
         cones: {half: 1.35, length: 0.5},
+        crabs: {half: 1.3, length: 0.6},
         baskets: {half: 0.9, length: 0.9}
     };
     const LANES = [-2.3, 0, 2.3];

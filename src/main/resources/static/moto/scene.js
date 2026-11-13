@@ -489,6 +489,55 @@ const Scene = (() => {
             shape(tint('#7a5232'), [[-1.2, 0], [-1.2, -0.6], [1.2, -0.6], [1.2, 0]]);
             blob(tint('#c79a63'), 1.2, -0.3, 0.2, 0.3);
         },
+        // A beach spot: a striped sun umbrella with a swim ring leaning on its pole, and a sun chair beside it
+        beach(tint, thing) {
+            const colors = BEACH_COLORS[Math.floor(Math.abs(thing.x) * 7) % BEACH_COLORS.length];
+            blob(tint('#cbb27a'), 0.5, 0, 1.9, 0.18);
+            // The sun chair: legs, then the cloth, lying back
+            ctx.strokeStyle = tint('#e8e3d6');
+            ctx.lineWidth = 0.07;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(-1.5, 0);
+            ctx.lineTo(-1.3, -0.4);
+            ctx.moveTo(-0.1, 0);
+            ctx.lineTo(-0.2, -0.4);
+            ctx.moveTo(-1.6, -0.4);
+            ctx.lineTo(-0.1, -0.4);
+            ctx.lineTo(0.35, -1.15);
+            ctx.stroke();
+            shape(tint(colors[0]), [[-1.55, -0.46], [-0.12, -0.46], [0.3, -1.12], [0.16, -1.18], [-0.22, -0.56], [-1.55, -0.56]]);
+            shape(tint(colors[1]), [[-1.05, -0.46], [-0.6, -0.46], [-0.6, -0.56], [-1.05, -0.56]]);
+            // The umbrella's pole, a little slanted, and its canopy in stripes
+            ctx.strokeStyle = tint('#d9d4c7');
+            ctx.lineWidth = 0.08;
+            ctx.beginPath();
+            ctx.moveTo(1.15, 0);
+            ctx.lineTo(1.05, -2.7);
+            ctx.stroke();
+            const panels = 6;
+            for (let i = 0; i < panels; i++) {
+                const a = -1.6 + (3.2 * i) / panels;
+                const b = -1.6 + (3.2 * (i + 1)) / panels;
+                const top = x => -2.75 - 0.75 * (1 - (x / 1.6) ** 2);
+                shape(tint(colors[i % 2]), [[1.05 + a, -2.6 + Math.abs(a) * 0.06], [1.05 + a, top(a)], [1.05 + (a + b) / 2, top((a + b) / 2)],
+                    [1.05 + b, top(b)], [1.05 + b, -2.6 + Math.abs(b) * 0.06]]);
+            }
+            for (let i = 0; i < panels; i++) {
+                const middle = -1.6 + (3.2 * (i + 0.5)) / panels;
+                blob(tint(colors[i % 2]), 1.05 + middle, -2.62, 3.2 / panels / 2, 0.1);
+            }
+            blob(tint('#d9d4c7'), 1.05, -3.52, 0.07, 0.07);
+            // The swim ring, leaning on the pole
+            ctx.lineWidth = 0.2;
+            ctx.lineCap = 'butt';
+            for (let i = 0; i < 8; i++) {
+                ctx.strokeStyle = tint(i % 2 ? '#f6f3ec' : colors[2]);
+                ctx.beginPath();
+                ctx.ellipse(1.45, -0.42, 0.34, 0.4, -0.25, (i * Math.PI) / 4, ((i + 1) * Math.PI) / 4);
+                ctx.stroke();
+            }
+        },
         // A bend sign: black and yellow arrows pointing the way the road goes
         sign(tint, thing) {
             ctx.fillStyle = tint('#45474d');
@@ -613,6 +662,8 @@ const Scene = (() => {
     // On the road (medium and hard courses), seen from behind, in the bikes' flat look
 
     const OBSTACLE_SCALE = 1.4; // bigger than they are, as the bikes are, to be seen in time (track.js counts them so)
+    const BEACH_COLORS = [['#e5484d', '#f6f3ec', '#ff8fb1'], ['#2fa7c9', '#f6f3ec', '#f5c400'], ['#f5a524', '#e5484d', '#3fc1a5'],
+        ['#3e7bfa', '#f6f3ec', '#ff6b3d']];
     const CAR_COLORS = ['#d9dde4', '#2f6fb5', '#c43c3c', '#f1efe8', '#3a3d45', '#e0b33a'];
     const ROCK_COLORS = [['#7a7380', '#958d9a', '#57505d'], ['#6e6a66', '#8c8781', '#504c48']];
 
@@ -668,6 +719,52 @@ const Scene = (() => {
                     blob('#f28a22', x, y, 0.13, 0.12);
                 }
                 break;
+            case 'crabs': {
+                // Three red crabs crossing the road, snapping their claws
+                const now = performance.now() / 1000;
+                for (const [i, x] of [-0.82, 0.05, 0.86].entries()) {
+                    const at = x + (thing.look * 7 + i) % 1 * 0.16 - 0.08;
+                    const snap = Math.sin(now * 9 + i * 2.1) * 0.04;
+                    const step = Math.sin(now * 14 + i) * 0.03;
+                    blob('rgba(0,0,0,0.28)', at, 0, 0.34, 0.06);
+                    ctx.strokeStyle = '#b9301c';
+                    ctx.lineWidth = 0.045;
+                    ctx.lineCap = 'round';
+                    ctx.beginPath();
+                    for (const side of [-1, 1]) {
+                        for (const [k, out] of [0.22, 0.29, 0.34].entries()) {
+                            ctx.moveTo(at + side * 0.12, -0.16 + k * 0.03);
+                            ctx.lineTo(at + side * out, -0.2 + k * 0.03 + (k % 2 ? step : -step));
+                            ctx.lineTo(at + side * (out + 0.05), 0);
+                        }
+                        // The arms up to the claws
+                        ctx.moveTo(at + side * 0.14, -0.24);
+                        ctx.lineTo(at + side * 0.3, -0.38 + snap);
+                    }
+                    ctx.stroke();
+                    blob('#e2492b', at, -0.22, 0.24, 0.14);
+                    blob('#f0704a', at - 0.04, -0.27, 0.12, 0.06);
+                    for (const side of [-1, 1]) {
+                        blob('#e85a33', at + side * 0.32, -0.45 + snap, 0.1, 0.085);
+                        ctx.strokeStyle = '#8f2414';
+                        ctx.lineWidth = 0.025;
+                        ctx.beginPath();
+                        ctx.moveTo(at + side * 0.32, -0.53 + snap);
+                        ctx.lineTo(at + side * 0.33, -0.44 + snap);
+                        ctx.stroke();
+                        // Eyes on stalks
+                        ctx.strokeStyle = '#b9301c';
+                        ctx.lineWidth = 0.03;
+                        ctx.beginPath();
+                        ctx.moveTo(at + side * 0.06, -0.33);
+                        ctx.lineTo(at + side * 0.08, -0.43);
+                        ctx.stroke();
+                        blob('#1b1b20', at + side * 0.08, -0.45, 0.04, 0.04);
+                        blob('#ffffff', at + side * 0.07, -0.465, 0.013, 0.013);
+                    }
+                }
+                break;
+            }
             case 'cones':
                 for (const x of [-0.85, 0, 0.85]) {
                     blob('rgba(0,0,0,0.28)', x, 0, 0.3, 0.06);

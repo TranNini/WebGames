@@ -136,7 +136,10 @@ banner to the GOAL, about one and a half minutes; the bar shows how far it still
 is. The bike speeds up by itself: hold the left or right half of the screen to steer, both to brake (on a computer: the
 arrow keys, Down or Space to brake). Bends push the bike outwards, the more the faster it goes; off the road it is
 slower, and riding into a tree or a rock beside it is a crash: the bike is carried back onto the road and then rides
-through everything for a moment, blinking. Riding right behind another bike gives up to 10% more speed; running into one
+through everything for a moment, blinking. A ramp across the road throws the bike into the air, the further the faster it
+comes (about 80 m at full speed): it keeps its speed, can turn only a little and flies over what is on the road; every phone
+works out the others' flights from where they are and how fast they go (`Track.airOf`), so nothing more is sent. Riding
+right behind another bike gives up to 10% more speed; running into one
 slows you down.
 
 Computer riders (Aiko, Kenji, Mika, Ren, Sora) are ridden by the phone that opened the race (`Track.computer`: they keep a
@@ -156,7 +159,7 @@ Levels: the one who opened the race picks **Easy**, **Medium** or **Hard** for t
   ride faster and ease off less; Hard are faster still, with a little more top speed than a bike has, hardly ease off and see
   far ahead.
 
-The four courses, all drawn in code: **Seaside** (long bends along the sea, palms, rocks, huts
+The four courses, all drawn in code: **Seaside** (long bends along the sea and some sharp ones, two ramps a lap, palms, rocks, huts
 and sun umbrellas with a swim ring and a sun chair; crabs crossing the road), **Canyon** (sharp
 turns and steep hills, cacti, boulders and mesas; its medium has as much on the road as hard elsewhere, and its hard is
 that on a wilder road with higher crests, deeper drops and bends to brake for), **Forest** (winding through pines and birches at dusk) and **Chongqing**

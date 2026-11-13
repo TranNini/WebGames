@@ -86,7 +86,8 @@ const Scene = (() => {
         const focal = (upright ? width * 0.74 : Math.min(width * 0.86, height * 2.2)) * CAMERA_BACK / (2 * Track.ROAD);
         const cameraHeight = (bikeY - horizon) * CAMERA_BACK / focal;
         const cameraZ = bike.z - CAMERA_BACK;
-        const cameraY = Track.heightAt(track, bike.z) + cameraHeight;
+        // In the air the camera goes up with the bike, a little less, so the bike is seen rising and the road dropping away
+        const cameraY = Track.heightAt(track, bike.z) + cameraHeight + bike.air * 0.6;
         const cameraX = bike.x;
         // Bikes are drawn bigger than they are, to be seen well, but the own one no taller than a fifth of the screen
         // (a phone sideways, where the screen is low: a third; a tablet sideways: a quarter)
@@ -165,6 +166,9 @@ const Scene = (() => {
             } else if (stripe === 0) {
                 quad(mix(look.line, look.fog, fade), x1, y1, w1 * 0.025, x2, y2, w2 * 0.025);
             }
+            if (segment.ramp) {
+                drawRamp(shown[i], segment.ramp, fade, look);
+            }
         }
 
         // Things and bikes, far to near; the own bike among them, so one just behind it is drawn over it
@@ -197,8 +201,9 @@ const Scene = (() => {
                     if (bike.ghost > 0 && Math.floor(bike.ghost * 8) % 2 === 1) {
                         continue;
                     }
-                    drawBike(width / 2, bikeY, focal / CAMERA_BACK * bikeScale, RIDER_COLORS[view.color], lean, view.braking, null,
-                        look.lights);
+                    const perMeter = focal / CAMERA_BACK;
+                    drawBike(width / 2, bikeY + bike.air * 0.6 * perMeter, perMeter * bikeScale, RIDER_COLORS[view.color], lean,
+                        view.braking, null, look.lights, bike.air * perMeter);
                     continue;
                 }
                 // Where it is, seen from the camera: not a share of the way between the segment's ends on screen, which
@@ -210,7 +215,7 @@ const Scene = (() => {
                 const sx = width / 2 + (roadX + other.x - cameraX) * scale;
                 const sy = horizon - (ground - cameraY) * scale;
                 clipped(entry.clip, () => drawBike(sx, sy, scale * bikeScale, other.color, other.lean, other.braking, other.name,
-                    look.lights));
+                    look.lights, (other.air || 0) * scale));
             }
         }
 
@@ -225,6 +230,24 @@ const Scene = (() => {
         ctx.clip();
         paint();
         ctx.restore();
+    }
+
+    // A ramp across the road, yellow with black stripes, rising to its lip; its sides show below it
+    function drawRamp({x1, y1, x2, y2, scale1, scale2}, [h1, h2], fade, look) {
+        const w1 = Track.ROAD * scale1;
+        const w2 = Track.ROAD * scale2;
+        const top1 = y1 - h1 * scale1;
+        const top2 = y2 - h2 * scale2;
+        for (const side of [-1, 1]) {
+            shape(mix('#8a6a1c', look.fog, fade), [[x1 + side * w1, y1], [x1 + side * w1, top1], [x2 + side * w2, top2], [x2 + side * w2, y2]]);
+        }
+        quad(mix('#f5c400', look.fog, fade), x1, top1, w1, x2, top2, w2);
+        for (const at of [-0.7, -0.35, 0, 0.35, 0.7]) {
+            quad(mix('#26252b', look.fog, fade), x1 + at * w1, top1, w1 * 0.07, x2 + at * w2, top2, w2 * 0.07);
+        }
+        if (h2 >= 1.4) {
+            quad(mix('#26252b', look.fog, fade), x2, top2 + 0.12 * scale2, w2, x2, top2, w2); // the lip
+        }
     }
 
     function drawChecks(x1, y1, w1, x2, y2, w2, index) {
@@ -837,15 +860,18 @@ const Scene = (() => {
         }
     }
 
-    // A motorcycle with its rider, seen from behind. x, y: where its wheel touches the road; scale: pixels per meter.
-    function drawBike(x, y, scale, color, lean, braking, name, lights = 0) {
+    // A motorcycle with its rider, seen from behind. x, y: where its wheel touches the road; scale: pixels per meter; lift:
+    // pixels it is above the road (on a ramp or flying), its shadow staying on the road.
+    function drawBike(x, y, scale, color, lean, braking, name, lights = 0, lift = 0) {
         if (scale < 0.5) {
             return;
         }
         ctx.save();
         ctx.translate(x, y);
         ctx.scale(scale, scale);
-        blob('rgba(0,0,0,0.28)', 0, 0, 0.42, 0.07);
+        const away = Math.max(0.35, 1 - lift / scale * 0.25); // the shadow smaller the higher it flies
+        blob(`rgba(0,0,0,${0.28 * away})`, 0, 0, 0.42 * away, 0.07 * away);
+        ctx.translate(0, -lift / scale);
         ctx.rotate(lean);
         // Tyre and mudguard
         shape('#1c1c20', [[-0.11, 0], [-0.13, -0.5], [0.13, -0.5], [0.11, 0]]);
@@ -878,7 +904,7 @@ const Scene = (() => {
             ctx.lineWidth = 3;
             ctx.strokeStyle = 'rgba(20,20,26,0.75)';
             ctx.fillStyle = '#ffffff';
-            const top = y - scale * 1.85;
+            const top = y - lift - scale * 1.85;
             ctx.strokeText(name, x, top);
             ctx.fillText(name, x, top);
         }

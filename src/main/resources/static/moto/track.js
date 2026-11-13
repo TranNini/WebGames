@@ -3,7 +3,9 @@
 // height; the road is drawn from those as seen from behind the bike. Beside it is open ground with things standing on
 // it (palms, rocks, cacti, pines, towers): off the road the bike is slower, and riding into one of them is a crash. On a medium
 // or hard course, things stand on the road too (a car, rocks, a stump, cones): riding into one stops the bike short. z is
-// how far a bike has come from the start line; x is how far it is from the middle of the road (negative: left).
+// how far a bike has come from the start line; x is how far it is from the middle of the road (negative: left). A ramp
+// across the road throws a bike into the air: it flies at the speed it had, so where it is in the air follows from where
+// it is and how fast it goes, and every phone can work it out for the others (airOf).
 const Track = (() => {
     const SEGMENT = 4;
     const ROAD = 4; // half the road
@@ -25,6 +27,11 @@ const Track = (() => {
     const BEND = 0.0042; // turn of the road per segment, per step of its bend (radians); for the drawing
     const RUN_UP = 30; // segments before the start line, for the grid
     const RUN_OUT = 160; // segments after the goal: to stop on, and to see ahead to the end
+    const RAMP_SEGMENTS = 2; // a ramp is this long, up to its lip
+    const RAMP_HEIGHT = 1.5;
+    const LIFT = 0.22; // leaving the lip: upwards, this share of the speed
+    const GRAVITY = 22; // more than real, so a jump at full speed is about 80 m and not much more than a second
+    const AIR_STEER = 0.3; // in the air, the rider can turn only this much
 
     // Sections: [segments, bend (- left, + right; 6 can just be held at full speed, more needs braking), climb in m]. Every
     // section eases into its bend and out of it.
@@ -36,8 +43,9 @@ const Track = (() => {
             about: 'Long bends along the sea',
             // Half the huts are beach spots: a sun umbrella, a swim ring and a sun chair
             scenery: ['palm', 'palm', 'palm', 'palm', 'rock', 'rock', 'hut', 'beach'],
-            sections: [[40, 0, 0], [60, 2, 4], [40, 0, -4], [80, -3, 0], [50, 0, 6], [70, 4, -6], [40, 0, 0], [60, -2, 3],
-                [60, 3, -3], [50, 0, 0]],
+            sections: [[40, 0, 0], [60, 4, 4], [40, 0, -4], [40, -5, 0], [40, 3, 0], [50, 0, 6], [70, 5, -6], [40, 0, 0],
+                [30, -6, 3], [30, -2, 0], [60, 4, -3], [50, 0, 0]],
+            ramps: [[7, 2], [11, 2]], // [section, segments into it]: on straights, with room to land
             laps: 3,
             obstacles: ['car', 'cones', 'crabs', 'car']
         },
@@ -156,6 +164,20 @@ const Track = (() => {
         const goal = segments.length;
         add(RUN_OUT, 0, 0);
 
+        // The ramps, in every lap: the segments up to the lip are raised (drawn by scene.js)
+        const ramps = [];
+        const lapLength = spec.sections.reduce((sum, [count]) => sum + count, 0);
+        for (let lap = 0; lap < (own.sections ? 0 : spec.laps); lap++) {
+            for (const [section, into] of spec.ramps || []) {
+                const first = RUN_UP + lap * lapLength + spec.sections.slice(0, section).reduce((sum, [count]) => sum + count, 0) + into;
+                for (let k = 0; k < RAMP_SEGMENTS; k++) {
+                    segments[first + k].ramp = [RAMP_HEIGHT * k / RAMP_SEGMENTS, RAMP_HEIGHT * (k + 1) / RAMP_SEGMENTS];
+                }
+                const z0 = (first - RUN_UP) * SEGMENT;
+                ramps.push({z0, z1: z0 + RAMP_SEGMENTS * SEGMENT});
+            }
+        }
+
         const random = seeded(name.length * 7919 + name.charCodeAt(0) * 104729);
         let lastRail = RUN_UP;
         segments.forEach((segment, i) => {
@@ -190,7 +212,8 @@ const Track = (() => {
             ...spec, key: name, level, segments,
             left: EDGE, right: EDGE, // how far from the middle a bike can go
             length, // from the start line to the goal
-            obstacles: placeObstacles(spec, segments, length,
+            ramps,
+            obstacles: placeObstacles(spec, segments, length, ramps,
                 own.obstacles ? {...COURSE_LEVELS[own.obstacles], bend: own.obstaclesInBends || COURSE_LEVELS[own.obstacles].bend}
                     : COURSE_LEVELS[level],
                 seeded(name.length * 3571 + (own.obstacles || level).length * 613))
@@ -201,7 +224,7 @@ const Track = (() => {
 
     // What stands on the road: never right after the start or just before the goal, nor in a bend sharper than the level
     // allows, and always with room to get by on one side at least
-    function placeObstacles(spec, segments, length, level, random) {
+    function placeObstacles(spec, segments, length, ramps, level, random) {
         const obstacles = [];
         if (!level) {
             return obstacles;
@@ -216,7 +239,8 @@ const Track = (() => {
         while (z < length - 160) {
             const i = RUN_UP + Math.floor(z / SEGMENT);
             const sharpest = Math.max(...segments.slice(i - 12, i + 3).map(segment => Math.abs(segment.bend)));
-            if (sharpest > level.bend) {
+            // Nor before a ramp or where the bikes come down
+            if (sharpest > level.bend || ramps.some(ramp => z > ramp.z0 - 40 && z < ramp.z1 + 120)) {
                 z += SEGMENT * 6;
                 continue;
             }
@@ -231,6 +255,39 @@ const Track = (() => {
             z += level.every[0] + random() * (level.every[1] - level.every[0]);
         }
         return obstacles;
+    }
+
+    // How high above the road a bike is that took this ramp (null: none), now at z, at this speed (kept in the air)
+    function airAt(track, ramp, z, speed) {
+        if (!ramp || z < ramp.z0) {
+            return 0;
+        }
+        if (z <= ramp.z1) {
+            return RAMP_HEIGHT * (z - ramp.z0) / (ramp.z1 - ramp.z0);
+        }
+        if (speed < 1) {
+            return 0;
+        }
+        const t = (z - ramp.z1) / speed;
+        const y = heightAt(track, ramp.z1) + RAMP_HEIGHT + speed * LIFT * t - GRAVITY * t * t / 2;
+        return Math.max(0, y - heightAt(track, z));
+    }
+
+    // The last ramp a bike at z has come to
+    function rampBefore(track, z) {
+        let found = null;
+        for (const ramp of track.ramps) {
+            if (ramp.z0 <= z) {
+                found = ramp;
+            }
+        }
+        return found;
+    }
+
+    // Another bike's height in the air, from where it is and its speed (taken to have ridden over the ramp if it is on the
+    // road now)
+    function airOf(track, z, x, speed) {
+        return Math.abs(x) < ROAD + 0.3 ? airAt(track, rampBefore(track, z), z, speed) : 0;
     }
 
     function segmentAt(track, z) {
@@ -252,6 +309,8 @@ const Track = (() => {
             speed: 0,
             steer: 0,
             draft: 0,
+            air: 0, // m above the road: on a ramp or flying from it
+            jump: null, // the ramp it is on or flew from
             crash: 0, // seconds left of a crash
             ghost: 0, // seconds left of riding through things and bikes, after a crash
             back: 0, // where on the road a crash carries the bike
@@ -265,12 +324,13 @@ const Track = (() => {
 
     // One step of riding. input: steer (-1 to 1), brake, gas (false: rolls out, e.g. in the menu).
     // others: the other bikes, {z, x, speed}. Says what happened: 'crash' (into something beside the road or on it),
-    // 'scrape' (along something on the road), 'bump' (into a bike) or ''.
+    // 'scrape' (along something on the road), 'bump' (into a bike), 'jump' (off a ramp), 'land' or ''.
     function ride(bike, track, input, others, seconds) {
         let happened = '';
         const segment = segmentAt(track, bike.z);
         const share = bike.speed / TOP_SPEED;
-        const steering = bike.crash > 0 ? 0 : input.steer;
+        const flying = bike.jump !== null && bike.z > bike.jump.z1 && bike.air > 0;
+        const steering = bike.crash > 0 ? 0 : input.steer * (flying ? AIR_STEER : 1);
         bike.steer += (steering - bike.steer) * Math.min(1, seconds * 9);
         const crashed = bike.crash > 0;
         bike.crash = Math.max(0, bike.crash - seconds);
@@ -291,7 +351,9 @@ const Track = (() => {
         bike.draft += (draftWanted - bike.draft) * Math.min(1, seconds * 1.5);
         bike.offRoad = Math.abs(bike.x) > ROAD + 0.2;
         const top = (bike.offRoad ? OFF_ROAD_SPEED : TOP_SPEED) * (bike.power || 1) * (1 + DRAFT_BOOST * bike.draft);
-        if (bike.crash > 0) {
+        if (flying) {
+            // keeps its speed until it lands
+        } else if (bike.crash > 0) {
             bike.speed = Math.max(3, bike.speed - BRAKE * seconds); // creeps on, back onto the road
         } else if (input.brake) {
             bike.speed = Math.max(0, bike.speed - BRAKE * seconds);
@@ -316,7 +378,7 @@ const Track = (() => {
         bike.x = Math.max(leftmost, Math.min(rightmost, bike.x));
 
         // Into a tree or a rock beside the road: slowed right down, and back onto the edge of the road on that side
-        if (bike.offRoad && bike.crash === 0 && bike.ghost === 0) {
+        if (bike.offRoad && bike.crash === 0 && bike.ghost === 0 && bike.air < 1) {
             for (const thing of segmentAt(track, bike.z + 1).things) {
                 const half = thing.obstacle ? 0 : (SOLID[thing.kind] || 0) * (thing.size || 1);
                 if (half > 0 && Math.abs(thing.x - bike.x) < half + BIKE_HALF_WIDTH) {
@@ -332,13 +394,30 @@ const Track = (() => {
         const frontBefore = bike.z + BIKE_LENGTH / 2;
         bike.z += bike.speed * seconds;
 
+        // Onto a ramp (on the road), off its lip, and down again
+        const ramp = rampBefore(track, bike.z);
+        if (ramp && bike.z <= ramp.z1 && Math.abs(bike.x) < ROAD && bike.jump !== ramp && !flying) {
+            bike.jump = ramp;
+        }
+        if (bike.jump) {
+            const wasOnRamp = bike.z - bike.speed * seconds <= bike.jump.z1;
+            bike.air = airAt(track, bike.jump, bike.z, bike.speed);
+            if (wasOnRamp && bike.z > bike.jump.z1) {
+                happened = 'jump';
+            } else if (bike.air === 0 && bike.z > bike.jump.z1) {
+                bike.jump = null;
+                happened = flying ? 'land' : happened;
+            }
+        }
+        const high = bike.air > 0.6; // over what stands on the road, and over the other bikes
+
         // Into something on the road: from behind, the bike is stopped short and slides round it, to the side with room;
         // once clear of it, or coming from beside, it is held off it and gets by along it
         if (bike.hit && (bike.z - BIKE_LENGTH / 2 > bike.hit.z + bike.hit.length || bike.z + BIKE_LENGTH / 2 < bike.hit.z - 3)) {
             bike.hit = null;
         }
         let stopped = false;
-        for (const obstacle of bike.crash > 0 || bike.ghost > 0 ? [] : track.obstacles) {
+        for (const obstacle of bike.crash > 0 || bike.ghost > 0 || high ? [] : track.obstacles) {
             const reach = obstacle.half + BIKE_HALF_WIDTH;
             if (obstacle.z > bike.z + BIKE_LENGTH / 2 || obstacle.z + obstacle.length < bike.z - BIKE_LENGTH / 2
                 || Math.abs(bike.x - obstacle.x) >= reach) {
@@ -373,10 +452,10 @@ const Track = (() => {
 
         // Into another bike: the one behind slows down, both are pushed apart
         bike.bumped = false;
-        for (const other of bike.crash > 0 || bike.ghost > 0 ? [] : others) {
+        for (const other of bike.crash > 0 || bike.ghost > 0 || high ? [] : others) {
             const ahead = other.z - bike.z;
             const apart = bike.x - other.x;
-            if (Math.abs(ahead) < BIKE_LENGTH && Math.abs(apart) < BIKE_HALF_WIDTH * 2) {
+            if (Math.abs(ahead) < BIKE_LENGTH && Math.abs(apart) < BIKE_HALF_WIDTH * 2 && !((other.air || 0) > 0.6)) {
                 if (ahead > 0 && bike.speed > other.speed) {
                     bike.speed = Math.max(0, other.speed * 0.92);
                     happened = happened || 'bump';
@@ -478,7 +557,7 @@ const Track = (() => {
 
     return {
         SEGMENT, ROAD, EDGE, TOP_SPEED, BEND, RUN_UP, GHOST_SECONDS, TRACKS, COMPUTERS, COMPUTER_LEVELS, COURSE_LEVELS,
-        build, segmentAt, heightAt, newBike, ride, cruise, computer
+        build, segmentAt, heightAt, newBike, ride, cruise, computer, airOf
     };
 })();
 

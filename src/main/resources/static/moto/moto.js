@@ -469,12 +469,13 @@ function frame(now) {
     const others = [];
     for (const [id, other] of race.others) {
         const place = follow(other, now, seconds);
-        others.push({id, ...place, lean: other.lean, color: Scene.RIDER_COLORS[other.color], name: other.name, braking: false});
+        others.push({id, ...place, air: Track.airOf(race.track, place.z, place.x, place.speed), lean: other.lean,
+            color: Scene.RIDER_COLORS[other.color], name: other.name, braking: false});
     }
     rideComputers(now >= race.startAt, others, seconds);
     for (const computer of race.computers) {
         const {bike: own} = computer;
-        others.push({id: computer.id, z: own.z, x: own.x, speed: own.speed, lean: own.steer * 0.42,
+        others.push({id: computer.id, z: own.z, x: own.x, speed: own.speed, air: own.air, lean: own.steer * 0.42,
             color: Scene.RIDER_COLORS[computer.color], name: computer.name, braking: computer.braking});
     }
 
@@ -493,6 +494,10 @@ function frame(now) {
         } else if (happened === 'scrape') {
             Sound.miss();
         } else if (happened === 'bump') {
+            Sound.tap(0);
+        } else if (happened === 'jump') {
+            Sound.tap(3);
+        } else if (happened === 'land') {
             Sound.tap(0);
         }
         race.turned = before.bend * bike.speed * seconds * 0.9;

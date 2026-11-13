@@ -26,7 +26,8 @@ const Track = (() => {
     const RUN_UP = 30; // segments before the start line, for the grid
     const RUN_OUT = 160; // segments after the goal: to stop on, and to see ahead to the end
 
-    // Sections: [segments, bend (- left, + right, up to 6), climb in m]. Every section eases into its bend and out of it.
+    // Sections: [segments, bend (- left, + right; 6 can just be held at full speed, more needs braking), climb in m]. Every
+    // section eases into its bend and out of it.
     // The climbs of a course add up to 0, so its sections can be ridden again: laps of them, one after the other, make the
     // way from the start to the goal (three, as the first races had, so their times on the leaderboards still compare).
     const TRACKS = {
@@ -47,7 +48,19 @@ const Track = (() => {
             sections: [[30, 0, 0], [50, 5, 4], [30, 0, 10], [40, -6, -12], [20, 0, -5], [15, 0, 6], [15, 0, -5], [40, 6, 9],
                 [30, -4, 2], [20, 0, -6], [20, 0, 5], [20, 0, -8], [40, -5, 6], [40, 5, -6], [20, 0, 4], [20, 0, -4]],
             laps: 3,
-            obstacles: ['rock', 'rock', 'car', 'cones']
+            obstacles: ['rock', 'rock', 'car', 'cones'],
+            // Its own levels: medium has what is on the road on hard (the same, where it was); hard has that too, in
+            // sharper bends as well, on a wilder road (as long, with higher crests, deeper drops, more bends and some to
+            // brake for)
+            levels: {
+                medium: {obstacles: 'hard', about: 'Lots on the road'},
+                hard: {
+                    obstacles: 'hard', obstaclesInBends: 6, about: 'Lots on the road, big hills, sharp bends',
+                    sections: [[30, 0, 0], [30, 5, 8], [25, -6, 10], [20, 0, 6], [30, 7, -18], [15, 0, -8], [15, 0, 9],
+                        [15, 0, -9], [30, -7, 12], [25, 6, -4], [25, -5, 8], [20, 0, -10], [15, 0, 8], [15, 0, -8],
+                        [30, 6, 15], [30, -7, -14], [25, 5, 0], [20, -4, -6], [20, 0, 4], [15, 0, -3]]
+                }
+            }
         },
         forest: {
             name: 'Forest',
@@ -112,6 +125,8 @@ const Track = (() => {
             return built[key];
         }
         const spec = TRACKS[name];
+        const own = (spec.levels && spec.levels[level]) || {};
+        const sections = own.sections || spec.sections;
         const segments = [];
         let height = 0;
         const add = (count, bend, climb) => {
@@ -132,7 +147,7 @@ const Track = (() => {
         };
         add(RUN_UP, 0, 0);
         for (let lap = 0; lap < spec.laps; lap++) {
-            for (const [count, bend, climb] of spec.sections) {
+            for (const [count, bend, climb] of sections) {
                 add(count, bend, climb);
             }
         }
@@ -173,7 +188,10 @@ const Track = (() => {
             ...spec, key: name, level, segments,
             left: EDGE, right: EDGE, // how far from the middle a bike can go
             length, // from the start line to the goal
-            obstacles: placeObstacles(spec, segments, length, COURSE_LEVELS[level], seeded(name.length * 3571 + level.length * 613))
+            obstacles: placeObstacles(spec, segments, length,
+                own.obstacles ? {...COURSE_LEVELS[own.obstacles], bend: own.obstaclesInBends || COURSE_LEVELS[own.obstacles].bend}
+                    : COURSE_LEVELS[level],
+                seeded(name.length * 3571 + (own.obstacles || level).length * 613))
         };
         built[key] = track;
         return track;

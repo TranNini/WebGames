@@ -305,7 +305,8 @@ function renderLevels() {
         remember('moto-settings', motoSettings);
         send({t: 'level', of: 'course', level});
     });
-    $('course-about').textContent = COURSE_ABOUT[room.courseLevel];
+    const own = Track.TRACKS[room.track].levels;
+    $('course-about').textContent = (own && own[room.courseLevel] && own[room.courseLevel].about) || COURSE_ABOUT[room.courseLevel];
     levelButtons($('computer-level'), room.computerLevel, level => {
         motoSettings.computerLevel = level;
         remember('moto-settings', motoSettings);

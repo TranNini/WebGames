@@ -95,6 +95,10 @@ const Scene = (() => {
 
         skyShift += view.turned;
         drawSky(look, horizon, upright);
+        // The land far off, in the haze: seen under the horizon where the road beyond a crest is hidden (left unpainted, it
+        // kept what was drawn there before, and things left trails)
+        ctx.fillStyle = look.fog;
+        ctx.fillRect(0, horizon + 2, width, height - horizon - 2);
 
         const first = Track.RUN_UP + Math.floor(cameraZ / Track.SEGMENT);
         const into = cameraZ / Track.SEGMENT - Math.floor(cameraZ / Track.SEGMENT);

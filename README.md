@@ -157,7 +157,8 @@ Levels: the one who opened the race picks **Easy**, **Medium** or **Hard** for t
   far ahead.
 
 The four courses, all drawn in code: **Seaside** (long bends along the sea, palms, rocks and huts), **Canyon** (sharp
-turns and steep hills, cacti, boulders and mesas), **Forest** (winding through pines and birches at dusk) and **Chongqing**
+turns and steep hills, cacti, boulders and mesas; its medium has as much on the road as hard elsewhere, and its hard is
+that on a wilder road with higher crests, deeper drops and bends to brake for), **Forest** (winding through pines and birches at dusk) and **Chongqing**
 (up and down the mountain city at night: lit towers on the hills, a river with an arch bridge, houses on stilts, red
 lanterns, big fig trees, and a monorail over the road with its train going by; bamboo baskets of oranges on the road).
 Each is its loop of bends and hills ridden three times over, one after the other, from the start to the goal. (From 2026-11-11 to

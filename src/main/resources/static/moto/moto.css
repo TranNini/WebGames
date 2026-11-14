@@ -124,7 +124,7 @@
     font-weight: 600;
 }
 
-/* The four courses, two by two, each with its colors */
+/* The courses, two by two (an odd last one across both), each with its colors */
 .tracks {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -159,6 +159,11 @@
 .track-choice.canyon { background: linear-gradient(#f6b27a, #d9a066); }
 .track-choice.forest { background: linear-gradient(#a77a9a, #5f9a63); color: #fff; }
 .track-choice.chongqing { background: linear-gradient(#1c2447, #8a5d80); color: #fff; }
+.track-choice.tianmen { background: linear-gradient(#8fbad8, #5c8a4e); color: #fff; }
+
+.track-choice:last-child:nth-child(odd) {
+    grid-column: span 2;
+}
 
 .track-choice[aria-pressed="true"] {
     border-color: var(--text);
@@ -643,9 +648,19 @@
         min-height: 52px;
     }
 
-    /* Two by two, just the names, so the level choice stays in sight */
+    /* Three in a row, just the names, so the level choice stays in sight */
+    .tracks {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
     .track-choice {
         min-height: 44px;
+        padding: 6px 4px;
+        font-size: 16px;
+    }
+
+    .track-choice:last-child:nth-child(odd) {
+        grid-column: auto;
     }
 
     .track-choice small {

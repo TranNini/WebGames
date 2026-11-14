@@ -28,6 +28,12 @@ const Scene = (() => {
             sky: ['#121936', '#76587c'], fog: '#5a5476', hills: ['#2b3050', '#232842'], river: '#232c4c',
             grass: ['#33423e', '#2e3c38'], road: ['#3f4149', '#3b3d45'], rumble: ['#ecebef', '#d33a35'], line: '#f2cf5b', sun: '#f3ecd6',
             lights: 0.8, city: true
+        },
+        // High on the mountain: the gate through the rock far off, stone pillars in the mist
+        tianmen: {
+            sky: ['#79acd4', '#e2eef1'], fog: '#cddbdc', hills: ['#a9bbb8', '#86a09a'],
+            grass: ['#5c8a4e', '#55834a'], road: ['#5e6168', '#5a5d64'], rumble: ['#f1f1ee', '#d9473f'], line: '#f4f4f0', sun: '#fffbe6',
+            lights: 0, gate: true
         }
     };
 
@@ -280,6 +286,12 @@ const Scene = (() => {
         ctx.beginPath();
         ctx.arc(width * 0.72 - skyShift * 0.15 % width, horizon * (upright ? 0.35 : 0.3), Math.min(width, height) * 0.06, 0, Math.PI * 2);
         ctx.fill();
+        if (look.gate) {
+            gate(look, horizon, skyShift * 0.2);
+            pillars(look.hills[0], horizon, skyShift * 0.4, 1.3, 11);
+            pillars(look.hills[1], horizon, skyShift * 0.7, 0.8, 23);
+            return;
+        }
         hills(look.hills[0], horizon, horizon * 0.22, skyShift * 0.35, 0.011, 3.1);
         if (look.city) {
             city(look, horizon, skyShift * 0.55);
@@ -346,6 +358,56 @@ const Scene = (() => {
             if (((k % 29) + 29) % 29 === 0) {
                 bridge(k * slot - shift, slot * 9, horizon - water * 0.72, unit);
             }
+        }
+    }
+
+    // Tianmen Mountain far off: a wall of cliffs with a flat top, and the gate, a hole right through the rock
+    function gate(look, horizon, shift) {
+        const wide = Math.max(width * 0.75, horizon * 2.2);
+        const span = wide + width * 1.6;
+        const middle = ((width * 0.55 - shift) % span + span) % span - wide / 2 + width * 0.2;
+        const tall = horizon * 0.62;
+        const top = horizon - tall;
+        const at = (x, y) => [middle + x * wide, top + y * tall];
+        const outline = [[-0.5, 1.02], [-0.44, 0.62], [-0.4, 0.2], [-0.33, 0.08], [-0.2, 0.04], [-0.06, 0], [0.12, 0.03], [0.26, 0.01],
+            [0.36, 0.1], [0.41, 0.35], [0.46, 0.7], [0.5, 1.02]];
+        ctx.fillStyle = mix(look.hills[1], look.fog, 0.35);
+        ctx.beginPath();
+        outline.forEach(([x, y], i) => (i ? ctx.lineTo(...at(x, y)) : ctx.moveTo(...at(x, y))));
+        ctx.closePath();
+        // The gate: tall, rounded at the top
+        const [gx, gy] = at(-0.02, 0.62);
+        const gw = wide * 0.045;
+        const gh = tall * 0.26;
+        ctx.moveTo(gx - gw, gy);
+        ctx.lineTo(gx - gw, gy - gh + gw);
+        ctx.arc(gx, gy - gh + gw, gw, Math.PI, 0);
+        ctx.lineTo(gx + gw, gy);
+        ctx.closePath();
+        ctx.fill('evenodd');
+    }
+
+    // Stone pillars standing in the mist: each tall and narrow, with trees on top
+    function pillars(color, horizon, shift, tall, seed) {
+        const unit = Math.max(3, horizon * 0.02);
+        const slot = unit * 5;
+        const first = Math.floor(shift / slot) - 1;
+        const last = Math.ceil((shift + width) / slot) + 1;
+        for (let k = first; k <= last; k++) {
+            if (hash(k * 7 + seed) < 0.3) {
+                continue;
+            }
+            const w = unit * (1.6 + hash(k + seed) * 2);
+            const x = k * slot - shift + hash(k * 3 + seed) * (slot - w);
+            const h = unit * tall * (4 + hash(k * 5 + seed) * 12);
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.moveTo(x, horizon + 2);
+            ctx.lineTo(x + w * 0.08, horizon - h + w * 0.3);
+            ctx.quadraticCurveTo(x + w / 2, horizon - h - w * 0.25, x + w * 0.92, horizon - h + w * 0.3);
+            ctx.lineTo(x + w, horizon + 2);
+            ctx.closePath();
+            ctx.fill();
         }
     }
 
@@ -621,6 +683,38 @@ const Scene = (() => {
                 glow('rgba(255,120,60,0.22)', x, -3.05, 0.7);
             }
         },
+        // A stone pillar of the mountains, its rock in layers, trees on top and on its ledges
+        karst(tint, thing) {
+            const seed = Math.floor(Math.abs(thing.x) * 1000);
+            const tall = 30 + hash(seed) * 40;
+            const half = 4 + hash(seed + 1) * 4;
+            // Its outline: rough sides, narrower at the top, bulging here and there
+            const side = (s, k) => [...Array(7).keys()].map(i => {
+                const y = -tall * i / 6;
+                const narrow = 1 - 0.3 * i / 6 + (hash(seed + k + i) - 0.5) * 0.22;
+                return [s * half * narrow, y];
+            });
+            const left = side(-1, 10);
+            const right = side(1, 30).reverse();
+            shape(tint('#9d9584'), [...left, ...right]);
+            shape(tint('#837c6c'), [...right.slice().reverse().map(([x, y]) => [x * 0.35, y]), ...right]); // its shaded side
+            // Cracks down the rock
+            ctx.strokeStyle = tint('#6f695b');
+            ctx.lineWidth = 0.3;
+            ctx.beginPath();
+            for (const at of [-0.45, 0.1, 0.55]) {
+                ctx.moveTo(at * half, -tall * (0.15 + hash(seed + at * 10) * 0.2));
+                ctx.lineTo(at * half * 0.8 + (hash(seed + 5 + at) - 0.5) * 2, -tall * (0.7 + hash(seed + 9 + at) * 0.25));
+            }
+            ctx.stroke();
+            // Pines on top and on a ledge
+            for (const [x, y, s] of [[-0.55, -tall, 1], [-0.15, -tall - 0.3, 1.3], [0.25, -tall, 1.1], [0.55, -tall + 0.3, 0.8],
+                [-0.8, -tall * 0.55, 0.7]]) {
+                const px = x * half * 0.75;
+                shape(tint('#3e6343'), [[px - 1.6 * s, y + 0.3], [px, y - 3.4 * s], [px + 1.6 * s, y + 0.3]]);
+                shape(tint('#4b7550'), [[px - 1.1 * s, y - 1.4 * s], [px, y - 4.6 * s], [px + 1.1 * s, y - 1.4 * s]]);
+            }
+        },
         // A post with two red lanterns
         lantern(tint) {
             ctx.fillStyle = tint('#2b2b31');
@@ -687,6 +781,8 @@ const Scene = (() => {
     const OBSTACLE_SCALE = 1.4; // bigger than they are, as the bikes are, to be seen in time (track.js counts them so)
     const BEACH_COLORS = [['#e5484d', '#f6f3ec', '#ff8fb1'], ['#2fa7c9', '#f6f3ec', '#f5c400'], ['#f5a524', '#e5484d', '#3fc1a5'],
         ['#3e7bfa', '#f6f3ec', '#ff6b3d']];
+    const TRUCK_COLORS = ['#f1efe8', '#2f6fb5', '#c43c3c', '#3f8a4f', '#e8892f'];
+    const MOPED_COLORS = ['#e5484d', '#f1efe8', '#3e7bfa', '#2fb36d', '#f5c400'];
     const CAR_COLORS = ['#d9dde4', '#2f6fb5', '#c43c3c', '#f1efe8', '#3a3d45', '#e0b33a'];
     const ROCK_COLORS = [['#7a7380', '#958d9a', '#57505d'], ['#6e6a66', '#8c8781', '#504c48']];
 
@@ -697,6 +793,24 @@ const Scene = (() => {
         switch (thing.kind) {
             case 'car':
                 drawCar(thing.look, look.lights);
+                break;
+            case 'truck':
+                drawTruck(thing.look, look.lights);
+                break;
+            case 'moped':
+                drawMoped(thing.look);
+                break;
+            case 'rockslide':
+                // Stones fallen onto the road, a heap of them and some rolled further
+                blob('rgba(0,0,0,0.3)', 0, 0, 1.05, 0.12);
+                for (const [x, y, w, h, color] of [[-0.6, 0, 0.42, 0.5, '#7d766d'], [0.55, 0, 0.45, 0.55, '#6f685f'], [0, 0, 0.55, 0.8, '#8a8379'],
+                    [-0.25, -0.45, 0.32, 0.38, '#958e84'], [0.3, -0.5, 0.3, 0.32, '#7d766d'], [0.02, -0.82, 0.24, 0.26, '#a39c91']]) {
+                    shape(color, [[x - w, y], [x - w * 0.95, y - h * 0.55], [x - w * 0.45, y - h], [x + w * 0.4, y - h * 0.95], [x + w, y - h * 0.4], [x + w * 0.9, y]]);
+                    shape('rgba(255,255,255,0.12)', [[x - w * 0.95, y - h * 0.55], [x - w * 0.45, y - h], [x + w * 0.4, y - h * 0.95], [x, y - h * 0.6]]);
+                }
+                for (const [x, r] of [[-1.15, 0.1], [-0.95, 0.07], [1.05, 0.12], [1.25, 0.08], [0.85, 0.06]]) {
+                    blob('#857e74', x, -r * 0.8, r, r * 0.8);
+                }
                 break;
             case 'rock': {
                 const [body, lit, dark] = ROCK_COLORS[Math.floor(thing.look * 2)];
@@ -830,6 +944,68 @@ const Scene = (() => {
             }
         }
         ctx.restore();
+    }
+
+    // A truck standing on the road, from behind: its box with two doors, hazard lights blinking
+    function drawTruck(look, lights) {
+        const body = TRUCK_COLORS[Math.floor(look * TRUCK_COLORS.length)];
+        blob('rgba(0,0,0,0.32)', 0, 0, 1.15, 0.13);
+        for (const side of [-1, 1]) {
+            shape('#18181c', [[side * 0.55, 0], [side * 0.55, -0.4], [side * 0.98, -0.4], [side * 0.98, 0]]);
+        }
+        shape('#2a2b31', [[-1.02, -0.3], [-1.02, -0.46], [1.02, -0.46], [1.02, -0.3]]);
+        shape(body, [[-1.06, -0.46], [-1.06, -2.35], [1.06, -2.35], [1.06, -0.46]]);
+        shape('rgba(0,0,0,0.14)', [[-1.06, -2.35], [-1.06, -2.25], [1.06, -2.25], [1.06, -2.35]]);
+        ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+        ctx.lineWidth = 0.03;
+        ctx.beginPath();
+        ctx.moveTo(0, -0.5);
+        ctx.lineTo(0, -2.25);
+        ctx.rect(-0.98, -2.25, 1.96, 1.75);
+        ctx.stroke();
+        for (const side of [-1, 1]) {
+            shape('#9a9ca4', [[side * 0.12, -1.25], [side * 0.12, -1.5], [side * 0.18, -1.5], [side * 0.18, -1.25]]);
+        }
+        shape('#f2f2ea', [[-0.22, -0.32], [-0.22, -0.44], [0.22, -0.44], [0.22, -0.32]]);
+        const blinking = performance.now() % 900 < 450;
+        for (const side of [-1, 1]) {
+            shape('#b01e24', [[side * 0.72, -0.48], [side * 0.72, -0.6], [side * 0.98, -0.6], [side * 0.98, -0.48]]);
+            shape(blinking ? '#ffb020' : '#8a5a1a', [[side * 0.72, -0.62], [side * 0.72, -0.72], [side * 0.98, -0.72], [side * 0.98, -0.62]]);
+        }
+        if (blinking && lights > 0.3) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            for (const side of [-1, 1]) {
+                blob('rgba(255,170,40,0.35)', side * 0.85, -0.67, 0.4, 0.2);
+            }
+            ctx.restore();
+        }
+    }
+
+    // A moped parked on its stand, from behind: wheel, seat, a box on the back, the handlebar and mirrors over it
+    function drawMoped(look) {
+        const body = MOPED_COLORS[Math.floor(look * MOPED_COLORS.length)];
+        blob('rgba(0,0,0,0.3)', 0, 0, 0.42, 0.08);
+        ctx.strokeStyle = '#2a2b31';
+        ctx.lineWidth = 0.04;
+        ctx.beginPath();
+        ctx.moveTo(-0.42, -1.12);
+        ctx.lineTo(0.42, -1.12);
+        for (const side of [-1, 1]) {
+            ctx.moveTo(side * 0.36, -1.12);
+            ctx.lineTo(side * 0.42, -1.32);
+        }
+        ctx.stroke();
+        for (const side of [-1, 1]) {
+            blob('#2a2b31', side * 0.43, -1.36, 0.07, 0.05);
+        }
+        shape('#1c1c20', [[-0.08, 0], [-0.09, -0.42], [0.09, -0.42], [0.08, 0]]);
+        shape(body, [[-0.3, -0.36], [-0.34, -0.66], [-0.22, -0.8], [0.22, -0.8], [0.34, -0.66], [0.3, -0.36]]);
+        shape('#24252b', [[-0.24, -0.8], [-0.22, -0.88], [0.22, -0.88], [0.24, -0.8]]);
+        shape('#b01e24', [[-0.1, -0.5], [-0.1, -0.58], [0.1, -0.58], [0.1, -0.5]]);
+        shape('#ececec', [[-0.24, -0.88], [-0.26, -1.22], [0.26, -1.22], [0.24, -0.88]]);
+        shape(body, [[-0.26, -1.12], [-0.26, -1.22], [0.26, -1.22], [0.26, -1.12]]);
+        shape('rgba(0,0,0,0.3)', [[-0.04, 0], [-0.3, 0.0], [-0.26, -0.05], [-0.04, -0.12]]); // its stand
     }
 
     // A banner across the road on two posts

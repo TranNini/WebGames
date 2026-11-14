@@ -152,7 +152,7 @@ leaves during the race, the next person's phone rides the computer riders on.
 Levels: the one who opened the race picks **Easy**, **Medium** or **Hard** for the course and for the computer riders.
 - The course: Easy is a clear road; Medium has something standing on it every 360 to 540 m (not in sharp bends); Hard every
   140 to 220 m, also in bends, often two on both sides of the road with the way through between them. A standing car with
-  its hazard lights on, rocks, crabs, a tree stump or traffic cones, by course (`Track.TRACKS[...].obstacles`), the same on every
+  its hazard lights on, rocks, crabs, a tree stump, traffic cones, a truck, a moped or a rockslide, by course (`Track.TRACKS[...].obstacles`), the same on every
   phone. Riding into one from behind stops the bike short, and it slides round to the side with room; along one, it is held
   off it. Each course level has its own leaderboard (`moto-canyon`, `moto-canyon-medium`, `moto-canyon-hard`).
 - The computer riders (`Track.COMPUTER_LEVELS`): Easy ease off a lot when ahead and see what is on the road late; Medium
@@ -165,7 +165,9 @@ turns and steep hills, cacti, boulders and mesas; its medium has as much on the 
 that on a wilder road with higher crests, deeper drops and bends to brake for), **Forest** (winding through pines and birches at dusk) and **Chongqing**
 (up and down the mountain city at night: lit towers on the hills, a river with an arch bridge, houses on stilts, red
 lanterns, big fig trees, and a monorail over the road with its train going by; bamboo baskets of oranges on the road).
-Each is its loop of bends and hills ridden three times over, one after the other, from the start to the goal. (From 2026-11-11 to
+**Tianmen** is a road down a mountain, ridden once from the top to its foot: it snakes from one long, sharp hairpin to the
+next, gentler further down (softer bends on easy), with Tianmen Mountain and its gate far off and stone pillars in the mist.
+The others are each a loop of bends and hills ridden three times over, one after the other, from the start to the goal. (From 2026-11-11 to
 2026-11-13 the courses were Sakura River, Neon City and Mountain Pass, made from the user's pictures; the user took them
 out again. Their times stay in the database, unlisted.)
 
@@ -173,7 +175,7 @@ The phones talk to the server over a WebSocket (`/api/race`, checked by the acce
 rides its own bike (`track.js`) and sends where it is 15 times a second; the server passes that on to the others with how
 old it is, and each phone draws the others where they should be now. The server counts the start down, keeps the order
 at the goal by its own clock, gives the others a minute after the winner, and puts each finish on the course's
-leaderboard of fastest times (`moto-seaside`, `moto-canyon`, `moto-forest`, `moto-chongqing`; only the server adds to them). The menu
+leaderboard of fastest times (`moto-seaside`, `moto-canyon`, `moto-forest`, `moto-chongqing`, `moto-tianmen`; only the server adds to them). The menu
 doesn't stop the race. Afterwards the one who opened the race can start another with the same riders. It has its own
 music and an engine sound that follows the speed.
 

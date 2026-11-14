@@ -37,6 +37,16 @@ const Track = (() => {
     // section eases into its bend and out of it.
     // The climbs of a course add up to 0, so its sections can be ridden again: laps of them, one after the other, make the
     // way from the start to the goal (three, as the first races had, so their times on the leaderboards still compare).
+    // Tianmen: down the mountain road from the top to its foot, once, snaking from one hairpin to the next; long sharp
+    // bends at the top, gentler further down
+    const TIANMEN = [[30, 0, 0],
+        [44, 7, -14], [12, 0, -4], [44, -7, -14], [12, 0, -4], [48, 7, -15], [12, 0, -4], [48, -7, -15], [12, 0, -4],
+        [44, 6.5, -14], [12, 0, -4], [44, -6.5, -14], [14, 0, -4], [40, 6, -12], [14, 0, -4], [40, -6, -12], [16, 0, -4],
+        [36, 5, -9], [16, 0, -4], [36, -5, -9], [16, 0, -4], [36, 5, -9], [16, 0, -4], [36, -5, -9], [20, 0, -4],
+        [34, 4.5, -8], [20, 0, -4], [34, -4.5, -8], [20, 0, -4],
+        [40, 3.5, -6], [30, 0, -5], [40, -3.5, -6], [30, 0, -5], [50, 3, -6], [40, 0, -4], [50, -3, -6], [40, 0, -4],
+        [40, 2.5, -4], [50, 0, -3], [40, -2, -3], [60, 0, -2], [40, 0, 0]];
+
     const TRACKS = {
         seaside: {
             name: 'Seaside',
@@ -89,13 +99,29 @@ const Track = (() => {
             laps: 3,
             obstacles: ['car', 'cones', 'baskets', 'car'],
             monorail: 110 // a monorail over the road, on a straight, at most every this many segments
+        },
+        tianmen: {
+            name: 'Tianmen',
+            about: 'Snaking down the mountain',
+            scenery: ['karst', 'karst', 'pine', 'pine', 'rock'],
+            sections: TIANMEN,
+            laps: 1, // from the top to the foot: not a loop
+            obstacles: ['truck', 'moped', 'rockslide', 'moped', 'truck', 'moped', 'rockslide', 'truck'],
+            levels: {
+                // The same way down, its bends softer
+                easy: {sections: TIANMEN.map(([count, bend, climb]) => [count, Math.round(bend * 1.3) / 2, climb]),
+                    about: 'A clear road, softer bends'},
+                // Most of it is bends: things stand in the gentler ones on medium, in all on hard
+                medium: {obstacles: 'medium', obstaclesInBends: 4.5},
+                hard: {obstacles: 'hard', obstaclesInBends: 7}
+            }
         }
     };
     // How wide what stands beside the road is, to ride into (half, in m)
-    const SOLID = {palm: 0.5, rock: 0.9, hut: 1.8, cactus: 0.5, boulder: 1.1, mesa: 0, pine: 0.6, birch: 0.4, log: 1.2, sign: 0.4, beach: 1.3,
+    const SOLID = {palm: 0.5, rock: 0.9, hut: 1.8, cactus: 0.5, boulder: 1.1, mesa: 0, pine: 0.6, birch: 0.4, log: 1.2, sign: 0.4, beach: 1.3, karst: 0,
         tower: 0, stilt: 2, lantern: 0.3, ficus: 0.7, pillar: 0.6, monorail: 0};
     // What stands further off: at least this far from the road's edge, and up to this much further
-    const FAR = {mesa: [30, 30], tower: [20, 34]};
+    const FAR = {mesa: [30, 30], tower: [20, 34], karst: [40, 60]};
     const PILLAR = ROAD + 2.8; // the monorail's pillars, both sides
 
     const COURSE_LEVELS = {
@@ -111,6 +137,9 @@ const Track = (() => {
         stump: {half: 0.7, length: 1},
         cones: {half: 1.35, length: 0.5},
         crabs: {half: 1.3, length: 0.6},
+        truck: {half: 1.2, length: 6},
+        moped: {half: 0.5, length: 1.8},
+        rockslide: {half: 1.3, length: 2},
         baskets: {half: 0.9, length: 0.9}
     };
     const LANES = [-2.3, 0, 2.3];

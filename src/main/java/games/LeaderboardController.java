@@ -20,7 +20,7 @@ public class LeaderboardController {
             "mahjong-easy-nohints", "mahjong-medium-nohints", "mahjong-hard-nohints",
             "moto-seaside", "moto-canyon", "moto-forest", "moto-seaside-medium", "moto-canyon-medium", "moto-forest-medium",
             "moto-seaside-hard", "moto-canyon-hard", "moto-forest-hard", "moto-chongqing", "moto-chongqing-medium",
-            "moto-chongqing-hard");
+            "moto-chongqing-hard", "moto-tianmen", "moto-tianmen-medium", "moto-tianmen-hard");
     private static final int MAX_NAME_LENGTH = 16;
     private static final int MAX_SCORE = 1_000_000;
 

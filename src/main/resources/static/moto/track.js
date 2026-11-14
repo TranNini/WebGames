@@ -37,15 +37,16 @@ const Track = (() => {
     // section eases into its bend and out of it.
     // The climbs of a course add up to 0, so its sections can be ridden again: laps of them, one after the other, make the
     // way from the start to the goal (three, as the first races had, so their times on the leaderboards still compare).
-    // Tianmen: down the mountain road from the top to its foot, once, snaking from one hairpin to the next; long sharp
-    // bends at the top, gentler further down
-    const TIANMEN = [[30, 0, 0],
-        [44, 7, -14], [12, 0, -4], [44, -7, -14], [12, 0, -4], [48, 7, -15], [12, 0, -4], [48, -7, -15], [12, 0, -4],
-        [44, 6.5, -14], [12, 0, -4], [44, -6.5, -14], [14, 0, -4], [40, 6, -12], [14, 0, -4], [40, -6, -12], [16, 0, -4],
-        [36, 5, -9], [16, 0, -4], [36, -5, -9], [16, 0, -4], [36, 5, -9], [16, 0, -4], [36, -5, -9], [20, 0, -4],
-        [34, 4.5, -8], [20, 0, -4], [34, -4.5, -8], [20, 0, -4],
-        [40, 3.5, -6], [30, 0, -5], [40, -3.5, -6], [30, 0, -5], [50, 3, -6], [40, 0, -4], [50, -3, -6], [40, 0, -4],
-        [40, 2.5, -4], [50, 0, -3], [40, -2, -3], [60, 0, -2], [40, 0, 0]];
+    // Tianmen: down the mountain from the summit to the valley floor, once. A short straight on the summit, then the road
+    // drops away into tight hairpins, in tunnels now and then, between a cliff and a parapet over the drop; further down
+    // the bends and the slope get gentler, and it ends on the flat by the river. Each section eases into its drop and out
+    // of it, so the road keeps dropping away over crests.
+    const TIANMEN = [[30, 0, 0], [20, 0, -7],
+        [40, 6.5, -13], [24, 0, -10], [44, -7, -14], [36, 0, -12], [44, 7, -14], [24, 0, -10], [44, -7, -14], [20, 0, -9],
+        [40, 6.5, -13], [36, 0, -12], [44, -6.5, -13], [24, 0, -9], [40, 6, -12], [20, 0, -8], [40, -6, -12], [24, 0, -9],
+        [40, 5.5, -11], [36, 0, -10], [40, -5.5, -11], [24, 0, -8], [36, 5, -10], [24, 0, -8], [36, -5, -10], [24, 0, -7],
+        [36, 4.5, -8], [30, 0, -6], [36, -4, -7], [30, 0, -5], [40, 3, -5], [40, 0, -4], [40, -2.5, -3], [40, 0, -2],
+        [50, 1.5, 0], [60, 0, 0], [50, -1.5, 0], [60, 0, 0]];
 
     const TRACKS = {
         seaside: {
@@ -102,10 +103,20 @@ const Track = (() => {
         },
         tianmen: {
             name: 'Tianmen',
-            about: 'Snaking down the mountain',
-            scenery: ['karst', 'karst', 'pine', 'pine', 'rock'],
+            about: 'From the summit down to the valley',
             sections: TIANMEN,
             laps: 1, // from the top to the foot: not a loop
+            // From the top down, by the share of the way: the summit above the clouds, bare limestone cliffs, forest, a misty
+            // valley, its floor. Between walls (a cliff on one side, a parapet over the drop on the other), what stands
+            // beside the road is on the cliff (above) or below the parapet, its top showing over it (below).
+            zones: [
+                {to: 0.05, scenery: ['crag', 'crag', 'rock'], ledge: 9}, // a ridge: the clouds below on both sides
+                {to: 0.42, walls: true, cliff: 16, above: [], below: []},
+                {to: 0.7, walls: true, cliff: 11, above: ['pine', 'pine', 'broadleaf'], below: ['pine', 'broadleaf', 'broadleaf']},
+                {to: 0.86, walls: true, cliff: 7, above: ['broadleaf'], below: ['broadleaf', 'pine']},
+                {to: 2, scenery: ['house', 'house', 'willow', 'pine'], river: true}
+            ],
+            tunnels: [[5, 6, 22], [11, 6, 22], [19, 6, 22]], // [section, segments into it, how long]
             obstacles: ['truck', 'moped', 'rockslide', 'moped', 'truck', 'moped', 'rockslide', 'truck'],
             levels: {
                 // The same way down, its bends softer
@@ -118,11 +129,13 @@ const Track = (() => {
         }
     };
     // How wide what stands beside the road is, to ride into (half, in m)
-    const SOLID = {palm: 0.5, rock: 0.9, hut: 1.8, cactus: 0.5, boulder: 1.1, mesa: 0, pine: 0.6, birch: 0.4, log: 1.2, sign: 0.4, beach: 1.3, karst: 0,
+    const SOLID = {crag: 1, broadleaf: 0.8, house: 2.4, willow: 0.5, portal: 0, palm: 0.5, rock: 0.9, hut: 1.8, cactus: 0.5, boulder: 1.1, mesa: 0, pine: 0.6, birch: 0.4, log: 1.2, sign: 0.4, beach: 1.3,
         tower: 0, stilt: 2, lantern: 0.3, ficus: 0.7, pillar: 0.6, monorail: 0};
     // What stands further off: at least this far from the road's edge, and up to this much further
-    const FAR = {mesa: [30, 30], tower: [20, 34], karst: [40, 60]};
+    const FAR = {mesa: [30, 30], tower: [20, 34]};
     const PILLAR = ROAD + 2.8; // the monorail's pillars, both sides
+    const WALL = ROAD * 1.13; // mountain roads: the cliff and the parapet stand at the outer edge of the kerb
+    const TUNNEL_HEIGHT = 5.5;
 
     const COURSE_LEVELS = {
         easy: null,
@@ -207,6 +220,10 @@ const Track = (() => {
             }
         }
 
+        if (spec.zones) {
+            shapeMountain(spec, sections, segments, goal);
+        }
+
         const random = seeded(name.length * 7919 + name.charCodeAt(0) * 104729);
         let lastRail = RUN_UP;
         segments.forEach((segment, i) => {
@@ -217,11 +234,15 @@ const Track = (() => {
                 lastRail = i;
             }
             // Signs on the outside of a sharp bend, so it can be seen coming
-            if (Math.abs(segment.bend) >= 3.5 && i % 5 === 0) {
+            if (Math.abs(segment.bend) >= 3.5 && i % 5 === 0 && !segment.walls) {
                 segment.things.push({kind: 'sign', x: Math.sign(segment.bend) * (ROAD + 1.6), base: 0, size: 1, left: segment.bend > 0});
             }
             if (Math.abs(i - RUN_UP - 3) < 5 || Math.abs(i - goal - 3) < 5) {
                 return; // kept clear by the banners
+            }
+            if (spec.zones) {
+                placeOnMountain(spec.zones[segment.zone], segment, random);
+                return;
             }
             for (const side of [-1, 1]) {
                 if (random() < 0.38) {
@@ -251,6 +272,66 @@ const Track = (() => {
         return track;
     }
 
+    // A mountain course: each segment's zone, where its walls are, which side the drop is on (inside the hairpin, so it
+    // changes sides halfway round each), the tunnels and the river
+    function shapeMountain(spec, sections, segments, goal) {
+        const hairpins = [];
+        let at = RUN_UP;
+        for (const [count, bend] of sections) {
+            if (Math.abs(bend) >= 2.5) {
+                hairpins.push({middle: at + count / 2, side: Math.sign(bend)});
+            }
+            at += count;
+        }
+        segments.forEach((segment, i) => {
+            const share = (i - RUN_UP) / (goal - RUN_UP);
+            segment.zone = spec.zones.findIndex(zone => share < zone.to);
+            const zone = spec.zones[segment.zone];
+            segment.walls = !!zone.walls;
+            segment.cliff = zone.cliff || 0;
+            const next = hairpins.find(hairpin => hairpin.middle >= i);
+            segment.drop = next ? next.side : -hairpins[hairpins.length - 1].side;
+            if (zone.river) {
+                segment.river = segment.drop; // the river on the side the valley was
+            }
+        });
+        for (const [section, into, long] of spec.tunnels || []) {
+            const first = RUN_UP + sections.slice(0, section).reduce((sum, [count]) => sum + count, 0) + into;
+            for (let k = 0; k < long; k++) {
+                segments[first + k].tunnel = true;
+            }
+            segments[first].things.push({kind: 'portal', x: 0, base: 0, size: 1});
+        }
+    }
+
+    function placeOnMountain(zone, segment, random) {
+        for (const side of [-1, 1]) {
+            if (random() >= 0.42 || segment.tunnel) {
+                continue;
+            }
+            const flip = random() < 0.5;
+            const size = 0.8 + random() * 0.45;
+            if (segment.walls) {
+                const above = side !== segment.drop;
+                const kinds = above ? zone.above : zone.below;
+                if (kinds.length) {
+                    const kind = kinds[Math.floor(random() * kinds.length)];
+                    const x = side * (WALL + 1.5 + random() * (above ? 6 : 12));
+                    segment.things.push({kind, x, base: above ? segment.cliff : -(1.5 + random() * 2.5), flip, size});
+                }
+            } else {
+                const kind = zone.scenery[Math.floor(random() * zone.scenery.length)];
+                let x = side * (ROAD + 2.2 + SOLID[kind] + random() * (zone.ledge ? zone.ledge - 4 : 13));
+                if (segment.river === side) {
+                    x = side * (ROAD + 21 + SOLID[kind] + random() * 14); // beyond the river
+                }
+                if (!segment.things.some(thing => Math.abs(thing.x - x) < 2.5)) {
+                    segment.things.push({kind, x, base: 0, flip, size});
+                }
+            }
+        }
+    }
+
     // What stands on the road: never right after the start or just before the goal, nor in a bend sharper than the level
     // allows, and always with room to get by on one side at least
     function placeObstacles(spec, segments, length, ramps, level, random) {
@@ -269,12 +350,13 @@ const Track = (() => {
             const i = RUN_UP + Math.floor(z / SEGMENT);
             const sharpest = Math.max(...segments.slice(i - 12, i + 3).map(segment => Math.abs(segment.bend)));
             // Nor before a ramp or where the bikes come down
-            if (sharpest > level.bend || ramps.some(ramp => z > ramp.z0 - 40 && z < ramp.z1 + 120)) {
+            if (sharpest > level.bend || ramps.some(ramp => z > ramp.z0 - 40 && z < ramp.z1 + 120)
+                || segments.slice(i - 10, i + 10).some(segment => segment.tunnel)) {
                 z += SEGMENT * 6;
                 continue;
             }
             const kind = () => spec.obstacles[Math.floor(random() * spec.obstacles.length)];
-            if (random() < level.pairs) {
+            if (random() < level.pairs && !segments[i].walls) { // between walls, there'd be no way round
                 // Two, on both sides of the road, with the way through between them
                 place(kind(), 0, i);
                 place(kind(), 2, i + Math.floor(random() * 3));
@@ -405,6 +487,19 @@ const Track = (() => {
         const leftmost = -track.left + BIKE_HALF_WIDTH;
         const rightmost = track.right - BIKE_HALF_WIDTH;
         bike.x = Math.max(leftmost, Math.min(rightmost, bike.x));
+        // Between walls (a mountain road, a tunnel): held on the road, slowed while it rubs along one
+        const walled = segment.walls || segment.tunnel;
+        if (walled && Math.abs(bike.x) > WALL - BIKE_HALF_WIDTH) {
+            bike.x = Math.sign(bike.x) * (WALL - BIKE_HALF_WIDTH);
+            if (!bike.walled) {
+                bike.speed *= 0.9;
+                happened = 'scrape';
+            }
+            bike.speed = Math.max(0, bike.speed - 10 * seconds);
+            bike.walled = true;
+        } else {
+            bike.walled = false;
+        }
 
         // Into a tree or a rock beside the road: slowed right down, and back onto the edge of the road on that side
         if (bike.offRoad && bike.crash === 0 && bike.ghost === 0 && bike.air < 1) {
@@ -453,7 +548,7 @@ const Track = (() => {
                 continue;
             }
             // Round it on the nearer side, unless something beside it is in the way there
-            const clear = x => x > leftmost && x < rightmost && !track.obstacles.some(other => other !== obstacle
+            const clear = x => x > leftmost && x < rightmost && !(walled && Math.abs(x) > WALL - BIKE_HALF_WIDTH) && !track.obstacles.some(other => other !== obstacle
                 && other.z < bike.z + BIKE_LENGTH && other.z + other.length > bike.z - BIKE_LENGTH
                 && Math.abs(other.x - x) < other.half + BIKE_HALF_WIDTH);
             const nearer = bike.x >= obstacle.x ? 1 : -1;
@@ -585,7 +680,7 @@ const Track = (() => {
     }
 
     return {
-        SEGMENT, ROAD, EDGE, TOP_SPEED, BEND, RUN_UP, GHOST_SECONDS, TRACKS, COMPUTERS, COMPUTER_LEVELS, COURSE_LEVELS,
+        SEGMENT, ROAD, EDGE, WALL, TUNNEL_HEIGHT, TOP_SPEED, BEND, RUN_UP, GHOST_SECONDS, TRACKS, COMPUTERS, COMPUTER_LEVELS, COURSE_LEVELS,
         build, segmentAt, heightAt, newBike, ride, cruise, computer, airOf
     };
 })();

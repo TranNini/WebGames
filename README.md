@@ -165,8 +165,13 @@ turns and steep hills, cacti, boulders and mesas; its medium has as much on the 
 that on a wilder road with higher crests, deeper drops and bends to brake for), **Forest** (winding through pines and birches at dusk) and **Chongqing**
 (up and down the mountain city at night: lit towers on the hills, a river with an arch bridge, houses on stilts, red
 lanterns, big fig trees, and a monorail over the road with its train going by; bamboo baskets of oranges on the road).
-**Tianmen** is a road down a mountain, ridden once from the top to its foot: it snakes from one long, sharp hairpin to the
-next, gentler further down (softer bends on easy), with Tianmen Mountain and its gate far off and stone pillars in the mist.
+**Tianmen** is a road down a mountain, ridden once from the summit to the valley floor: a short straight on a ridge above
+a sea of clouds, then down through the mist into tight hairpins, between a rock cliff and a crenellated parapet over the
+drop, through three tunnels, past bare limestone, forest and a misty valley, to the goal on the flat by a river and a
+village (softer bends on easy). Each stretch eases into its drop and out of it, so the road keeps dropping away over
+crests, and past the parapet you look down onto the valley, the river and more of the road snaking down. Between its walls
+the bike can't leave the road: rubbing along one slows it down. The far view there turns by the real heading, never more
+than a little in a frame, so the hairpins don't spin it.
 The others are each a loop of bends and hills ridden three times over, one after the other, from the start to the goal. (From 2026-11-11 to
 2026-11-13 the courses were Sakura River, Neon City and Mountain Pass, made from the user's pictures; the user took them
 out again. Their times stay in the database, unlisted.)

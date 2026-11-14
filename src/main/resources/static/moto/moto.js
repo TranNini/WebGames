@@ -501,6 +501,7 @@ function frame(now) {
             Sound.tap(0);
         }
         race.turned = before.bend * bike.speed * seconds * 0.9;
+        race.heading = before.bend * Track.BEND * bike.speed * seconds / Track.SEGMENT; // radians turned
         if (bike.z >= track.length) {
             race.done = true;
             send({t: 'finish'});
@@ -510,8 +511,10 @@ function frame(now) {
     } else if (race.done) {
         Track.cruise(bike, track, seconds);
         race.turned = Track.segmentAt(track, bike.z).bend * bike.speed * seconds * 0.9;
+        race.heading = Track.segmentAt(track, bike.z).bend * Track.BEND * bike.speed * seconds / Track.SEGMENT;
     } else {
         race.turned = 0;
+        race.heading = 0;
     }
     if (!$('steer-hint').hidden && (motoSettings.steeredBefore || now > race.startAt + 6000)) {
         $('steer-hint').hidden = true;
@@ -531,7 +534,7 @@ function frame(now) {
     showTrip(others);
     showStandings(others);
     $('speed-number').textContent = Math.round(bike.speed * 3.6);
-    Scene.draw({track, bike, others, color: race.color, braking: input.brake, turned: race.turned || 0});
+    Scene.draw({track, bike, others, color: race.color, braking: input.brake, turned: race.turned || 0, heading: race.heading || 0});
 }
 
 // The computer riders this phone rides: like a bike, with Track.computer steering. Each keeps near the people riding.

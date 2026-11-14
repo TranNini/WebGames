@@ -117,7 +117,7 @@ const Track = (() => {
                 {to: 0.86, walls: true},
                 {to: 2, scenery: ['house', 'house', 'willow', 'pine'], river: true}
             ],
-            tunnels: [[5, 6, 22], [11, 6, 22], [19, 6, 22]], // [section, segments into it, how long]
+            tunnels: [[5, 4, 90], [11, 4, 90], [19, 4, 90]], // [section, segments into it, how long]
             obstacles: ['truck', 'moped', 'rockslide', 'moped', 'truck', 'moped', 'rockslide', 'truck'],
             levels: {
                 // The same way down, its bends softer

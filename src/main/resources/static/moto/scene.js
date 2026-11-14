@@ -238,7 +238,7 @@ const Scene = (() => {
             }
             const fade = haze(n);
             const stripe = Math.floor(segment.index / 3) % 2;
-            const dim = color => (segment.tunnel ? hexMix(color, '#2a2927', 0.5) : color); // in a tunnel
+            const dim = color => (segment.tunnel ? hexMix(color, '#2e2733', 0.5) : color); // in a tunnel
             quad(mix(dim(look.rumble[stripe]), look.fog, fade), x1, y1, w1 * 1.13, x2, y2, w2 * 1.13);
             const gate = segment.index - Track.RUN_UP;
             const goal = track.length / Track.SEGMENT;
@@ -327,15 +327,45 @@ const Scene = (() => {
             [x2 + side * wall * scale2, y2 - from * scale2]]);
         clipped(entry.clip, () => {
             if (segment.tunnel) {
+                // An underpass of concrete: pillars every fourth segment with an orange lamp on them, between them the open
+                // side with a low parapet and the lights of the valley beyond, beams across the ceiling, and a red neon line
+                // along it on each side.
                 const high = tunnelHigh;
+                const pillar = segment.index % 4 === 0;
+                const beam = segment.index % 2 === 0;
+                const softGlow = (x, y, r, a) => {
+                    ctx.save();
+                    ctx.globalCompositeOperation = 'lighter';
+                    ctx.globalAlpha = a * 0.3;
+                    blob('#ff7a3a', x, y, Math.min(r, 36), Math.min(r, 36));
+                    ctx.restore();
+                };
+                const fogged = color => mix(color, look.fog, fade * 0.8);
+                const ceil = (from, to, color) => shape(fogged(color), [[x1 + from * scale1, y1 - high * scale1], [x1 + to * scale1, y1 - high * scale1],
+                    [x2 + to * scale2, y2 - high * scale2], [x2 + from * scale2, y2 - high * scale2]]);
                 for (const side of [-1, 1]) {
-                    strip(hexMix(zone.wall[stripe], '#25231f', 0.7), side, 0, high);
+                    if (pillar) {
+                        strip(fogged('#6a5a54'), side, 0, high);
+                        strip(fogged('#ff9a3c'), side, 2.2, 3.4);
+                        if (n >= 6 && n < 70) {
+                            softGlow(x1 + side * wall * scale1, y1 - 2.8 * scale1, 1.6 * scale1, 0.55);
+                        }
+                    } else {
+                        strip(fogged(segment.index % 3 === 1 ? '#2a2140' : '#1d1a33'), side, 0, high); // the dark valley with its lights
+                        if (segment.index % 3 === 1 && n < 70) {
+                            strip(fogged('#ffc067'), side, 2.6, 2.8);
+                        }
+                        strip(fogged('#8a7b72'), side, 0, 1.0); // the low parapet
+                        strip(fogged('#b0a198'), side, 1.0, 1.18); // its rail
+                    }
                 }
-                shape(hexMix(zone.wall[stripe], '#1c1a17', 0.8), [[x1 - wall * scale1, y1 - high * scale1], [x1 + wall * scale1, y1 - high * scale1],
+                shape(fogged(beam ? '#4a403d' : '#665a55'), [[x1 - wall * scale1, y1 - high * scale1], [x1 + wall * scale1, y1 - high * scale1],
                     [x2 + wall * scale2, y2 - high * scale2], [x2 - wall * scale2, y2 - high * scale2]]);
-                if (segment.index % 4 === 0 && n >= 2) {
-                    shape('#ffe2a0', [[x1 - 0.35 * scale1, y1 - (high - 0.02) * scale1], [x1 + 0.35 * scale1, y1 - (high - 0.02) * scale1],
-                        [x2 + 0.35 * scale2, y2 - (high - 0.02) * scale2], [x2 - 0.35 * scale2, y2 - (high - 0.02) * scale2]]);
+                for (const side of [-1, 1]) {
+                    ceil(side * wall * 0.8 - 0.18, side * wall * 0.8 + 0.18, '#ff4a5a'); // the neon line
+                    if (n >= 6 && n < 70 && segment.index % 2 === 0) {
+                        softGlow(x1 + side * wall * 0.8 * scale1, y1 - high * scale1, 1.4 * scale1, 0.4);
+                    }
                 }
                 return;
             }

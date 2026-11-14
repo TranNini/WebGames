@@ -1,7 +1,7 @@
 // Moto Race's courses and riding, without drawing or network, so it runs in Node too (tests). All in meters and seconds.
 // A course is a road from a start to a goal, built from short straight pieces (segments), each with its own bend and
 // height; the road is drawn from those as seen from behind the bike. Beside it is open ground with things standing on
-// it (palms, rocks, cacti, pines): off the road the bike is slower, and riding into one of them is a crash. On a medium
+// it (palms, rocks, cacti, pines, towers): off the road the bike is slower, and riding into one of them is a crash. On a medium
 // or hard course, things stand on the road too (a car, rocks, a stump, cones): riding into one stops the bike short. z is
 // how far a bike has come from the start line; x is how far it is from the middle of the road (negative: left). A ramp
 // across the road throws a bike into the air: it flies at the speed it had, so where it is in the air follows from where
@@ -48,15 +48,6 @@ const Track = (() => {
         [36, 4.5, -8], [30, 0, -6], [36, -4, -7], [30, 0, -5], [40, 3, -5], [40, 0, -4], [40, -2.5, -3], [40, 0, -2],
         [50, 1.5, 0], [60, 0, 0], [50, -1.5, 0], [60, 0, 0]];
 
-    // Chongqing: across the city from day into night, once, in four stretches as long as each other, each with its own
-    // picture far off (scene.js): over a cable bridge (day), across the river (sunset), through the old town (dusk), over
-    // the neon arch bridge (night). Gentle bends, rails on both sides, the river below.
-    const CHONGQING = [
-        [30, 0, 0], [60, 1.5, 0], [40, 0, 0], [70, -2, 0], [40, 0, 0], [60, 2, 0], [50, -1.5, 0],
-        [40, -2, 0], [60, 2.5, 0], [50, -1.8, 0], [40, 0, 0], [60, 1.5, 0], [50, -2, 0], [50, 0, 0],
-        [50, 2.5, 0], [60, 0, 0], [50, -1.6, 0], [40, 0, 0], [50, 2, 0], [50, -1.5, 0], [50, 0, 0],
-        [40, 0, 0], [60, -1.5, 0], [50, 2, 0], [50, 0, 0], [60, -2, 0], [50, 1.5, 0], [40, 0, 0]];
-
     const TRACKS = {
         seaside: {
             name: 'Seaside',
@@ -102,18 +93,13 @@ const Track = (() => {
         },
         chongqing: {
             name: 'Chongqing',
-            about: 'Across the city from day into night',
-            sections: CHONGQING,
-            laps: 1,
-            // The stretches: their picture and time of day (scene.js), how far below the road the river is, street lamps
-            // beside the road every so many segments (double ones in the old town, where the hill is on the left)
-            zones: [
-                {to: 0.25, walls: true, city: 'day', water: -14},
-                {to: 0.5, walls: true, city: 'sunset', water: -16, lamp: 18},
-                {to: 0.75, walls: true, city: 'dusk', water: -9, lamp: 6, double: true, hill: true},
-                {to: 2, walls: true, city: 'night', water: -14}
-            ],
-            obstacles: ['car', 'cones', 'baskets', 'car']
+            about: 'Up and down the mountain city at night',
+            scenery: ['tower', 'tower', 'stilt', 'lantern', 'ficus'],
+            sections: [[30, 0, 0], [40, -4, 10], [30, 5, 8], [40, -5, 6], [40, 0, -8], [50, 6, -10], [30, 0, 0], [40, -3, -6],
+                [40, 3, 6], [50, -5, -6], [40, 0, 0], [40, 4, 0]],
+            laps: 3,
+            obstacles: ['car', 'cones', 'baskets', 'car'],
+            monorail: 110 // a monorail over the road, on a straight, at most every this many segments
         },
         tianmen: {
             name: 'Tianmen',
@@ -145,9 +131,10 @@ const Track = (() => {
     };
     // How wide what stands beside the road is, to ride into (half, in m)
     const SOLID = {crag: 1, broadleaf: 0.8, house: 2.4, willow: 0.5, portal: 0, palm: 0.5, rock: 0.9, hut: 1.8, cactus: 0.5, boulder: 1.1, mesa: 0, pine: 0.6, birch: 0.4, log: 1.2, sign: 0.4, beach: 1.3,
-        lamp: 0.3, lamp2: 0.3};
+        tower: 0, stilt: 2, lantern: 0.3, ficus: 0.7, pillar: 0.6, monorail: 0};
     // What stands further off: at least this far from the road's edge, and up to this much further
-    const FAR = {mesa: [30, 30]};
+    const FAR = {mesa: [30, 30], tower: [20, 34]};
+    const PILLAR = ROAD + 2.8; // the monorail's pillars, both sides
     const WALL = ROAD * 1.13; // mountain roads: the cliff and the parapet stand at the outer edge of the kerb
     const TUNNEL_HEIGHT = 5.5;
 
@@ -239,7 +226,14 @@ const Track = (() => {
         }
 
         const random = seeded(name.length * 7919 + name.charCodeAt(0) * 104729);
+        let lastRail = RUN_UP;
         segments.forEach((segment, i) => {
+            if (spec.monorail && i - lastRail >= spec.monorail && i > RUN_UP + 20 && i < goal - 12 && Math.abs(segment.bend) < 1) {
+                // Pillars first, so the beam is drawn over them
+                segment.things.push({kind: 'pillar', x: -PILLAR, base: 0, size: 1}, {kind: 'pillar', x: PILLAR, base: 0, size: 1},
+                    {kind: 'monorail', x: 0, base: 0, size: 1, phase: (i * 0.618) % 1});
+                lastRail = i;
+            }
             // Signs on the outside of a sharp bend, so it can be seen coming
             if (Math.abs(segment.bend) >= 3.5 && i % 5 === 0 && !segment.walls) {
                 segment.things.push({kind: 'sign', x: Math.sign(segment.bend) * (ROAD + 1.6), base: 0, size: 1, left: segment.bend > 0});
@@ -248,7 +242,7 @@ const Track = (() => {
                 return; // kept clear by the banners
             }
             if (spec.zones) {
-                placeOnMountain(spec.zones[segment.zone], segment, i, random);
+                placeOnMountain(spec.zones[segment.zone], segment, random);
                 return;
             }
             for (const side of [-1, 1]) {
@@ -297,29 +291,10 @@ const Track = (() => {
             segment.walls = !!zone.walls;
             const next = hairpins.find(hairpin => hairpin.middle >= i);
             segment.drop = next ? next.side : hairpins.length ? -hairpins[hairpins.length - 1].side : 1;
-            segment.lamp = !!zone.city && i % 4 === 0; // a light in the rails
-            segment.hill = !!zone.hill; // on the left instead of the river
             if (zone.river) {
                 segment.river = segment.drop; // the river on the side the valley was
             }
         });
-        // The river's level, eased from one stretch's to the next one's between their middles
-        if (spec.zones.some(zone => zone.water !== undefined)) {
-            const middles = spec.zones.map((zone, k) => {
-                const from = k ? spec.zones[k - 1].to : 0;
-                return [RUN_UP + (from + Math.min(1, zone.to)) / 2 * (goal - RUN_UP), zone.water];
-            });
-            segments.forEach((segment, i) => {
-                const k = middles.findIndex(([at]) => at > i);
-                if (k <= 0) {
-                    segment.water = middles[k === 0 ? 0 : middles.length - 1][1];
-                } else {
-                    const [a, wa] = middles[k - 1];
-                    const [b, wb] = middles[k];
-                    segment.water = wa + (wb - wa) * ease((i - a) / (b - a));
-                }
-            });
-        }
         for (const [section, into, long] of spec.tunnels || []) {
             const first = RUN_UP + sections.slice(0, section).reduce((sum, [count]) => sum + count, 0) + into;
             for (let k = 0; k < long; k++) {
@@ -329,14 +304,7 @@ const Track = (() => {
         }
     }
 
-    function placeOnMountain(zone, segment, i, random) {
-        if (zone.city) {
-            // Only street lamps: the picture far off is the city
-            if (zone.lamp && i % zone.lamp === 0) {
-                segment.things.push({kind: zone.double ? 'lamp2' : 'lamp', x: -(WALL + 0.45), base: 0, size: 1});
-            }
-            return;
-        }
+    function placeOnMountain(zone, segment, random) {
         for (const side of [-1, 1]) {
             if (random() >= 0.42 || segment.tunnel) {
                 continue;

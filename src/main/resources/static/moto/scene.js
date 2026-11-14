@@ -23,12 +23,13 @@ const Scene = (() => {
             grass: ['#3e7a45', '#36703d'], road: ['#4b4f58', '#474b54'], rumble: ['#e9e9ee', '#c4433a'], line: '#f1f1e6', sun: '#ffe6b0',
             lights: 0.5
         },
-        // Across the city from day into night: the user's four pictures far off, one per stretch (track.js), faded into
-        // each other; the sky, the river and the road's colors follow the time of day (cityLook)
+        // At night: towers lit up on the hills, a river below them, mist
         chongqing: {
-            pictures: true, sky: ['#2a74e6', '#c4def8'], fog: '#c4def8', hills: ['#5b9bf0', '#5b9bf0'], grass: ['#4a6ad0', '#4a6ad0'],
-            road: ['#5a5e7e', '#5c6080'], rumble: ['#80789e', '#80789e'], line: '#f4f4fb', sun: '#ffffff', lights: 0
+            sky: ['#121936', '#76587c'], fog: '#5a5476', hills: ['#2b3050', '#232842'], river: '#232c4c',
+            grass: ['#33423e', '#2e3c38'], road: ['#3f4149', '#3b3d45'], rumble: ['#ecebef', '#d33a35'], line: '#f2cf5b', sun: '#f3ecd6',
+            lights: 0.8, city: true
         },
+
         // Down a mountain, from the summit above the clouds to the valley floor: the colors of each zone (track.js), top down:
         // the summit, the forest slopes, the misty valley, its floor. Pale concrete road; green karst peaks far off, rising
         // as the road goes down (drawMountainBack).
@@ -47,8 +48,7 @@ const Scene = (() => {
     };
 
     let mist = 1; // more: the haze comes nearer (in the clouds)
-    let night = 0; // the city at night: 1
-    // The far view of the city and the mountain: turned by the real heading, at most 30 px a frame, and eased, so sharp
+    // The mountain's far view: turned by the real heading, at most 30 px a frame, and eased, so sharp
     // bends never spin it (the other courses keep skyShift)
     let heading = 0;
     let headingSmooth = 0;
@@ -112,55 +112,6 @@ const Scene = (() => {
         };
     }
 
-    // The city's time of day: its sky top to bottom at day, sunset, dusk and night, and what the road, rails and river
-    // look like by day and by night
-    const SKIES = [[0, ['#2a74e6', '#5b9bf0', '#c4def8']], [0.34, ['#2e3f9c', '#7a4fa8', '#ff9f7a']], [0.66, ['#1b2160', '#4a3a96', '#d86aa0']],
-        [1, ['#070c2c', '#0f1a54', '#3a3f8a']]];
-    const CITY = {
-        road: [['#5a5e7e', '#1e2034'], ['#5c6080', '#1f2135']], kerb: ['#80789e', '#3a3258'], rail: ['#b6a9c6', '#70628e'],
-        railDark: ['#8e80a2', '#463c64'], water: ['#4a6ad0', '#101860'], hill: ['#2f8a52', '#0e2c32'], line: ['#f4f4fb', '#ced0ea']
-    };
-    const TIMES = {day: 0, sunset: 0.34, dusk: 0.66, night: 1};
-    const smooth = (a, b, x) => {
-        const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
-        return t * t * (3 - 2 * t);
-    };
-
-    function cityLook(look, track, bike) {
-        const progress = Math.max(0, Math.min(1, bike.z / track.length));
-        // Each stretch's time of day at its middle, eased between
-        const middles = track.zones.map((zone, k) => [((k ? track.zones[k - 1].to : 0) + Math.min(1, zone.to)) / 2, TIMES[zone.city]]);
-        let time = middles[0][1];
-        for (let k = 0; k < middles.length - 1; k++) {
-            if (progress >= middles[k][0]) {
-                time = middles[k][1] + (middles[k + 1][1] - middles[k][1]) * smooth(middles[k][0], middles[k + 1][0], progress);
-            }
-        }
-        let i = 0;
-        while (i < SKIES.length - 2 && time > SKIES[i + 1][0]) {
-            i++;
-        }
-        const f = Math.max(0, Math.min(1, (time - SKIES[i][0]) / (SKIES[i + 1][0] - SKIES[i][0])));
-        const sky = SKIES[i][1].map((color, k) => hexMix(color, SKIES[i + 1][1][k], f));
-        const night = smooth(0.22, 0.9, time);
-        const at = ([day, dark]) => hexMix(day, dark, night);
-        // The pictures: this stretch's, and near the next one, that one fading in (over 140 m each way)
-        const k = Math.max(0, track.zones.findIndex(zone => progress < zone.to));
-        const reach = 140 / track.length;
-        const pictures = [[track.zones[k].city, 1]];
-        if (k > 0 && progress < track.zones[k - 1].to + reach) {
-            pictures.unshift([track.zones[k - 1].city, 1]);
-            pictures[1][1] = smooth(track.zones[k - 1].to - reach, track.zones[k - 1].to + reach, progress);
-        } else if (k < track.zones.length - 1 && progress > track.zones[k].to - reach) {
-            pictures.push([track.zones[k + 1].city, smooth(track.zones[k].to - reach, track.zones[k].to + reach, progress)]);
-        }
-        return {
-            ...look, sky: [sky[0], sky[2]], skyMiddle: sky[1], fog: sky[2], night, lights: night, pictures,
-            road: CITY.road.map(at), rumble: [at(CITY.kerb), at(CITY.kerb)], line: at(CITY.line),
-            rail: at(CITY.rail), railDark: at(CITY.railDark), water: at(CITY.water), hill: at(CITY.hill)
-        };
-    }
-
     function quad(color, x1, y1, w1, x2, y2, w2) {
         ctx.fillStyle = color;
         ctx.beginPath();
@@ -179,13 +130,12 @@ const Scene = (() => {
         }
         const {track, bike} = view;
         const base = LOOKS[track.key];
-        const look = base.mountain ? mountainLook(base, track, bike) : base.pictures ? cityLook(base, track, bike) : base;
+        const look = base.mountain ? mountainLook(base, track, bike) : base;
         mist = look.mist || 1;
-        night = look.night || 0;
         const upright = height > width;
-        // Sideways, the camera comes closer: the road and the bikes fill more of the wide screen, with less sky. The city
-        // and the mountain show more of their far view.
-        const horizon = height * (look.mountain || look.pictures ? (upright ? 0.42 : 0.45) : (upright ? 0.3 : 0.33));
+        // Sideways, the camera comes closer: the road and the bikes fill more of the wide screen, with less sky. The
+        // mountain shows more of its far view.
+        const horizon = height * (look.mountain ? (upright ? 0.42 : 0.45) : (upright ? 0.3 : 0.33));
         const bikeY = height * (upright ? 0.86 : 0.9);
         // The road at the bike takes most of the width; the camera's height follows from where the bike is on screen
         const focal = (upright ? width * 0.74 : Math.min(width * 0.86, height * 2.2)) * CAMERA_BACK / (2 * Track.ROAD);
@@ -201,14 +151,14 @@ const Scene = (() => {
         const bikeScale = Math.min(BIKE_SCALE, height * tallest / 1.8 / (focal / CAMERA_BACK));
 
         // The far view turns with the road
-        if (look.mountain || look.pictures) {
+        if (look.mountain) {
             heading += Math.max(-30, Math.min(30, (view.heading || 0) * focal));
             headingSmooth += (heading - headingSmooth) * 0.25;
         } else {
             skyShift += view.turned;
         }
         drawSky(look, horizon, upright);
-        if (!look.mountain && !look.pictures) {
+        if (!look.mountain) {
             // The land far off, in the haze: seen under the horizon where the road beyond a crest is hidden (left unpainted,
             // it kept what was drawn there before, and things left trails)
             ctx.fillStyle = look.fog;
@@ -302,12 +252,6 @@ const Scene = (() => {
             if (segment.ramp) {
                 drawRamp(shown[i], segment.ramp, fade, look);
             }
-            if (look.pictures && n < 110) {
-                for (const side of [-1, 1]) {
-                    quad(mix(hexMix(look.line, look.road[0], 0.35), look.fog, fade), x1 + side * 0.915 * w1, y1, 0.015 * w1,
-                        x2 + side * 0.915 * w2, y2, 0.015 * w2);
-                }
-            }
         }
 
         // Things and bikes, far to near; the own bike among them, so one just behind it is drawn over it
@@ -328,9 +272,10 @@ const Scene = (() => {
         }
         for (let n = shown.length - 1; n >= 0; n--) {
             const entry = shown[n];
-            if ((look.mountain || look.pictures) && entry.z2 > 0.5) {
+            if (look.mountain && entry.z2 > 0.5) {
                 drawMountainSide(entry, look, n);
             }
+            paintTreesFrom(n + 2);
             if (entry.z1 >= 1) {
                 for (const thing of entry.segment.things) {
                     drawThing(thing, entry, look, cameraX, n);
@@ -360,10 +305,7 @@ const Scene = (() => {
                     look.lights, (other.air || 0) * scale));
             }
         }
-        if (night > 0.02) {
-            ctx.fillStyle = `rgba(6,8,40,${0.12 * night})`; // the city at night: a little darker all over
-            ctx.fillRect(0, 0, width, height);
-        }
+        paintTreesFrom(-Infinity);
 
     }
 
@@ -376,7 +318,7 @@ const Scene = (() => {
         if (!segment.walls && !segment.tunnel) {
             return;
         }
-        const zone = look.zones ? look.zones[segment.zone] : null; // the mountain's: its tunnels' rock
+        const zone = look.zones[segment.zone];
         const stripe = Math.floor(segment.index / 3) % 2;
         const fade = haze(n);
         const wall = Track.WALL;
@@ -398,50 +340,83 @@ const Scene = (() => {
                 return;
             }
             for (const side of [-1, 1]) {
-                // Rails on both sides: dark below, lighter above; in the city a lamp in them now and then, glowing at night
-                strip(mix(look.railDark || '#968f7e', look.fog, fade), side, 0, 0.55);
-                strip(mix(look.rail || '#bcb6a4', look.fog, fade), side, 0.55, 1.08);
-                if (segment.lamp) {
-                    strip(night > 0.5 ? '#ffe9b8' : '#fff3dc', side, 0.64, 0.98);
-                    if (n < 120) {
-                        softGlow(x1 + side * wall * scale1, y1 - 0.8 * scale1, 3.2 * scale1, 0.75);
-                    }
+                if (entry.z1 < 3.5) {
+                    continue; // right beside the camera a rail would fill the screen
                 }
-            }
-            if (!look.mountain) {
-                return;
+                // Rails on both sides: dark below, lighter above
+                strip(mix('#968f7e', look.fog, fade), side, 0, 0.55);
+                strip(mix('#bcb6a4', look.fog, fade), side, 0.55, 1.08);
             }
             // The mountain: merlons on the parapet over the drop, every other segment; on the other side the forest slope
             // going up 22 m (a little bare rock here and there), round trees on it near by
             const drop = segment.drop;
             const rock = -drop;
-            if (segment.index % 2 === 0) {
-                strip(mix('#c4beac', look.fog, fade), drop, 1.08, 1.75);
+            if (entry.z1 >= 3.5) {
+                strip(mix('#aaa391', look.fog, fade), drop, 1.08, 1.2); // a continuous cap, so the merlons sit on something
+                if (segment.index % 2 === 0) {
+                    strip(mix('#c4beac', look.fog, fade), drop, 1.2, 1.75);
+                }
             }
             const fog = Math.min(1, fade + 0.12);
             const tone = hash(segment.index * 5 + 3);
             const tone2 = hash(segment.index * 11 + 7);
             // One forest green, barely changing, so no seams show; a little bare rock, close to it
             const forest = hexMix('#2a6644', '#2e6c48', tone);
-            const face = tone < 0.07 ? hexMix(forest, '#7d857c', 0.35) : forest;
+            const face = forest;
             const foot1 = x1 + rock * wall * scale1;
             const foot2 = x2 + rock * wall * scale2;
             const top1 = foot1 + rock * 9 * scale1;
             const top2 = foot2 + rock * 9 * scale2;
             shape(mix(face, look.fog, fog), [[foot1, y1], [top1, y1 - 22 * scale1], [top2, y2 - 22 * scale2], [foot2, y2]]);
-            if (n < 110 && tone2 < 0.85) {
-                for (const along of [0.45, 0.9]) {
-                    const u = along + tone * 0.1;
-                    blob(mix(hexMix('#1c5838', '#2e7646', tone2), look.fog, fog), foot1 + (top1 - foot1) * u, y1 - 22 * scale1 * along,
-                        (2.6 + tone2 * 2) * scale1, (2.6 + tone2 * 2) * scale1);
-                }
+            // Trees on it (trees() below), none on the nearest segments, where they would grow huge
+            if (n >= 5 && n < 150) {
+                treesLater.push({n, clip: entry.clip, paint: () => trees(segment, n, rock, foot1, top1, y1, scale1, look.fog, fog)});
             }
         });
     }
 
-    // Between walls, what is below the road, drawn with the ground (before the road on it). The city: the river on both
-    // sides, below the road by its stretch's level, lights on it at night; the hill on the left in the old town. The
-    // mountain: the forest at the foot of the slope, and over the drop the stone wall down to the valley floor 28 m below.
+    // Trees wait until the two nearer segments' slope is painted, as their crowns reach over it
+    let treesLater = [];
+
+    function paintTreesFrom(n) {
+        while (treesLater.length && treesLater[0].n >= n) {
+            const later = treesLater.shift();
+            clipped(later.clip, later.paint);
+        }
+    }
+
+    // Round trees in rows up the slope, the last row on its crest, so the slope has a bushy skyline and no flat face.
+    // Each crown is lighter than the slope, with a dark shade under it and a lit top, so the trees read as trees.
+    function trees(segment, n, rock, foot1, top1, y1, scale1, fogColor, fog) {
+        const greens = ['#3a8450', '#448e58', '#4d9860', '#3f7f4e'];
+        // Each tree stands ON the slope: a trunk from its foot (with a small shadow on the ground) up into the crown.
+        // Higher rows are painted first so lower trees overlap them.
+        [0.92, 0.74, 0.56, 0.38, 0.2].forEach((along, k) => {
+            const pick = hash(segment.index * 7 + k * 13);
+            if (pick < 0.3) {
+                return;
+            }
+            const u = along + (pick - 0.5) * 0.08;
+            const r = (1.4 + hash(segment.index * 3 + k) * 1.3) * (0.8 + 0.2 * along) * scale1;
+            const x = foot1 + (top1 - foot1) * u;
+            const y = y1 - 22 * u * scale1; // the foot of the tree, on the slope surface
+            const cy = y - r * 1.3;
+            const crown = hexMix(greens[(segment.index + k) % 4], '#5aa468', hash(segment.index + k * 5) * 0.4);
+            const trunkW = Math.max(0.6, r * 0.13);
+            blob(mix('#163d29', fogColor, fog), x, y, r * 0.8, r * 0.16);
+            shape(mix('#4a3a2a', fogColor, fog), [[x - trunkW, y], [x + trunkW, y], [x + trunkW * 0.7, cy], [x - trunkW * 0.7, cy]]);
+            if (n < 90) {
+                blob(mix('#163d29', fogColor, fog), x + rock * r * 0.12, cy + r * 0.18, r * 1.04, r);
+            }
+            blob(mix(crown, fogColor, fog), x, cy, r, r * 0.95);
+            if (n < 70) {
+                blob(mix(hexMix(crown, '#a6d68a', 0.35), fogColor, fog), x - rock * r * 0.25, cy - r * 0.35, r * 0.5, r * 0.42);
+            }
+        });
+    }
+
+    // Between walls, what is below the road, drawn with the ground (before the road on it): the forest at the foot of
+    // the slope, and over the drop the stone wall down to the valley floor 28 m below.
     function drawBelowRoad(shown, i, look) {
         const {segment, n, x1, x2, y1, y2, scale1, scale2} = shown[i];
         const fade = haze(n);
@@ -449,36 +424,6 @@ const Scene = (() => {
         const side1 = side => x1 + side * wall * scale1;
         const side2 = side => x2 + side * wall * scale2;
         const out = side => (side < 0 ? -4 : width + 4);
-        if (look.pictures) {
-            const level = segment.water;
-            const water = mix(look.water, look.fog, fade);
-            for (const side of [-1, 1]) {
-                const hill = side < 0 && segment.hill;
-                const below = hill ? -4 : level;
-                shape(hill ? mix(look.hill, look.fog, fade) : water, [[side1(side), y1 - below * scale1], [out(side), y1 - below * scale1],
-                    [out(side), y2 - below * scale2], [side2(side), y2 - below * scale2]]);
-            }
-            if (night > 0.15 && segment.index % 3 === 0 && shown[i + 3]) {
-                const tone = hash(segment.index * 7 + 1);
-                const tone2 = hash(segment.index * 13 + 5);
-                if (tone < 0.55) {
-                    const far = shown[i + 3];
-                    const from = 5 + tone * 26;
-                    const wide = 0.6 + tone2 * 1.6;
-                    ctx.save();
-                    ctx.globalCompositeOperation = 'lighter';
-                    ctx.fillStyle = tone2 < 0.5 ? `rgba(255,176,74,${0.26 * night})` : tone2 < 0.75 ? `rgba(255,90,190,${0.24 * night})`
-                        : `rgba(110,170,255,${0.24 * night})`;
-                    shape(ctx.fillStyle, [[x1 + from * scale1, y1 - level * scale1], [x1 + (from + wide) * scale1, y1 - level * scale1],
-                        [far.x1 + (from + wide) * far.scale1, far.y1 - level * far.scale1], [far.x1 + from * far.scale1, far.y1 - level * far.scale1]]);
-                    ctx.restore();
-                }
-            }
-            return;
-        }
-        if (!look.mountain) {
-            return;
-        }
         const drop = segment.drop;
         const rock = -drop;
         const fog = Math.min(1, fade + 0.12);
@@ -528,109 +473,6 @@ const Scene = (() => {
         ctx.arc(x1, y1 - high + half, half + 0.3 * s, Math.PI, 0);
         ctx.lineTo(x1 + half + 0.3 * s, y1);
         ctx.stroke();
-    }
-
-    // The city's far view: the sky, then the stretch's picture (the part above the road), standing on the horizon, looped
-    // round; near the next stretch, its picture fading in over it. Haze where they meet the river.
-    function drawCityBack(look, horizon, upright) {
-        const sky = ctx.createLinearGradient(0, 0, 0, horizon + 2);
-        sky.addColorStop(0, look.sky[0]);
-        sky.addColorStop(0.55, look.skyMiddle);
-        sky.addColorStop(1, look.sky[1]);
-        ctx.fillStyle = sky;
-        ctx.fillRect(0, 0, width, horizon + 2);
-        for (const [key, alpha] of look.pictures) {
-            drawPicture(key, alpha, horizon, upright);
-        }
-        const [r, g, b] = [1, 3, 5].map(at => parseInt(look.fog.slice(at, at + 2), 16));
-        const above = ctx.createLinearGradient(0, horizon - height * 0.04, 0, horizon + 2);
-        above.addColorStop(0, `rgba(${r},${g},${b},0)`);
-        above.addColorStop(1, `rgba(${r},${g},${b},0.5)`);
-        ctx.fillStyle = above;
-        ctx.fillRect(0, horizon - height * 0.04, width, height * 0.04 + 2);
-        ctx.fillStyle = look.water;
-        ctx.fillRect(0, horizon, width, height - horizon);
-        const below = ctx.createLinearGradient(0, horizon, 0, horizon + height * 0.07);
-        below.addColorStop(0, `rgba(${r},${g},${b},0.9)`);
-        below.addColorStop(1, `rgba(${r},${g},${b},0)`);
-        ctx.fillStyle = below;
-        ctx.fillRect(0, horizon, width, height * 0.07);
-    }
-
-    // The pictures: loaded once; looped by fading their first 300 px over their end (not mirrored)
-    const PICTURE_ROWS = 470; // the part above the road
-    const pictures = {};
-
-    function picture(key) {
-        let entry = pictures[key];
-        if (!entry) {
-            const image = new Image();
-            image.src = 'art/chongqing-' + key + '.webp';
-            entry = pictures[key] = {image, loop: null, top: '#000000'};
-        }
-        if (!entry.loop && entry.image.complete && entry.image.naturalWidth) {
-            const image = entry.image;
-            const overlap = 300;
-            const long = image.naturalWidth - overlap;
-            const loop = document.createElement('canvas');
-            loop.width = long;
-            loop.height = PICTURE_ROWS;
-            const c = loop.getContext('2d');
-            c.drawImage(image, 0, 0, long, PICTURE_ROWS, 0, 0, long, PICTURE_ROWS);
-            const start = document.createElement('canvas');
-            start.width = overlap;
-            start.height = PICTURE_ROWS;
-            const s = start.getContext('2d');
-            s.drawImage(image, 0, 0, overlap, PICTURE_ROWS, 0, 0, overlap, PICTURE_ROWS);
-            s.globalCompositeOperation = 'destination-in';
-            const fade = s.createLinearGradient(0, 0, overlap, 0);
-            fade.addColorStop(0, 'rgba(0,0,0,0)');
-            fade.addColorStop(1, 'rgba(0,0,0,1)');
-            s.fillStyle = fade;
-            s.fillRect(0, 0, overlap, PICTURE_ROWS);
-            c.drawImage(image, long, 0, overlap, PICTURE_ROWS, 0, 0, overlap, PICTURE_ROWS);
-            c.drawImage(start, 0, 0);
-            // The color of its top row, to fill the sky above it
-            const dot = document.createElement('canvas');
-            dot.width = dot.height = 1;
-            const d = dot.getContext('2d');
-            d.drawImage(image, 0, 0, image.naturalWidth, 12, 0, 0, 1, 1);
-            const [r, g, b] = d.getImageData(0, 0, 1, 1).data;
-            entry.top = '#' + ((r << 16) | (g << 8) | b).toString(16).padStart(6, '0');
-            entry.loop = loop;
-        }
-        return entry;
-    }
-    ['day', 'sunset', 'dusk', 'night'].forEach(picture); // start loading them now
-
-    function drawPicture(key, alpha, horizon, upright) {
-        const entry = picture(key);
-        if (!entry.loop || alpha < 0.01) {
-            return;
-        }
-        const loop = entry.loop;
-        const scale = upright ? Math.max(width / 1774 * 1.5, horizon / PICTURE_ROWS * 0.78) : Math.max(horizon / PICTURE_ROWS, width / 1774 * 1.15);
-        const rows = Math.min(PICTURE_ROWS, horizon / scale);
-        const tile = loop.width * scale;
-        const from = ((headingSmooth % tile) + tile) % tile;
-        const gap = horizon - rows * scale;
-        ctx.globalAlpha = alpha;
-        if (gap > 0) {
-            ctx.fillStyle = entry.top;
-            ctx.fillRect(0, 0, width, gap + 1);
-        }
-        for (let x = -from; x < width; x += tile) {
-            ctx.drawImage(loop, 0, PICTURE_ROWS - rows, loop.width, rows, x, horizon - rows * scale, tile + 1, rows * scale);
-        }
-        if (gap > 0) {
-            const [r, g, b] = [1, 3, 5].map(at => parseInt(entry.top.slice(at, at + 2), 16));
-            const soft = ctx.createLinearGradient(0, gap, 0, gap + height * 0.07);
-            soft.addColorStop(0, `rgba(${r},${g},${b},1)`);
-            soft.addColorStop(1, `rgba(${r},${g},${b},0)`);
-            ctx.fillStyle = soft;
-            ctx.fillRect(0, gap, width, height * 0.07);
-        }
-        ctx.globalAlpha = 1;
     }
 
     // The mountain's far view: the sky, soft clouds, four layers of green karst peaks (paler and bluer further off, mist
@@ -812,10 +654,6 @@ const Scene = (() => {
     }
 
     function drawSky(look, horizon, upright) {
-        if (look.pictures) {
-            drawCityBack(look, horizon, upright);
-            return;
-        }
         if (look.mountain) {
             drawMountainBack(look, horizon);
             return;
@@ -831,7 +669,9 @@ const Scene = (() => {
         ctx.arc(width * 0.72 - skyShift * 0.15 % width, horizon * (upright ? 0.35 : 0.3), Math.min(width, height) * 0.06, 0, Math.PI * 2);
         ctx.fill();
         hills(look.hills[0], horizon, horizon * 0.22, skyShift * 0.35, 0.011, 3.1);
-        if (look.sea) {
+        if (look.city) {
+            city(look, horizon, skyShift * 0.55);
+        } else if (look.sea) {
             ctx.fillStyle = look.sea; // in front of the far hills, so it is seen
             ctx.fillRect(0, horizon - Math.max(6, horizon * 0.07), width, Math.max(6, horizon * 0.07) + 2);
         } else {
@@ -844,6 +684,82 @@ const Scene = (() => {
         const s = Math.sin(n * 127.1 + 311.7) * 43758.5453;
         return s - Math.floor(s);
     };
+
+    // Far off: towers on the hills, lit windows, a river below them with the lights in it, and now and then an arch bridge
+    function city(look, horizon, shift) {
+        const unit = Math.max(3, horizon * 0.018);
+        const water = Math.max(6, horizon * 0.08);
+        const slot = unit * 4;
+        const hill = x => horizon - water - unit * (2 + 3 * (Math.sin((x + shift) / slot * 0.21) + 1));
+        ctx.fillStyle = look.hills[1];
+        ctx.beginPath();
+        ctx.moveTo(0, horizon + 2);
+        for (let x = 0; x <= width + 8; x += 8) {
+            ctx.lineTo(x, hill(x));
+        }
+        ctx.lineTo(width, horizon + 2);
+        ctx.closePath();
+        ctx.fill();
+        const first = Math.floor(shift / slot) - 2;
+        const last = Math.ceil((shift + width) / slot) + 1;
+        const lit = Math.max(1, unit * 0.36);
+        for (let k = first; k <= last; k++) {
+            const w = unit * (2.2 + hash(k) * 2.4);
+            const x = k * slot - shift + hash(k + 991) * unit;
+            const top = hill(x + w / 2) - unit * (4 + hash(k + 57) ** 2 * 20);
+            ctx.fillStyle = mix(k % 2 ? '#262d4d' : '#2f3659', look.fog, 0.15);
+            ctx.fillRect(x, top, w, horizon - top);
+            for (let row = 0, y = top + unit * 0.7; y < horizon - water - unit; row++, y += unit * 1.05) {
+                for (let col = 0, wx = x + unit * 0.4; wx < x + w - unit * 0.5; col++, wx += unit * 0.85) {
+                    const on = hash(k * 131 + row * 17 + col * 3);
+                    if (on < 0.4) {
+                        ctx.fillStyle = on < 0.08 ? '#a8d8ff' : '#ffd58a';
+                        ctx.fillRect(wx, y, lit, lit);
+                    }
+                }
+            }
+            if (hash(k + 7) < 0.25) {
+                ctx.fillStyle = '#ff4b4b'; // a warning light on the roof
+                ctx.fillRect(x + w / 2 - lit / 2, top - lit, lit, lit);
+            }
+        }
+        ctx.fillStyle = look.river;
+        ctx.fillRect(0, horizon - water, width, water + 2);
+        for (let k = first; k <= last; k++) {
+            if (hash(k + 3) < 0.6) {
+                ctx.fillStyle = hash(k + 5) < 0.2 ? 'rgba(168,216,255,0.45)' : 'rgba(255,213,138,0.5)';
+                const x = k * slot - shift + hash(k + 11) * slot;
+                ctx.fillRect(x, horizon - water + water * (0.15 + hash(k + 13) * 0.7), unit * (0.8 + hash(k + 17) * 1.6), 1);
+            }
+            if (((k % 29) + 29) % 29 === 0) {
+                bridge(k * slot - shift, slot * 9, horizon - water * 0.72, unit);
+            }
+        }
+    }
+
+    function bridge(x, long, deck, unit) {
+        ctx.strokeStyle = '#8b90a8';
+        ctx.lineWidth = Math.max(1, unit * 0.3);
+        ctx.beginPath();
+        ctx.moveTo(x, deck);
+        ctx.lineTo(x + long, deck);
+        ctx.moveTo(x + long * 0.12, deck);
+        ctx.quadraticCurveTo(x + long / 2, deck - unit * 9, x + long * 0.88, deck);
+        ctx.stroke();
+        ctx.lineWidth = Math.max(0.6, unit * 0.12);
+        ctx.beginPath();
+        for (let i = 1; i < 8; i++) {
+            const at = 0.12 + i * 0.095;
+            const s = (at - 0.12) / 0.76;
+            ctx.moveTo(x + long * at, deck);
+            ctx.lineTo(x + long * at, deck - unit * 4.5 * 4 * s * (1 - s));
+        }
+        ctx.stroke();
+        ctx.fillStyle = '#ffe2a0';
+        for (let i = 0; i <= 12; i++) {
+            ctx.fillRect(x + (long * i) / 12 - 1, deck - 2, 2, 2);
+        }
+    }
 
     function hills(color, horizon, tall, shift, waves, seed) {
         ctx.fillStyle = color;
@@ -910,34 +826,11 @@ const Scene = (() => {
         ctx.fill();
     }
 
-    function lampHead(tint, x, y) {
-        blob(night > 0.5 ? '#ffe2a0' : tint('#f4efe6'), x, y, 0.4, 0.22);
-        blob(night > 0.5 ? '#fff6dc' : '#ffffff', x, y + 0.04, 0.25, 0.13);
-        softGlow(x, y, 4.5, 0.85);
-    }
-
-    // A lamp's light at night: soft, fading out from its middle (drawn once, then stretched)
-    let glowImage = null;
-
-    function softGlow(x, y, r, strength) {
-        if (night < 0.05) {
-            return;
-        }
-        if (!glowImage) {
-            glowImage = document.createElement('canvas');
-            glowImage.width = glowImage.height = 64;
-            const c = glowImage.getContext('2d');
-            const g = c.createRadialGradient(32, 32, 0, 32, 32, 32);
-            g.addColorStop(0, 'rgba(255,190,100,0.95)');
-            g.addColorStop(0.35, 'rgba(255,150,60,0.35)');
-            g.addColorStop(1, 'rgba(255,120,40,0)');
-            c.fillStyle = g;
-            c.fillRect(0, 0, 64, 64);
-        }
+    // A glow at night, in meters
+    function glow(color, x, y, r) {
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
-        ctx.globalAlpha = strength * night;
-        ctx.drawImage(glowImage, x - r, y - r, r * 2, r * 2);
+        blob(color, x, y, r, r);
         ctx.restore();
     }
 
@@ -1073,19 +966,52 @@ const Scene = (() => {
                 shape(tint('#1d1b24'), [[at - 0.1 * way, -1.62], [at + 0.15 * way, -1.4], [at - 0.1 * way, -1.18], [at, -1.4]]);
             }
         },
-        // A street lamp, its light glowing at night (the city)
-        lamp(tint) {
-            ctx.fillStyle = tint('#6f7488');
-            ctx.fillRect(-0.08, -6.2, 0.16, 6.2);
-            lampHead(tint, 0, -6.3);
+        // Chongqing: a tower of flats, its windows lit (the same ones each time, from where it stands)
+        tower(tint, thing, size) {
+            const seed = Math.floor(Math.abs(thing.x) * 1000);
+            const tall = 16 + hash(seed) * 22;
+            const half = 3.4 + hash(seed + 1) * 1.6;
+            shape(tint(hash(seed + 2) < 0.5 ? '#2b3252' : '#343a5a'), [[-half, 0], [-half, -tall], [half, -tall], [half, 0]]);
+            shape(tint('#232944'), [[half * 0.55, 0], [half * 0.55, -tall], [half, -tall], [half, 0]]);
+            if (size > 1.4) {
+                const warm = tint('#ffd27a');
+                const cool = tint('#a8d8ff');
+                let n = 0;
+                for (let y = -tall + 1.2; y < -1.2; y += 1.6) {
+                    for (let x = -half + 0.6; x < half - 0.6; x += 1.3) {
+                        const on = hash(seed + 7 + n++);
+                        if (on < 0.45) {
+                            ctx.fillStyle = on < 0.08 ? cool : warm;
+                            ctx.fillRect(x, y, 0.6, 0.75);
+                        }
+                    }
+                }
+            } else {
+                ctx.fillStyle = tint('#6b6276');
+                ctx.fillRect(-half * 0.7, -tall * 0.9, half * 1.2, tall * 0.8);
+            }
+            glow('rgba(255,70,70,0.8)', 0, -tall - 0.3, 0.35);
         },
-        // A lamp post with two lights on a cross bar (the old town)
-        lamp2(tint) {
-            ctx.fillStyle = tint('#6f7488');
-            ctx.fillRect(-0.08, -6.2, 0.16, 6.2);
-            ctx.fillRect(-1.2, -6.15, 2.4, 0.12);
-            lampHead(tint, -1.2, -6.3);
-            lampHead(tint, 1.2, -6.3);
+        // A house on stilts on the hillside, floor over floor, each with its roof turned up at the ends
+        stilt(tint) {
+            ctx.fillStyle = tint('#3a2a22');
+            for (const x of [-1.9, -0.7, 0.7, 1.9]) {
+                ctx.fillRect(x - 0.1, -1.6, 0.2, 1.6);
+            }
+            for (const [half, bottom] of [[2.2, -1.6], [1.95, -3.5], [1.65, -5.4]]) {
+                shape(tint('#6e412b'), [[-half, bottom], [-half, bottom - 1.5], [half, bottom - 1.5], [half, bottom]]);
+                ctx.fillStyle = tint('#ffc46b');
+                for (let x = -half + 0.3; x < half - 0.4; x += 0.7) {
+                    ctx.fillRect(x, bottom - 1.15, 0.45, 0.75);
+                }
+                const eave = bottom - 1.4;
+                shape(tint('#2c2a32'), [[-half - 0.75, eave - 0.3], [-half - 0.3, eave + 0.05], [half + 0.3, eave + 0.05],
+                    [half + 0.75, eave - 0.3], [half - 0.1, eave - 0.6], [-half + 0.1, eave - 0.6]]);
+            }
+            for (const x of [-1.35, 1.35]) {
+                blob(tint('#e0362c'), x, -3.05, 0.22, 0.26);
+                glow('rgba(255,120,60,0.22)', x, -3.05, 0.7);
+            }
         },
         // A rocky peak on the summit
         crag(tint, thing) {
@@ -1125,6 +1051,64 @@ const Scene = (() => {
             }
             ctx.stroke();
         },
+        // A post with two red lanterns
+        lantern(tint) {
+            ctx.fillStyle = tint('#2b2b31');
+            ctx.fillRect(-0.07, -3.3, 0.14, 3.3);
+            ctx.fillRect(-0.85, -3.3, 1.7, 0.1);
+            for (const x of [-0.62, 0.62]) {
+                ctx.fillRect(x - 0.015, -3.2, 0.03, 0.2);
+                blob(tint('#d8322b'), x, -2.65, 0.3, 0.36);
+                ctx.fillStyle = tint('#e8b04a');
+                ctx.fillRect(x - 0.16, -3.03, 0.32, 0.07);
+                ctx.fillRect(x - 0.16, -2.33, 0.32, 0.07);
+                glow('rgba(255,90,60,0.25)', x, -2.65, 0.85);
+            }
+        },
+        // A big fig tree, wide and round
+        ficus(tint) {
+            shape(tint('#5a4a3c'), [[-0.45, 0], [-0.3, -2.2], [-0.85, -3.2], [-0.6, -3.35], [0, -2.6], [0.55, -3.4], [0.8, -3.2],
+                [0.3, -2.2], [0.45, 0]]);
+            blob(tint('#2c5538'), -1.1, -4, 1.8, 1.3);
+            blob(tint('#326040'), 1.1, -4.2, 1.9, 1.4);
+            blob(tint('#3a6d48'), 0, -4.9, 1.8, 1.25);
+        },
+        pillar(tint) {
+            shape(tint('#8a8c96'), [[-0.5, 0], [-0.42, -7.4], [0.42, -7.4], [0.5, 0]]);
+            shape(tint('#70727c'), [[0.15, 0], [0.12, -7.4], [0.42, -7.4], [0.5, 0]]);
+            ctx.fillStyle = tint('#9a9ca6');
+            ctx.fillRect(-1, -7.75, 2, 0.4);
+        },
+        // The monorail across the road, high on its beam, and its train going by
+        monorail(tint, thing) {
+            ctx.fillStyle = tint('#7c7f8a');
+            for (const x of [-96, -64, -32, 32, 64, 96]) {
+                ctx.fillRect(x - 0.45, -7.4, 0.9, 7.4);
+            }
+            ctx.fillStyle = tint('#a3a5ae');
+            ctx.fillRect(-140, -8.7, 280, 1.1);
+            ctx.fillStyle = tint('#6d707b');
+            ctx.fillRect(-140, -7.8, 280, 0.25);
+            const way = thing.phase < 0.5 ? 1 : -1;
+            const at = way * ((((performance.now() / 1000) * 20 + thing.phase * 150) % 150) - 75);
+            for (let car = -1; car <= 1; car++) {
+                const middle = at + car * 15.4;
+                shape(tint('#eceef2'), [[middle - 7.5, -8.4], [middle - 7.5, -11.4], [middle + 7.5, -11.4], [middle + 7.5, -8.4]]);
+                if (car !== 0) {
+                    // The rounded nose at both ends of the train
+                    const end = middle + car * 7.5;
+                    shape(tint('#eceef2'), [[end, -8.4], [end, -11.4], [end + car * 1.2, -10.6], [end + car * 1.5, -8.4]]);
+                    ctx.fillStyle = tint('#2a3042');
+                    ctx.fillRect(end + (car > 0 ? 0 : -1.1), -10.9, 1.1, 0.9);
+                }
+                ctx.fillStyle = tint('#d23a3a');
+                ctx.fillRect(middle - 7.5, -9.1, 15, 0.35);
+                ctx.fillStyle = tint('#ffe7a8');
+                for (let x = middle - 6.6; x < middle + 6.4; x += 1.6) {
+                    ctx.fillRect(x, -11, 1.1, 1.3);
+                }
+            }
+        }
     };
 
 

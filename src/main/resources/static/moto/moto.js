@@ -501,7 +501,7 @@ function frame(now) {
             Sound.tap(0);
         }
         race.turned = before.bend * bike.speed * seconds * 0.9;
-        race.heading = before.bend * Track.BEND * bike.speed * seconds / Track.SEGMENT; // radians turned
+        race.heading = (before.view ?? before.bend) * Track.BEND * bike.speed * seconds / Track.SEGMENT; // radians turned (as drawn)
         if (bike.z >= track.length) {
             race.done = true;
             send({t: 'finish'});
@@ -510,8 +510,9 @@ function frame(now) {
         }
     } else if (race.done) {
         Track.cruise(bike, track, seconds);
-        race.turned = Track.segmentAt(track, bike.z).bend * bike.speed * seconds * 0.9;
-        race.heading = Track.segmentAt(track, bike.z).bend * Track.BEND * bike.speed * seconds / Track.SEGMENT;
+        const here = Track.segmentAt(track, bike.z);
+        race.turned = here.bend * bike.speed * seconds * 0.9;
+        race.heading = (here.view ?? here.bend) * Track.BEND * bike.speed * seconds / Track.SEGMENT;
     } else {
         race.turned = 0;
         race.heading = 0;

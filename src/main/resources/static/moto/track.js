@@ -37,16 +37,15 @@ const Track = (() => {
     // section eases into its bend and out of it.
     // The climbs of a course add up to 0, so its sections can be ridden again: laps of them, one after the other, make the
     // way from the start to the goal (three, as the first races had, so their times on the leaderboards still compare).
-    // Tianmen: down the mountain from the summit to the valley floor, once. A short straight on the summit, then the road
-    // drops away into tight hairpins, in tunnels now and then, between a cliff and a parapet over the drop; further down
-    // the bends and the slope get gentler, and it ends on the flat by the river. Each section eases into its drop and out
-    // of it, so the road keeps dropping away over crests.
-    const TIANMEN = [[30, 0, 0], [20, 0, -7],
-        [40, 6.5, -13], [24, 0, -10], [44, -7, -14], [36, 0, -12], [44, 7, -14], [24, 0, -10], [44, -7, -14], [20, 0, -9],
-        [40, 6.5, -13], [36, 0, -12], [44, -6.5, -13], [24, 0, -9], [40, 6, -12], [20, 0, -8], [40, -6, -12], [24, 0, -9],
-        [40, 5.5, -11], [36, 0, -10], [40, -5.5, -11], [24, 0, -8], [36, 5, -10], [24, 0, -8], [36, -5, -10], [24, 0, -7],
-        [36, 4.5, -8], [30, 0, -6], [36, -4, -7], [30, 0, -5], [40, 3, -5], [40, 0, -4], [40, -2.5, -3], [40, 0, -2],
-        [50, 1.5, 0], [60, 0, 0], [50, -1.5, 0], [60, 0, 0]];
+    // Tianmen, as in the html test (tianmen-descent-test.html), in its 2 m steps: a short straight, then ten hairpins, right
+    // and left in turn, each easing in over 36 m, held, and easing out [steps in, held, steps out, turn per step (rad)];
+    // then straight on to the goal. The road drops away from 100 m on, steepest in the middle, flat again at the end; three
+    // long tunnels; near the end the valley floor rises to the road, with a river along it.
+    const STEP = 2;
+    const HAIRPINS = [[18, 40, 18, 0.045], [18, 50, 18, -0.047], [18, 60, 18, 0.045], [18, 40, 18, -0.047], [18, 50, 18, 0.045],
+        [18, 60, 18, -0.047], [18, 40, 18, 0.045], [18, 50, 18, -0.047], [18, 60, 18, 0.045], [18, 40, 18, -0.047]];
+    const DESCENT = 1000; // steps from the first hairpin to the end of the mountain; the goal is there
+    const DESCENT_TUNNELS = [[110, 290], [380, 560], [600, 780]]; // steps into the descent
 
     const TRACKS = {
         seaside: {
@@ -104,33 +103,24 @@ const Track = (() => {
         tianmen: {
             name: 'Tianmen',
             about: 'From the summit down to the valley',
-            sections: TIANMEN,
+            // Built from the test's course (descend()): between a forest slope on the left and a stone wall over the valley
+            // on the right the whole way (drawn by scene.js), nothing else beside the road. Its hairpins push a bike out
+            // this share of how sharp they look, so they ride like hairpins of 7.
+            descent: {bends: 1 / 3},
             laps: 1, // from the top to the foot: not a loop
             bendSlow: 0.4, // in the tightest hairpins a bike goes this much slower by itself
-            // From the top down, by the share of the way: the summit above the clouds, bare limestone cliffs, forest, a misty
-            // valley, its floor. Between walls (a forest slope on one side, a stone wall with a parapet over the drop on
-            // the other, drawn by scene.js) nothing else stands beside the road.
-            zones: [
-                {to: 0.05, scenery: ['crag', 'crag', 'rock'], ledge: 9}, // a ridge: the clouds below on both sides
-                {to: 0.42, walls: true},
-                {to: 0.7, walls: true},
-                {to: 0.86, walls: true},
-                {to: 2, scenery: ['house', 'house', 'willow', 'pine'], river: true}
-            ],
-            tunnels: [[5, 4, 90], [11, 4, 90], [19, 4, 90]], // [section, segments into it, how long]
-            obstacles: ['truck', 'moped', 'rockslide', 'moped', 'truck', 'moped', 'rockslide', 'truck'],
+            obstacles: ['sledge', 'truck', 'sledge', 'moped', 'rockslide', 'sledge', 'truck', 'sledge'], // a stone sledge: a sledge hauling a stone block
             levels: {
-                // The same way down, its bends softer
-                easy: {sections: TIANMEN.map(([count, bend, climb]) => [count, Math.round(bend * 1.3) / 2, climb]),
-                    about: 'A clear road, softer bends'},
-                // Most of it is bends: things stand in the gentler ones on medium, in all on hard
-                medium: {obstacles: 'medium', obstaclesInBends: 4.5},
-                hard: {obstacles: 'hard', obstaclesInBends: 7}
+                // The same way down, its bends pushing less
+                easy: {bends: 0.2, about: 'A clear road, softer bends'},
+                // Most of it is hairpins and tunnels (nothing stands in those): things stand in the right-hand hairpins on medium, in all on hard
+                medium: {obstacles: 'medium', obstaclesInBends: 7.2},
+                hard: {obstacles: 'hard', obstaclesInBends: 7.5}
             }
         }
     };
     // How wide what stands beside the road is, to ride into (half, in m)
-    const SOLID = {crag: 1, broadleaf: 0.8, house: 2.4, willow: 0.5, portal: 0, palm: 0.5, rock: 0.9, hut: 1.8, cactus: 0.5, boulder: 1.1, mesa: 0, pine: 0.6, birch: 0.4, log: 1.2, sign: 0.4, beach: 1.3,
+    const SOLID = {palm: 0.5, rock: 0.9, hut: 1.8, cactus: 0.5, boulder: 1.1, mesa: 0, pine: 0.6, birch: 0.4, log: 1.2, sign: 0.4, beach: 1.3,
         tower: 0, stilt: 2, lantern: 0.3, ficus: 0.7, pillar: 0.6, monorail: 0};
     // What stands further off: at least this far from the road's edge, and up to this much further
     const FAR = {mesa: [30, 30], tower: [20, 34]};
@@ -154,6 +144,7 @@ const Track = (() => {
         truck: {half: 1.2, length: 6},
         moped: {half: 0.5, length: 1.8},
         rockslide: {half: 1.3, length: 2},
+        sledge: {half: 1.05, length: 2.4},
         baskets: {half: 0.9, length: 0.9}
     };
     const LANES = [-2.3, 0, 2.3];
@@ -182,6 +173,8 @@ const Track = (() => {
         const sections = own.sections || spec.sections;
         const segments = [];
         let height = 0;
+        let goal;
+        let descent = null;
         const add = (count, bend, climb) => {
             const start = height;
             for (let i = 0; i < count; i++) {
@@ -198,18 +191,32 @@ const Track = (() => {
             }
             height = start + climb;
         };
-        add(RUN_UP, 0, 0);
-        for (let lap = 0; lap < spec.laps; lap++) {
-            for (const [count, bend, climb] of sections) {
-                add(count, bend, climb);
+        if (spec.descent) {
+            // Two of the test's steps to a segment: the bend it is drawn with (view) and the one that pushes the bike
+            goal = (RUN_UP * SEGMENT + 20 * STEP + DESCENT * STEP) / SEGMENT;
+            descent = descend((goal + RUN_OUT) * SEGMENT / STEP + 240);
+            const bends = own.bends || spec.descent.bends;
+            for (let i = 0; i < goal + RUN_OUT; i++) {
+                const view = (descent.turn[2 * i] + descent.turn[2 * i + 1]) / BEND;
+                segments.push({
+                    index: i, bend: view * bends, view, y1: descent.height[2 * i], y2: descent.height[2 * i + 2], things: [],
+                    walls: true, tunnel: descent.tunnel[2 * i] || descent.tunnel[2 * i + 1]
+                });
             }
+        } else {
+            add(RUN_UP, 0, 0);
+            for (let lap = 0; lap < spec.laps; lap++) {
+                for (const [count, bend, climb] of sections) {
+                    add(count, bend, climb);
+                }
+            }
+            goal = segments.length;
+            add(RUN_OUT, 0, 0);
         }
-        const goal = segments.length;
-        add(RUN_OUT, 0, 0);
 
         // The ramps, in every lap: the segments up to the lip are raised (drawn by scene.js)
         const ramps = [];
-        const lapLength = spec.sections.reduce((sum, [count]) => sum + count, 0);
+        const lapLength = (spec.sections || []).reduce((sum, [count]) => sum + count, 0);
         for (let lap = 0; lap < (own.sections ? 0 : spec.laps); lap++) {
             for (const [section, into] of spec.ramps || []) {
                 const first = RUN_UP + lap * lapLength + spec.sections.slice(0, section).reduce((sum, [count]) => sum + count, 0) + into;
@@ -219,10 +226,6 @@ const Track = (() => {
                 const z0 = (first - RUN_UP) * SEGMENT;
                 ramps.push({z0, z1: z0 + RAMP_SEGMENTS * SEGMENT});
             }
-        }
-
-        if (spec.zones) {
-            shapeMountain(spec, sections, segments, goal);
         }
 
         const random = seeded(name.length * 7919 + name.charCodeAt(0) * 104729);
@@ -241,9 +244,8 @@ const Track = (() => {
             if (Math.abs(i - RUN_UP - 3) < 5 || Math.abs(i - goal - 3) < 5) {
                 return; // kept clear by the banners
             }
-            if (spec.zones) {
-                placeOnMountain(spec.zones[segment.zone], segment, random);
-                return;
+            if (spec.descent) {
+                return; // between its walls: nothing beside the road
             }
             for (const side of [-1, 1]) {
                 if (random() < 0.38) {
@@ -260,7 +262,7 @@ const Track = (() => {
         segments[goal].things.push({kind: 'goal', x: 0, base: 0, size: 1});
         const length = (goal - RUN_UP) * SEGMENT;
         const track = {
-            ...spec, key: name, level, segments,
+            ...spec, key: name, level, segments, descent,
             left: EDGE, right: EDGE, // how far from the middle a bike can go
             length, // from the start line to the goal
             ramps,
@@ -273,57 +275,49 @@ const Track = (() => {
         return track;
     }
 
-    // A mountain course: each segment's zone, where its walls are, which side the drop is on (inside the hairpin, so it
-    // changes sides halfway round each), the tunnels and the river
-    function shapeMountain(spec, sections, segments, goal) {
-        const hairpins = [];
-        let at = RUN_UP;
-        for (const [count, bend] of sections) {
-            if (Math.abs(bend) >= 2.5) {
-                hairpins.push({middle: at + count / 2, side: Math.sign(bend)});
-            }
-            at += count;
+    // The test's course, step by step from the first segment of the run-up: how much the road turns in each step (rad), its
+    // height where each step begins (m), how far below the road the valley floor is (m), the tunnels, and how far into
+    // the descent each step is
+    function descend(steps) {
+        const before = RUN_UP * SEGMENT / STEP + 20; // the run-up and 40 m on from the start line
+        const turn = [];
+        const local = [];
+        const add = (bend, l) => {
+            turn.push(bend);
+            local.push(l);
+        };
+        const inOut = t => (t < 0.5 ? 2 * t * t : 1 - 2 * (1 - t) * (1 - t));
+        const smooth = (a, b, x) => ease(Math.max(0, Math.min(1, (x - a) / (b - a))));
+        while (turn.length < before) {
+            add(0, 0);
         }
-        segments.forEach((segment, i) => {
-            const share = (i - RUN_UP) / (goal - RUN_UP);
-            segment.zone = spec.zones.findIndex(zone => share < zone.to);
-            const zone = spec.zones[segment.zone];
-            segment.walls = !!zone.walls;
-            const next = hairpins.find(hairpin => hairpin.middle >= i);
-            segment.drop = next ? next.side : hairpins.length ? -hairpins[hairpins.length - 1].side : 1;
-            if (zone.river) {
-                segment.river = segment.drop; // the river on the side the valley was
+        let l = 0;
+        for (const [into, held, out, bend] of HAIRPINS) {
+            for (let n = 0; n < into; n++) {
+                add(bend * inOut(n / into), l++);
             }
+            for (let n = 0; n < held; n++) {
+                add(bend, l++);
+            }
+            for (let n = 0; n < out; n++) {
+                add(bend * (1 - inOut(n / out)), l++);
+            }
+        }
+        while (turn.length < steps) {
+            add(0, l++);
+        }
+        const height = [0];
+        local.forEach((l, i) => {
+            const drop = l < 50 || l >= DESCENT ? 0
+                : (60 + 95 * smooth(60, 170, l)) * (1 - smooth(DESCENT - 170, DESCENT - 10, l)) * (0.85 + 0.25 * Math.sin(l * 0.05)) / 500;
+            height.push(height[i] - drop);
         });
-        for (const [section, into, long] of spec.tunnels || []) {
-            const first = RUN_UP + sections.slice(0, section).reduce((sum, [count]) => sum + count, 0) + into;
-            for (let k = 0; k < long; k++) {
-                segments[first + k].tunnel = true;
-            }
-            segments[first].things.push({kind: 'portal', x: 0, base: 0, size: 1});
-        }
-    }
-
-    function placeOnMountain(zone, segment, random) {
-        for (const side of [-1, 1]) {
-            if (random() >= 0.42 || segment.tunnel) {
-                continue;
-            }
-            const flip = random() < 0.5;
-            const size = 0.8 + random() * 0.45;
-            if (segment.walls) {
-                continue; // between walls: what stands beside it is drawn with them (scene.js)
-            } else {
-                const kind = zone.scenery[Math.floor(random() * zone.scenery.length)];
-                let x = side * (ROAD + 2.2 + SOLID[kind] + random() * (zone.ledge ? zone.ledge - 4 : 13));
-                if (segment.river === side) {
-                    x = side * (ROAD + 21 + SOLID[kind] + random() * 14); // beyond the river
-                }
-                if (!segment.things.some(thing => Math.abs(thing.x - x) < 2.5)) {
-                    segment.things.push({kind, x, base: 0, flip, size});
-                }
-            }
-        }
+        return {
+            turn, height, local,
+            valley: local.map(l => 28 - 26 * smooth(780, 950, l)),
+            tunnel: local.map((l, i) => i >= before && DESCENT_TUNNELS.some(([a, b]) => l >= a && l < b)),
+            step: STEP
+        };
     }
 
     // What stands on the road: never right after the start or just before the goal, nor in a bend sharper than the level
@@ -343,9 +337,10 @@ const Track = (() => {
         while (z < length - 160) {
             const i = RUN_UP + Math.floor(z / SEGMENT);
             const sharpest = Math.max(...segments.slice(i - 12, i + 3).map(segment => Math.abs(segment.bend)));
-            // Nor before a ramp or where the bikes come down
+            // Nor before a ramp or where the bikes come down, nor at a tunnel's mouth (in a lit tunnel, yes)
+            const near = segments.slice(i - 10, i + 10);
             if (sharpest > level.bend || ramps.some(ramp => z > ramp.z0 - 40 && z < ramp.z1 + 120)
-                || segments.slice(i - 10, i + 10).some(segment => segment.tunnel)) {
+                || near.some(segment => segment.tunnel !== near[0].tunnel)) {
                 z += SEGMENT * 6;
                 continue;
             }

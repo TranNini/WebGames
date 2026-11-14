@@ -165,14 +165,15 @@ turns and steep hills, cacti, boulders and mesas; its medium has as much on the 
 that on a wilder road with higher crests, deeper drops and bends to brake for), **Forest** (winding through pines and birches at dusk) and **Chongqing**
 (up and down the mountain city at night: lit towers on the hills, a river with an arch bridge, houses on stilts, red
 lanterns, big fig trees, and a monorail over the road with its train going by; bamboo baskets of oranges on the road),
-all drawn in code. **Tianmen** is ridden once from start to goal, in the flat anime look of the user's brief (2026-11-14):
-down a mountain from the summit to the valley floor: a short straight on a ridge above a sea of clouds,
-then through the mist into tight hairpins, a forest slope on one side and a stone wall with a crenellated parapet over
-the drop on the other, through three tunnels, to the goal on the flat by a river and a village (softer bends on easy).
-Each stretch eases into its drop and out of it, so the road keeps dropping away over crests; layers of green karst peaks
-far off rise as the road goes down. A bike goes up to 40% slower by itself in the tightest hairpins.
-Between its walls the bike can't leave the road (rubbing along one slows it down), and the far view turns by the real
-heading, at most 30 px a frame and eased, so sharp bends don't spin it. (Chongqing was briefly, on 2026-11-14, a ride
+all drawn in code. **Tianmen** is ridden once from start to goal and looks exactly like the user's test page
+(`tianmen-descent-test.html`, 2026-11-15): its camera, its 2 m steps, its colors and its course (2 km down ten hairpins,
+about 216 m of drop, three long tunnels). A forest slope is on the left and a stone wall with a parapet over the valley
+is on the right the whole way, with guardrails on both sides. The tunnels are concrete underpasses with orange lamps,
+open sides and a red neon line, and near the end the valley floor rises to a river with a few junks and sampans (a quarter of the test's); green karst
+peaks far off rise as the road goes down. Its hairpins push a bike out a third as hard as they look, a fifth on easy,
+and a bike goes up to 40% slower by itself in them. Between its walls the bike can't leave the road (rubbing along one
+slows it down). On medium and hard, stone sledges (a wooden sledge hauling a cut stone block) stand on the road
+among the trucks, mopeds and rockslides, inside the lit tunnels too (not at their mouths). (Chongqing was briefly, on 2026-11-14, a ride
 from day into night in front of the user's four pictures; the user preferred the drawn city and it came back.)
 The others are each a loop of bends and hills ridden three times over, one after the other, from the start to the goal. (From 2026-11-11 to
 2026-11-13 the courses were Sakura River, Neon City and Mountain Pass, made from the user's pictures; the user took them

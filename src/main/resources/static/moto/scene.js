@@ -29,30 +29,10 @@ const Scene = (() => {
             grass: ['#33423e', '#2e3c38'], road: ['#3f4149', '#3b3d45'], rumble: ['#ecebef', '#d33a35'], line: '#f2cf5b', sun: '#f3ecd6',
             lights: 0.8, city: true
         },
-
-        // Down a mountain, from the summit above the clouds to the valley floor: the colors of each zone (track.js), top down:
-        // the summit, the forest slopes, the misty valley, its floor. Pale concrete road; green karst peaks far off, rising
-        // as the road goes down (drawMountainBack).
-        tianmen: {
-            sky: ['#769ed6', '#d6e4ec'], fog: '#d6e4ec', hills: ['#a9b6bc', '#8e9da3'],
-            grass: ['#8f918c', '#888a84'], road: ['#b6b6b0', '#bcbcb6'], rumble: ['#d0cec4', '#d0cec4'], line: '#eeece2', sun: '#fffbe9',
-            lights: 0, mountain: true, river: '#6b9cbc',
-            zones: [
-                {fog: '#e4ebef', ground: ['#8f918c', '#888a84'], wall: ['#aaa9a3', '#a3a29c'], slope: '#9a9c8e'},
-                {fog: '#d9e1e4', ground: ['#a8a59c', '#a19e95'], wall: ['#c6c2b7', '#bdb9ae'], slope: '#8f9a84'},
-                {fog: '#cfdcd8', ground: ['#5b7d4e', '#55774a'], wall: ['#8d8a7c', '#858274'], slope: '#3f6a43', moss: '#4f7a46'},
-                {fog: '#c9d6d5', ground: ['#62865a', '#5c8054'], wall: ['#7f8175', '#787a6e'], slope: '#557d55', moss: '#5a8250'},
-                {fog: '#cfdbd6', ground: ['#76a05a', '#6f9954'], wall: ['#7f8175', '#787a6e'], slope: '#6f9954'}
-            ]
-        }
+        // Drawn by drawDescent, as in the html test; its haze, for what stands on the road
+        tianmen: {fog: '#d6e4ec', lights: 0}
     };
 
-    let mist = 1; // more: the haze comes nearer (in the clouds)
-    // The mountain's far view: turned by the real heading, at most 30 px a frame, and eased, so sharp
-    // bends never spin it (the other courses keep skyShift)
-    let heading = 0;
-    let headingSmooth = 0;
-    let tunnelHigh = 5.5; // drawn higher than the camera, so it is always under the tunnel's roof (upright it is high)
     let canvas = null;
     let ctx = null;
     let width = 0;
@@ -90,28 +70,6 @@ const Scene = (() => {
         return '#' + ((channel(16) << 16) | (channel(8) << 8) | channel(0)).toString(16).padStart(6, '0');
     }
 
-    // A mountain course's look where the bike is now: its zone's haze (eased into the next one's), the mist in the clouds
-    // below the summit, how high above the valley floor it is
-    function mountainLook(look, track, bike) {
-        const progress = Math.max(0, Math.min(1, bike.z / track.length));
-        const k = Math.max(0, track.zones.findIndex(zone => progress < zone.to));
-        const from = k ? track.zones[k - 1].to : 0;
-        const to = Math.min(1, track.zones[k].to);
-        const next = Math.min(k + 1, track.zones.length - 1);
-        const t = Math.max(0, ((progress - from) / (to - from) - 0.8) / 0.2);
-        const cloud = Math.max(0, 1 - Math.abs(progress - 0.065) / 0.03);
-        const floor = track.segments[track.segments.length - 1].y2;
-        return {
-            ...look,
-            fog: hexMix(hexMix(look.zones[k].fog, look.zones[next].fog, t), '#f1f4f6', cloud * 0.6),
-            slope: look.zones[k].slope,
-            mist: 1 + cloud * 4,
-            progress,
-            clouds: Math.max(0, Math.min(1, 1 - (progress - 0.035) / 0.04)),
-            above: Math.max(0, Track.heightAt(track, bike.z) - floor)
-        };
-    }
-
     function quad(color, x1, y1, w1, x2, y2, w2) {
         ctx.fillStyle = color;
         ctx.beginPath();
@@ -129,19 +87,19 @@ const Scene = (() => {
             resize();
         }
         const {track, bike} = view;
-        const base = LOOKS[track.key];
-        const look = base.mountain ? mountainLook(base, track, bike) : base;
-        mist = look.mist || 1;
+        if (track.descent) {
+            drawDescent(view);
+            return;
+        }
+        const look = LOOKS[track.key];
         const upright = height > width;
-        // Sideways, the camera comes closer: the road and the bikes fill more of the wide screen, with less sky. The
-        // mountain shows more of its far view.
-        const horizon = height * (look.mountain ? (upright ? 0.42 : 0.45) : (upright ? 0.3 : 0.33));
+        // Sideways, the camera comes closer: the road and the bikes fill more of the wide screen, with less sky
+        const horizon = height * (upright ? 0.3 : 0.33);
         const bikeY = height * (upright ? 0.86 : 0.9);
         // The road at the bike takes most of the width; the camera's height follows from where the bike is on screen
         const focal = (upright ? width * 0.74 : Math.min(width * 0.86, height * 2.2)) * CAMERA_BACK / (2 * Track.ROAD);
         const cameraHeight = (bikeY - horizon) * CAMERA_BACK / focal;
         const cameraZ = bike.z - CAMERA_BACK;
-        tunnelHigh = Math.max(Track.TUNNEL_HEIGHT, cameraHeight + 2.5);
         // In the air the camera goes up with the bike, a little less, so the bike is seen rising and the road dropping away
         const cameraY = Track.heightAt(track, bike.z) + cameraHeight + bike.air * 0.6;
         const cameraX = bike.x;
@@ -151,19 +109,12 @@ const Scene = (() => {
         const bikeScale = Math.min(BIKE_SCALE, height * tallest / 1.8 / (focal / CAMERA_BACK));
 
         // The far view turns with the road
-        if (look.mountain) {
-            heading += Math.max(-30, Math.min(30, (view.heading || 0) * focal));
-            headingSmooth += (heading - headingSmooth) * 0.25;
-        } else {
-            skyShift += view.turned;
-        }
+        skyShift += view.turned;
         drawSky(look, horizon, upright);
-        if (!look.mountain) {
-            // The land far off, in the haze: seen under the horizon where the road beyond a crest is hidden (left unpainted,
-            // it kept what was drawn there before, and things left trails)
-            ctx.fillStyle = look.fog;
-            ctx.fillRect(0, horizon + 2, width, height - horizon - 2);
-        }
+        // The land far off, in the haze: seen under the horizon where the road beyond a crest is hidden (left unpainted,
+        // it kept what was drawn there before, and things left trails)
+        ctx.fillStyle = look.fog;
+        ctx.fillRect(0, horizon + 2, width, height - horizon - 2);
 
         const first = Track.RUN_UP + Math.floor(cameraZ / Track.SEGMENT);
         const into = cameraZ / Track.SEGMENT - Math.floor(cameraZ / Track.SEGMENT);
@@ -195,30 +146,12 @@ const Scene = (() => {
 
         // Far to near, each a little over the one behind it, so no seams show: first the ground, then the road on it. Where a
         // hill in front hides the lower part of a segment, its road is cut off there.
-        // On a mountain, between its walls, there is no ground beside the road: past the parapet the valley below is seen.
         for (let i = shown.length - 1; i >= 0; i--) {
             const {segment, n, y1, y2, visible} = shown[i];
-            if (visible && segment.walls && !segment.tunnel) {
-                drawBelowRoad(shown, i, look);
-            }
-            if (visible && !segment.walls && !segment.tunnel) {
+            if (visible) {
                 const top = Math.max(y2 - 0.7, 0);
-                const grass = look.zones ? look.zones[segment.zone].ground : look.grass;
-                const ledge = look.zones ? track.zones[segment.zone].ledge : 0;
-                const color = mix(grass[Math.floor(segment.index / 3) % 2], look.fog, haze(n));
-                if (ledge) {
-                    // A ridge, only so wide: past it, the valley view
-                    const {x1, x2, scale1, scale2} = shown[i];
-                    quad(color, x1, Math.min(y1, height + 40), (Track.ROAD + ledge) * scale1, x2, y2 - 0.7, (Track.ROAD + ledge) * scale2);
-                    continue;
-                }
-                ctx.fillStyle = color;
+                ctx.fillStyle = mix(look.grass[Math.floor(segment.index / 3) % 2], look.fog, haze(n));
                 ctx.fillRect(0, top, width, Math.min(y1, height) - top);
-                if (segment.river) {
-                    const {x1, x2, scale1, scale2} = shown[i];
-                    quad(mix(look.river, look.fog, haze(n)), x1 + segment.river * 15 * scale1, y1, 4 * scale1,
-                        x2 + segment.river * 15 * scale2, y2 - 0.7, 4 * scale2);
-                }
             }
         }
         for (let i = shown.length - 1; i >= 0; i--) {
@@ -238,12 +171,11 @@ const Scene = (() => {
             }
             const fade = haze(n);
             const stripe = Math.floor(segment.index / 3) % 2;
-            const dim = color => (segment.tunnel ? hexMix(color, '#2e2733', 0.5) : color); // in a tunnel
-            quad(mix(dim(look.rumble[stripe]), look.fog, fade), x1, y1, w1 * 1.13, x2, y2, w2 * 1.13);
+            quad(mix(look.rumble[stripe], look.fog, fade), x1, y1, w1 * 1.13, x2, y2, w2 * 1.13);
             const gate = segment.index - Track.RUN_UP;
             const goal = track.length / Track.SEGMENT;
             const startLine = gate === 0 || gate === 1 || gate === goal || gate === goal + 1;
-            quad(mix(startLine ? '#f2f2f2' : dim(look.road[stripe]), look.fog, fade), x1, y1, w1, x2, y2, w2);
+            quad(mix(startLine ? '#f2f2f2' : look.road[stripe], look.fog, fade), x1, y1, w1, x2, y2, w2);
             if (startLine) {
                 drawChecks(x1, y1, w1, x2, y2, w2, segment.index);
             } else if (stripe === 0) {
@@ -272,10 +204,6 @@ const Scene = (() => {
         }
         for (let n = shown.length - 1; n >= 0; n--) {
             const entry = shown[n];
-            if (look.mountain && entry.z2 > 0.5) {
-                drawMountainSide(entry, look, n);
-            }
-            paintTreesFrom(n + 2);
             if (entry.z1 >= 1) {
                 for (const thing of entry.segment.things) {
                     drawThing(thing, entry, look, cameraX, n);
@@ -305,305 +233,521 @@ const Scene = (() => {
                     look.lights, (other.air || 0) * scale));
             }
         }
-        paintTreesFrom(-Infinity);
-
     }
 
-    const haze = n => Math.min(1, (n / DRAW_SEGMENTS) ** 1.6 * mist);
+    const haze = n => Math.min(1, (n / DRAW_SEGMENTS) ** 1.6);
 
-    // A mountain road's walls: the cliff on the hill side, with ledges in its rock (moss on top lower down), and a parapet
-    // with merlons over the drop. In a tunnel: its walls and roof, lamps along it.
-    function drawMountainSide(entry, look, n) {
-        const {segment, x1, x2, y1, y2, scale1, scale2} = entry;
-        if (!segment.walls && !segment.tunnel) {
+    // Tianmen, drawn as the html test draws it (tianmen-descent-test.html), 1:1: its camera, its 2 m steps, its colors. On
+    // the left a forest slope 22 m high, darker forest above it; on the right a stone wall down to the valley floor 28 m
+    // below, a parapet with blocks on it; guardrails on both sides. In a tunnel: a concrete underpass, pillars with orange
+    // lamps every fourth step, the green slope and the valley seen between them, beams and a red neon line under its roof.
+    // Near the end the valley floor rises to the road, with a river on it and Chinese boats. Far off, the sky, clouds and
+    // four layers of green karst peaks, rising as the road goes down.
+    const DESCENT = {
+        cameraHigh: 2, cameraBack: 6.5, near: 0.52, ahead: 220, behind: 30, kerb: 1.12, roof: 5.8,
+        bike: 0.81, // the bikes as tall as the test's riders (1.42 m)
+        sky: [[118, 158, 214], [176, 204, 230], [214, 228, 236]], // its last color is the haze
+        road: [[182, 182, 176], [188, 188, 182]], kerbColor: [208, 206, 196], line: [238, 236, 226],
+        rail: [188, 182, 164], railDark: [150, 144, 126]
+    };
+    const roadX = new Float64Array(DESCENT.ahead + DESCENT.behind + 2); // the road's middle, m sideways, step by step
+    const roadZ = new Float64Array(DESCENT.ahead + DESCENT.behind + 2); // how far ahead of the camera, m
+    let farShift = 0; // the far view's turn, px, and eased
+    let farShiftSmooth = 0;
+    let descentLayers = null;
+    let descentGlow = null;
+
+    // The test's hash and random numbers, so its patterns come out the same
+    const testHash = i => ((Math.imul(i ^ 0x9e3779b9, 2654435761) >>> 0) % 100000) / 100000;
+    const testRandom = seed => {
+        let s = seed | 0;
+        return () => {
+            s = s + 0x6D2B79F5 | 0;
+            let t = Math.imul(s ^ s >>> 15, 1 | s);
+            t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+            return ((t ^ t >>> 14) >>> 0) / 4294967296;
+        };
+    };
+    const rgbMix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+    const rgb = c => `rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0})`;
+    const hazed = (c, f) => rgb(rgbMix(c, DESCENT.sky[2], f));
+
+    function four(color, x1, y1, x2, y2, x3, y3, x4, y4) {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.lineTo(x3, y3);
+        ctx.lineTo(x4, y4);
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    function canvasOf(w, h, paint) {
+        const c = document.createElement('canvas');
+        c.width = w;
+        c.height = h;
+        paint(c.getContext('2d'));
+        return c;
+    }
+
+    // A warm glow in the tunnels
+    function tunnelGlow(x, y, r, a) {
+        if (r < 2) {
             return;
         }
-        const zone = look.zones[segment.zone];
-        const stripe = Math.floor(segment.index / 3) % 2;
-        const fade = haze(n);
-        const wall = Track.WALL;
-        const strip = (color, side, from, to) => shape(color, [[x1 + side * wall * scale1, y1 - from * scale1],
-            [x1 + side * wall * scale1, y1 - to * scale1], [x2 + side * wall * scale2, y2 - to * scale2],
-            [x2 + side * wall * scale2, y2 - from * scale2]]);
-        clipped(entry.clip, () => {
-            if (segment.tunnel) {
-                // An underpass of concrete: pillars every fourth segment with an orange lamp on them, between them the open
-                // side with a low parapet and the lights of the valley beyond, beams across the ceiling, and a red neon line
-                // along it on each side.
-                const high = tunnelHigh;
-                const pillar = segment.index % 4 === 0;
-                const beam = segment.index % 2 === 0;
-                const softGlow = (x, y, r, a) => {
-                    ctx.save();
-                    ctx.globalCompositeOperation = 'lighter';
-                    ctx.globalAlpha = a * 0.3;
-                    blob('#ff7a3a', x, y, Math.min(r, 36), Math.min(r, 36));
-                    ctx.restore();
-                };
-                const fogged = color => mix(color, look.fog, fade * 0.8);
-                const ceil = (from, to, color) => shape(fogged(color), [[x1 + from * scale1, y1 - high * scale1], [x1 + to * scale1, y1 - high * scale1],
-                    [x2 + to * scale2, y2 - high * scale2], [x2 + from * scale2, y2 - high * scale2]]);
-                for (const side of [-1, 1]) {
-                    if (pillar) {
-                        strip(fogged('#6a5a54'), side, 0, high);
-                        strip(fogged('#ff9a3c'), side, 2.2, 3.4);
-                        if (n >= 6 && n < 70) {
-                            softGlow(x1 + side * wall * scale1, y1 - 2.8 * scale1, 1.6 * scale1, 0.55);
-                        }
-                    } else {
-                        strip(fogged(segment.index % 3 === 1 ? '#2a2140' : '#1d1a33'), side, 0, high); // the dark valley with its lights
-                        if (segment.index % 3 === 1 && n < 70) {
-                            strip(fogged('#ffc067'), side, 2.6, 2.8);
-                        }
-                        strip(fogged('#8a7b72'), side, 0, 1.0); // the low parapet
-                        strip(fogged('#b0a198'), side, 1.0, 1.18); // its rail
-                    }
-                }
-                shape(fogged(beam ? '#4a403d' : '#665a55'), [[x1 - wall * scale1, y1 - high * scale1], [x1 + wall * scale1, y1 - high * scale1],
-                    [x2 + wall * scale2, y2 - high * scale2], [x2 - wall * scale2, y2 - high * scale2]]);
-                for (const side of [-1, 1]) {
-                    ceil(side * wall * 0.8 - 0.18, side * wall * 0.8 + 0.18, '#ff4a5a'); // the neon line
-                    if (n >= 6 && n < 70 && segment.index % 2 === 0) {
-                        softGlow(x1 + side * wall * 0.8 * scale1, y1 - high * scale1, 1.4 * scale1, 0.4);
-                    }
-                }
-                return;
-            }
-            if (!look.mountain) {
-                for (const side of [-1, 1]) {
-                    // Rails on both sides: dark below, lighter above
-                    strip(mix('#968f7e', look.fog, fade), side, 0, 0.55);
-                    strip(mix('#bcb6a4', look.fog, fade), side, 0.55, 1.08);
-                }
-                return;
-            }
-            // The mountain, drawn as in the html test: on the hill side one smooth forest slope (22 m, a few round bushes on it), on the drop side the plain stone wall (drawBelowRoad). No rails,
-            // no parapet blocks, no single trees, so nothing floats or stands apart.
-            const drop = segment.drop;
-            const rock = -drop;
-            const fog = Math.min(1, fade + 0.12);
-            const tone = hash(segment.index * 5 + 3);
-            const tone2 = hash(segment.index * 11 + 7);
-            const forest = hexMix('#1e5638', '#3a7a4a', tone);
-            const face = tone < 0.07 ? hexMix('#768076', '#868c82', tone2) : forest;
-            const edge = rock < 0 ? -4 : width + 4;
-            const foot1 = x1 + rock * wall * scale1;
-            const foot2 = x2 + rock * wall * scale2;
-            const top1 = foot1 + rock * 9 * scale1;
-            const top2 = foot2 + rock * 9 * scale2;
-            shape(mix(face, look.fog, fog), [[foot1, y1], [top1, y1 - 22 * scale1], [top2, y2 - 22 * scale2], [foot2, y2]]);
-            if (n >= 2 && n < 110 && tone2 < 0.85) {
-                for (const u of [0.45, 0.9]) {
-                    const r = (2.6 + tone2 * 2) * scale1;
-                    blob(mix(hexMix('#1c5838', '#2e7646', tone2), look.fog, fog), foot1 + (top1 - foot1) * (u + tone * 0.1), y1 - 22 * u * scale1, r, r);
-                }
-            }
+        descentGlow = descentGlow || canvasOf(128, 128, c => {
+            const g = c.createRadialGradient(64, 64, 0, 64, 64, 64);
+            g.addColorStop(0, 'rgba(255,190,100,.95)');
+            g.addColorStop(0.35, 'rgba(255,150,60,.35)');
+            g.addColorStop(1, 'rgba(255,120,40,0)');
+            c.fillStyle = g;
+            c.fillRect(0, 0, 128, 128);
         });
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = a;
+        ctx.drawImage(descentGlow, x - r, y - r, r * 2, r * 2);
+        ctx.restore();
     }
 
-    // Trees wait until the two nearer segments' slope is painted, as their crowns reach over it
-    let treesLater = [];
-
-    function paintTreesFrom(n) {
-        while (treesLater.length && treesLater[0].n >= n) {
-            const later = treesLater.shift();
-            clipped(later.clip, later.paint);
-        }
-    }
-
-    // Round trees in rows up the slope, the last row on its crest, so the slope has a bushy skyline and no flat face.
-    // Each crown is lighter than the slope, with a dark shade under it and a lit top, so the trees read as trees.
-    function trees(segment, n, rock, foot1, top1, y1, scale1, fogColor, fog) {
-        const greens = ['#3a8450', '#448e58', '#4d9860', '#3f7f4e'];
-        // Each tree stands ON the slope: a trunk from its foot (with a small shadow on the ground) up into the crown.
-        // Higher rows are painted first so lower trees overlap them.
-        [0.92, 0.74, 0.56, 0.38, 0.2].forEach((along, k) => {
-            const pick = hash(segment.index * 7 + k * 13);
-            if (pick < 0.42) {
-                return;
-            }
-            const u = along + (pick - 0.5) * 0.2;
-            const r = (1.4 + hash(segment.index * 3 + k) * 1.3) * (0.8 + 0.2 * along) * scale1;
-            const x = foot1 + (top1 - foot1) * u;
-            const y = y1 - 22 * u * scale1; // the foot of the tree, on the slope surface
-            const cy = y - r * 1.3;
-            const crown = hexMix(greens[(segment.index + k) % 4], '#5aa468', hash(segment.index + k * 5) * 0.4);
-            const trunkW = Math.max(0.6, r * 0.13);
-            blob(mix('#163d29', fogColor, fog), x, y, r * 0.8, r * 0.16);
-            shape(mix('#4a3a2a', fogColor, fog), [[x - trunkW, y], [x + trunkW, y], [x + trunkW * 0.7, cy], [x - trunkW * 0.7, cy]]);
-            if (n < 90) {
-                blob(mix('#163d29', fogColor, fog), x + rock * r * 0.12, cy + r * 0.18, r * 1.04, r);
-            }
-            blob(mix(crown, fogColor, fog), x, cy, r, r * 0.95);
-            if (n < 70) {
-                blob(mix(hexMix(crown, '#a6d68a', 0.35), fogColor, fog), x - rock * r * 0.25, cy - r * 0.35, r * 0.5, r * 0.42);
-            }
-        });
-    }
-
-    // Between walls, what is below the road, drawn with the ground (before the road on it): the forest at the foot of
-    // the slope, and over the drop the stone wall down to the valley floor 28 m below.
-    function drawBelowRoad(shown, i, look) {
-        const {segment, n, x1, x2, y1, y2, scale1, scale2} = shown[i];
-        const fade = haze(n);
-        const wall = Track.WALL;
-        const side1 = side => x1 + side * wall * scale1;
-        const side2 = side => x2 + side * wall * scale2;
-        const out = side => (side < 0 ? -4 : width + 4);
-        const drop = segment.drop;
-        const rock = -drop;
-        const fog = Math.min(1, fade + 0.12);
-        shape(mix(hexMix('#286240', '#1a4a34', hash(segment.index * 5 + 3)), look.fog, Math.min(1, fog + 0.2)), [[side1(drop), y1 + 28 * scale1],
-            [out(drop), y1 + 28 * scale1], [out(drop), y2 + 28 * scale2], [side2(drop), y2 + 28 * scale2]]);
-        const stone = mix('#a49e8e', look.fog, fog);
-        shape(stone, [[side1(drop), y1], [side2(drop), y2], [side2(drop), y2 + 28 * scale2], [side1(drop), y1 + 28 * scale1]]);
-        if (n < 90) {
-            const rows = mix(hexMix('#a49e8e', '#5a5446', 0.22), look.fog, fog);
-            for (const at of [5, 10, 15, 20, 25]) {
-                shape(rows, [[side1(drop), y1 + at * scale1], [side2(drop), y2 + at * scale2], [side2(drop), y2 + (at + 0.8) * scale2],
-                    [side1(drop), y1 + (at + 0.8) * scale1]]);
-            }
-        }
-        shape(mix(hexMix('#1e5638', '#3a7a4a', hash(segment.index * 5 + 3)), look.fog, fog), [[out(rock), y1], [side1(rock), y1], [side2(rock), y2], [out(rock), y2]]);
-    }
-
-    // A tunnel's mouth: the rock face round it, rough at the top, and the arch the road goes into
-    function drawPortal(entry, look, n) {
-        const {x1, y1, scale1: s, segment} = entry;
-        const zone = look.zones[segment.zone];
-        const half = Track.WALL * s;
-        const high = tunnelHigh * s;
-        const face = tunnelHigh + 18; // how high the rock face goes
-        ctx.fillStyle = mix(zone.wall[1], look.fog, haze(n));
-        ctx.beginPath();
-        for (const [i, [x, y]] of [[-36, 4], [-36, -0.75], [-26, -0.92], [-14, -0.83], [-4, -1], [8, -0.88], [20, -0.96], [36, -0.7], [36, 4]].entries()) {
-            const at = [x1 + x * s, y1 + (y > 0 ? y : y * face) * s];
-            if (i) {
-                ctx.lineTo(...at);
-            } else {
-                ctx.moveTo(...at);
-            }
-        }
-        ctx.closePath();
-        ctx.moveTo(x1 - half, y1 + 4 * s);
-        ctx.lineTo(x1 - half, y1 - high + half);
-        ctx.arc(x1, y1 - high + half, half, Math.PI, 0);
-        ctx.lineTo(x1 + half, y1 + 4 * s);
-        ctx.closePath();
-        ctx.fill('evenodd');
-        ctx.strokeStyle = mix(hexMix(zone.wall[1], '#4a463e', 0.5), look.fog, haze(n));
-        ctx.lineWidth = 0.6 * s;
-        ctx.beginPath();
-        ctx.moveTo(x1 - half - 0.3 * s, y1);
-        ctx.lineTo(x1 - half - 0.3 * s, y1 - high + half);
-        ctx.arc(x1, y1 - high + half, half + 0.3 * s, Math.PI, 0);
-        ctx.lineTo(x1 + half + 0.3 * s, y1);
-        ctx.stroke();
-    }
-
-    // The mountain's far view: the sky, soft clouds, four layers of green karst peaks (paler and bluer further off, mist
-    // between them, the road snaking down two of them), lower than the horizon at the summit and rising as the road goes
-    // down; nearer layers turn more than far ones. Above the clouds at the summit, a sea of them below.
-    const PEAKS = [['#b4c9dc', '#cfdde8'], ['#8fb0b8', '#bcd0d4'], ['#5f9272', '#8fb59a'], ['#3d7452', '#5f9272']];
-    let peakLayers = null;
-
-    function makePeaks() {
+    // The four layers of peaks, paler and bluer further off, limestone showing on the nearer two, the road snaking down two
+    function makeDescentLayers() {
+        const colors = [['#b4c9dc', '#cfdde8'], ['#8fb0b8', '#bcd0d4'], ['#5f9272', '#8fb59a'], ['#3d7452', '#5f9272']];
         const waves = [[5, 11], [7, 15], [9, 19], [11, 23]];
         const tall = [0.5, 0.6, 0.75, 0.85];
-        return PEAKS.map((colors, j) => {
-            const layer = document.createElement('canvas');
-            layer.width = 1536; // drawn in 1024 x 210, sharper
-            layer.height = 315;
-            const c = layer.getContext('2d');
-            c.scale(1.5, 1.5);
+        return colors.map((c, j) => canvasOf(2048, 420, x => {
+            const ph = [j * 1.3, j * 2.1 + 0.7];
             const peak = u => {
-                const a = Math.pow(1 - Math.abs(Math.sin(waves[j][0] * u + j * 3.9)), 1.6);
-                const b = Math.pow(1 - Math.abs(Math.sin(waves[j][1] * u + (j * 2.1 + 0.7) * 3)), 1.3);
+                const a = Math.pow(1 - Math.abs(Math.sin(waves[j][0] * u + ph[0] * 3)), 1.6);
+                const b = Math.pow(1 - Math.abs(Math.sin(waves[j][1] * u + ph[1] * 3)), 1.3);
                 return tall[j] * (0.62 * a + 0.38 * b);
             };
-            const top = x => 200 - peak(x / 1024 * Math.PI * 2) * 165;
-            const fill = c.createLinearGradient(0, 30, 0, 210);
-            fill.addColorStop(0, colors[0]);
-            fill.addColorStop(1, colors[1]);
-            c.fillStyle = fill;
-            c.beginPath();
-            c.moveTo(0, 210);
-            for (let x = 0; x <= 1024; x += 4) {
-                c.lineTo(x, top(x));
+            const top = u => 420 - 20 - peak(u / 2048 * 6.2832) * 330;
+            const g = x.createLinearGradient(0, 60, 0, 420);
+            g.addColorStop(0, c[0]);
+            g.addColorStop(1, c[1]);
+            x.fillStyle = g;
+            x.beginPath();
+            x.moveTo(0, 420);
+            for (let u = 0; u <= 2048; u += 8) {
+                x.lineTo(u, top(u));
             }
-            c.lineTo(1024, 210);
-            c.fill();
+            x.lineTo(2048, 420);
+            x.fill();
             if (j >= 2) {
-                c.fillStyle = hexMix(colors[0], '#cdccc0', 0.5); // limestone showing
+                const random = testRandom(j * 17);
+                x.fillStyle = 'rgba(205,204,192,.5)';
                 for (let k = 0; k < 26; k++) {
-                    const x = hash(j * 17 + k) * 1020;
-                    const y = top(x);
-                    c.beginPath();
-                    c.moveTo(x, y + 2);
-                    c.lineTo(x + 5 + hash(k + 3) * 7, y + 20 + hash(k + 5) * 25);
-                    c.lineTo(x - 4 - hash(k + 7) * 5, y + 18 + hash(k + 9) * 25);
-                    c.closePath();
-                    c.fill();
+                    const u = random() * 2040;
+                    const y = top(u);
+                    x.beginPath();
+                    x.moveTo(u, y + 4);
+                    x.lineTo(u + 10 + random() * 14, y + 40 + random() * 50);
+                    x.lineTo(u - 8 - random() * 10, y + 36 + random() * 50);
+                    x.closePath();
+                    x.fill();
                 }
             }
             if (j === 1 || j === 2) {
-                c.strokeStyle = hexMix('#f0ecde', colors[0], 0.15); // more of the road, snaking down
-                c.lineWidth = 1.5;
-                c.lineJoin = 'round';
-                const x0 = 150 + j * 300;
-                const y0 = top(x0) + 30;
-                c.beginPath();
-                for (let k = 0; k < 9; k++) {
-                    c.lineTo(x0 + (k % 2 ? 32 : 0) + k * 2.5, y0 + k * 6.5);
+                const u0 = 300 + j * 600;
+                const y0 = top(u0) + 60;
+                x.strokeStyle = 'rgba(240,236,222,.85)';
+                x.lineWidth = 3;
+                x.lineJoin = 'round';
+                x.beginPath();
+                for (let t = 0; t < 9; t++) {
+                    x.lineTo(u0 + (t % 2 ? 64 : 0) + t * 5, y0 + t * 13);
                 }
-                c.stroke();
+                x.stroke();
             }
-            return layer;
-        });
+        }));
     }
 
-    function drawMountainBack(look, horizon) {
-        const sky = ctx.createLinearGradient(0, 0, 0, horizon + 2);
-        sky.addColorStop(0, '#769ed6');
-        sky.addColorStop(0.6, '#b0cce6');
-        sky.addColorStop(1, look.fog);
-        ctx.fillStyle = sky;
+    // The far view: sky, clouds, the peaks (lower at the summit, rising as the road goes down: down is 0 to 1), mist
+    function drawDescentBack(horizon, down) {
+        const [s0, s1, s2] = DESCENT.sky;
+        const g = ctx.createLinearGradient(0, 0, 0, horizon + 2);
+        g.addColorStop(0, rgb(s0));
+        g.addColorStop(0.6, rgb(s1));
+        g.addColorStop(1, rgb(s2));
+        ctx.fillStyle = g;
         ctx.fillRect(0, 0, width, horizon + 2);
-        ctx.fillStyle = '#ccdcde';
+        ctx.fillStyle = 'rgb(204,220,222)';
         ctx.fillRect(0, horizon, width, height - horizon);
         for (const [fx, fy, fs] of [[0.05, 0.2, 0.34], [0.28, 0.34, 0.16], [0.5, 0.16, 0.3], [0.72, 0.3, 0.18], [0.9, 0.12, 0.26],
             [1.15, 0.28, 0.2], [1.4, 0.14, 0.3], [1.65, 0.34, 0.15]]) {
             const span = width * 2.2;
-            const x = ((fx * span - headingSmooth * 0.2) % span + span) % span - width * 0.2;
+            const x = ((fx * span - farShiftSmooth * 0.2) % span + span) % span - width * 0.2;
             cloud(x, horizon * fy * 0.9, width * fs * 0.5);
         }
-        peakLayers = peakLayers || makePeaks();
+        descentLayers = descentLayers || makeDescentLayers();
         const turns = [0.35, 0.55, 0.8, 1];
-        const lowered = 0.16 * (1 - Math.min(1, look.progress * 1.6));
-        peakLayers.forEach((layer, j) => {
-            const scale = height * (0.3 + 0.07 * j) / 210;
-            const foot = horizon + height * (0.035 * j + lowered);
-            const tile = 1024 * scale;
-            const from = ((headingSmooth * turns[j]) % tile + tile) % tile;
-            for (let x = -from; x < width; x += tile) {
-                ctx.drawImage(layer, x, foot - 210 * scale, tile + 1, 210 * scale);
+        const below = ['#cfdde8', '#bcd0d4', '#8fb59a', '#5f9272'];
+        descentLayers.forEach((layer, j) => {
+            const s = height * (0.3 + 0.07 * j) / 420;
+            const y0 = horizon + height * (0.035 * j + 0.16 * (1 - Math.min(1, down * 1.6)));
+            const tile = 2048 * s;
+            const off = ((farShiftSmooth * turns[j]) % tile + tile) % tile;
+            for (let x = -off; x < width; x += tile) {
+                ctx.drawImage(layer, x, y0 - 420 * s, tile + 1, 420 * s);
             }
-            ctx.fillStyle = PEAKS[j][1];
-            ctx.fillRect(0, foot - 1, width, height);
+            ctx.fillStyle = below[j];
+            ctx.fillRect(0, y0 - 1, width, height);
             if (j === 1) {
-                const mist = ctx.createLinearGradient(0, foot - height * 0.16, 0, foot + height * 0.04);
+                const mist = ctx.createLinearGradient(0, y0 - height * 0.16, 0, y0 + height * 0.04);
                 mist.addColorStop(0, 'rgba(240,246,250,0)');
-                mist.addColorStop(1, `rgba(240,246,250,${0.55 * (1 - look.progress * 0.6)})`);
+                mist.addColorStop(1, `rgba(240,246,250,${0.55 * (1 - down * 0.6)})`);
                 ctx.fillStyle = mist;
-                ctx.fillRect(0, foot - height * 0.16, width, height * 0.2);
+                ctx.fillRect(0, y0 - height * 0.16, width, height * 0.2);
             }
         });
-        if (look.clouds > 0) {
-            // The sea of clouds, sinking away as the road goes down through it
-            const deep = height - horizon;
-            const top = horizon + 3 + (1 - look.clouds) * deep;
-            wavy(hexMix('#e2e7eb', look.fog, 0.2), top, deep, headingSmooth * 0.3, 0.02, 0.4, true);
-            wavy(hexMix('#f6f8fa', look.fog, 0.15), top + deep * 0.04, deep, headingSmooth * 0.3, 0.013, 2.2, true);
+    }
+
+    // A Chinese boat on the river: a junk with a battened red sail, or a sampan with a woven canopy and a fisherman in a
+    // conical hat
+    function drawBoat(cx, by, pp, ff, kind) {
+        const hw = 3.6 * pp;
+        ctx.fillStyle = `rgba(20,80,100,${0.3 * (1 - ff)})`;
+        ctx.beginPath();
+        ctx.ellipse(cx, by + 0.35 * pp, hw * 1.1, 0.28 * pp, 0, 0, 7);
+        ctx.fill();
+        ctx.fillStyle = hazed([96, 48, 34], ff);
+        ctx.beginPath();
+        ctx.moveTo(cx - hw, by - 1.1 * pp);
+        ctx.quadraticCurveTo(cx - hw * 0.8, by + 0.2 * pp, cx - hw * 0.3, by + 0.3 * pp);
+        ctx.lineTo(cx + hw * 0.4, by + 0.3 * pp);
+        ctx.quadraticCurveTo(cx + hw * 0.9, by, cx + hw * 1.05, by - 1.3 * pp);
+        ctx.closePath();
+        ctx.fill();
+        four(hazed([150, 86, 56], ff), cx - hw, by - 1.1 * pp, cx + hw * 1.05, by - 1.3 * pp, cx + hw, by - 0.95 * pp, cx - hw * 0.95, by - 0.8 * pp);
+        if (kind < 0.5) {
+            ctx.strokeStyle = hazed([70, 40, 30], ff);
+            ctx.lineWidth = Math.max(0.7, 0.14 * pp);
+            ctx.beginPath();
+            ctx.moveTo(cx, by - 1);
+            ctx.lineTo(cx, by - 6.6 * pp);
+            ctx.stroke();
+            four(hazed([190, 64, 42], ff), cx - hw * 0.7, by - 1.1 * pp, cx - hw * 0.55, by - 6 * pp, cx + hw * 0.55, by - 5.2 * pp, cx + hw * 0.65, by - 1.2 * pp);
+            ctx.strokeStyle = 'rgba(100,30,20,.55)';
+            ctx.lineWidth = Math.max(0.6, 0.1 * pp);
+            for (let k = 1; k < 5; k++) {
+                const y0 = by - 1.1 * pp - k * 0.95 * pp;
+                ctx.beginPath();
+                ctx.moveTo(cx - hw * 0.66, y0);
+                ctx.lineTo(cx + hw * 0.6, y0 + 0.08 * pp);
+                ctx.stroke();
+            }
+        } else {
+            ctx.fillStyle = hazed([74, 62, 48], ff);
+            ctx.beginPath();
+            ctx.ellipse(cx - hw * 0.1, by - pp, hw * 0.55, 1.1 * pp, 0, Math.PI, 0);
+            ctx.fill();
+            ctx.fillStyle = hazed([54, 100, 140], ff);
+            ctx.fillRect(cx + hw * 0.55, by - 2.4 * pp, 0.5 * pp, 1.4 * pp);
+            ctx.fillStyle = hazed([226, 204, 130], ff);
+            ctx.beginPath();
+            ctx.moveTo(cx + hw * 0.8 - 0.8 * pp, by - 2.3 * pp);
+            ctx.lineTo(cx + hw * 0.8, by - 3.3 * pp);
+            ctx.lineTo(cx + hw * 0.8 + 0.8 * pp, by - 2.3 * pp);
+            ctx.closePath();
+            ctx.fill();
+        }
+    }
+
+    function drawDescent(view) {
+        const {track, bike} = view;
+        const d = track.descent;
+        const D = DESCENT;
+        const W = width;
+        const H = height;
+        const F = W < H ? W * 0.66 : Math.max(W * 0.5 / Math.tan(40 * Math.PI / 180), H * 0.42);
+        const HZ = H * (W < H ? 0.42 : 0.45);
+        const SEG = d.step;
+        const ROAD = Track.ROAD;
+        const OFF = D.behind;
+        const last = d.turn.length - 2;
+        const groundAt = i => d.height[Math.max(0, Math.min(last, i))];
+        const groundAtZ = p => {
+            const i = Math.floor(p / SEG);
+            return groundAt(i) + (groundAt(i + 1) - groundAt(i)) * (p / SEG - i);
+        };
+        const turnAt = i => (i < 0 || i > last ? 0 : d.turn[i] * SEG); // m sideways per step, per step
+        const start = Track.RUN_UP * Track.SEGMENT; // the bikes' z is from the start line, the steps from the run-up's start
+        const pos = bike.z + start;
+        const camZ = pos - D.cameraBack;
+        const base = Math.floor(pos / SEG);
+        const pct = pos / SEG - base;
+        const cameraX = bike.x;
+        const cameraY = groundAtZ(camZ);
+        const X = n => roadX[n + OFF];
+        const Z = n => roadZ[n + OFF];
+        const yAt = (high, n) => HZ - F * (high - D.cameraHigh - cameraY + groundAt(base + n)) / Math.max(D.near, Z(n));
+        const goal = track.length / Track.SEGMENT;
+
+        // The far view turns with the road
+        farShift += Math.max(-45, Math.min(45, (view.heading || 0) * F));
+        farShiftSmooth += (farShift - farShiftSmooth) * 0.25;
+        drawDescentBack(HZ, Math.max(0, Math.min(1, cameraY / Math.min(-1, d.height[d.height.length - 1]))));
+
+        let x = 0;
+        let dx = -(turnAt(base) * pct);
+        for (let n = 0; n <= D.ahead + 1; n++) {
+            roadX[n + OFF] = x;
+            if (n <= D.ahead) {
+                x += dx;
+                dx += turnAt(base + n);
+            }
+        }
+        x = 0;
+        dx = -(turnAt(base) * pct);
+        for (let n = -1; n >= -OFF; n--) {
+            dx -= turnAt(base + n);
+            x -= dx;
+            roadX[n + OFF] = x;
+        }
+        for (let n = -OFF; n <= D.ahead + 1; n++) {
+            roadZ[n + OFF] = (base + n) * SEG - camZ;
+        }
+
+        // The bikes by the step they are in; the own one among them, so one just behind it is drawn over it
+        const bikesIn = new Map();
+        for (const other of [...view.others, {own: true, z: bike.z}]) {
+            const n = Math.floor((other.z + start) / SEG) - base;
+            if (n >= -4 && n < D.ahead) {
+                if (!bikesIn.has(n)) {
+                    bikesIn.set(n, []);
+                }
+                bikesIn.get(n).push(other);
+            }
+        }
+        for (const list of bikesIn.values()) {
+            list.sort((a, b) => b.z - a.z);
+        }
+        const look = LOOKS.tianmen;
+
+        for (let n = D.ahead - 1; n >= -4; n--) {
+            const t = base + n;
+            if (t < 0 || t >= last) {
+                continue;
+            }
+            const i = t - 40; // numbered as in the test, for its patterns
+            let z1 = Z(n);
+            const z2 = Z(n + 1);
+            let xn = X(n);
+            let Y1 = groundAt(t);
+            const Y2 = groundAt(t + 1);
+            if (z2 < D.near) {
+                continue;
+            }
+            if (z1 < D.near) {
+                const tt = (D.near - z1) / (z2 - z1);
+                xn += (X(n + 1) - xn) * tt;
+                Y1 += (Y2 - Y1) * tt;
+                z1 = D.near;
+            }
+            const f = Math.pow(Math.max(0, n) / D.ahead, 1.3) * 0.9;
+            const sx1 = W / 2 + F * (xn - cameraX) / z1;
+            const sx2 = W / 2 + F * (X(n + 1) - cameraX) / z2;
+            const w1 = F * ROAD / z1;
+            const w2 = F * ROAD / z2;
+            const y1 = HZ + F * (D.cameraHigh + cameraY - Y1) / z1;
+            const y2 = HZ + F * (D.cameraHigh + cameraY - Y2) / z2;
+            const hl = D.kerb;
+            const pp1 = F / z1;
+            const pp2 = F / z2;
+            const inTunnel = d.tunnel[t];
+            if (inTunnel) {
+                const tc1 = yAt(D.roof, n);
+                const tc2 = yAt(D.roof, n + 1);
+                const xl1 = sx1 - hl * w1;
+                const xl2 = sx2 - hl * w2;
+                const xr1 = sx1 + hl * w1;
+                const xr2 = sx2 + hl * w2;
+                const pillar = i % 4 === 0;
+                const beam = i % 2 === 0;
+                const f2 = Math.min(1, f + 0.05);
+                // The portal: a pale concrete face where the tunnel begins, ending at the thick outer wall on the right
+                // (nothing above it: the sky stays); the wall's front face runs from the lintel down to the bottom
+                const rb1 = sx1 + (hl + 0.45) * w1;
+                const yb1 = yAt(-60, n);
+                if (!d.tunnel[t - 1]) {
+                    const h2 = yAt(8.5, n);
+                    four(hazed([172, 166, 150], f2), -4, tc1, rb1, tc1, rb1, h2, -4, h2);
+                    four(hazed([120, 112, 98], f2), -4, tc1, rb1, tc1, rb1, tc1 - 0.7 * pp1, -4, tc1 - 0.7 * pp1);
+                    four(hazed([172, 166, 150], f2), xr1, h2, rb1, h2, rb1, yb1, xr1, yb1);
+                }
+                for (const side of [-1, 1]) {
+                    const e = side < 0 ? -4 : W + 4;
+                    const a1 = sx1 + side * hl * w1;
+                    const a2 = sx2 + side * hl * w2;
+                    if (pillar) {
+                        const concrete = hazed([108, 92, 86], f2);
+                        if (side < 0) {
+                            four(concrete, e, y1, a1, y1, a2, y2, e, y2);
+                            four(concrete, e, tc1, a1, tc1, a1, y1, e, y1);
+                        } else {
+                            four(concrete, a1, tc1, rb1, tc1, rb1, yb1, a1, yb1);
+                        }
+                        four(concrete, a1, y1, a2, y2, a2, tc2, a1, tc1);
+                        const l1 = yAt(2.2, n);
+                        const l2 = yAt(3.4, n);
+                        four(hazed([255, 154, 60], f2), a1, l1, a1, l2, a2, yAt(3.4, n + 1), a2, yAt(2.2, n + 1));
+                        if (n >= 3 && n < 70) {
+                            tunnelGlow(a1, (l1 + l2) / 2, Math.min(pp1 * 1.7, 40), 0.5);
+                        }
+                    } else {
+                        if (side < 0) {
+                            const slope = hazed(i % 3 === 1 ? [150, 186, 160] : [128, 168, 140], Math.min(1, f2 + 0.25));
+                            four(slope, e, tc1, a1, tc1, a2, tc2, a2, y2);
+                            four(slope, e, tc1, a2, tc2, a2, y2, e, y1);
+                        } else {
+                            const vb1 = yAt(-28, n);
+                            const vb2 = yAt(-28, n + 1);
+                            four(hazed([40, 98, 64], Math.min(1, f2 + 0.2)), a1, vb1, W + 4, vb1, W + 4, vb2, a2, vb2);
+                            four(hazed([164, 158, 142], f2), a1, y1, a2, y2, a2, vb2, a1, vb1);
+                        }
+                        const p1 = yAt(1, n);
+                        const p2 = yAt(1, n + 1);
+                        four(hazed([138, 123, 114], f2), a1, y1, a2, y2, a2, p2, a1, p1);
+                        four(hazed([176, 161, 152], f2), a1, p1, a2, p2, a2, yAt(1.18, n + 1), a1, yAt(1.18, n));
+                    }
+                }
+                // The roof with beams, and a red neon line along each side
+                four(hazed(beam ? [74, 64, 61] : [102, 92, 86], f2), xl1, tc1, xr1, tc1, xr2, tc2, xl2, tc2);
+                for (const side of [-1, 1]) {
+                    const a = side * 0.74;
+                    const b = side * 0.84;
+                    four(hazed([255, 74, 90], f * 0.5), sx1 + a * w1, tc1, sx1 + b * w1, tc1, sx2 + b * w2, tc2, sx2 + a * w2, tc2);
+                    if (n >= 3 && n < 70 && i % 2 === 0) {
+                        tunnelGlow(sx1 + side * 0.79 * w1, tc1, Math.min(pp1 * 1.2, 33), 0.4);
+                    }
+                }
+            } else {
+                const f2 = Math.min(1, f + 0.12);
+                const hv = testHash(i * 5 + 3);
+                const hv2 = testHash(i * 11 + 7);
+                const xl1 = sx1 - hl * w1;
+                const xl2 = sx2 - hl * w2;
+                const xt1 = xl1 - 9 * pp1;
+                const xt2 = xl2 - 9 * pp2;
+                const t1 = yAt(22, n);
+                const t2 = yAt(22, n + 1);
+                const forest = rgbMix([30, 86, 56], [58, 122, 74], hv);
+                const face = hv < 0.07 ? rgbMix([118, 128, 118], [134, 140, 130], hv2) : forest;
+                const above = hazed(rgbMix(forest, [0, 0, 0], 0.18), f2);
+                four(above, -4, t1, xt1, t1, xt2, t2, -4, t2);
+                four(above, -4, yAt(60, n), xt1, t1, xt2, t2, -4, yAt(60, n + 1));
+                four(hazed(forest, f2), -4, y1, xl1, y1, xl2, y2, -4, y2);
+                four(hazed(face, f2), xl1, y1, xt1, t1, xt2, t2, xl2, y2);
+                if (n < 110 && hv2 < 0.85) {
+                    for (const u of [0.45, 0.9]) {
+                        ctx.fillStyle = hazed(rgbMix([28, 88, 56], [46, 118, 70], hv2), f2);
+                        ctx.beginPath();
+                        ctx.arc(xl1 + (xt1 - xl1) * (u + hv * 0.1), y1 + (t1 - y1) * u, (2.6 + hv2 * 2) * pp1, 0, 7);
+                        ctx.fill();
+                    }
+                }
+                const xr1 = sx1 + hl * w1;
+                const xr2 = sx2 + hl * w2;
+                const b1 = yAt(-d.valley[t], n);
+                const b2 = yAt(-d.valley[t + 1], n + 1);
+                four(hazed(rgbMix([40, 98, 64], [26, 74, 52], hv), Math.min(1, f2 + 0.2)), xr1, b1, W + 4, b1, W + 4, b2, xr2, b2);
+                // A river across the valley floor at the foot of the mountain, boats on it
+                if (d.valley[t] < 12) {
+                    const ra = 7;
+                    const rb = 10;
+                    four(hazed([86, 184, 204], f2 * 0.7), sx1 + ra * w1, b1, sx1 + rb * w1, b1, sx2 + rb * w2, b2, sx2 + ra * w2, b2);
+                    const bank = hazed([150, 150, 120], f2);
+                    four(bank, sx1 + (ra - 0.12) * w1, b1, sx1 + ra * w1, b1, sx2 + ra * w2, b2, sx2 + (ra - 0.12) * w2, b2);
+                    four(bank, sx1 + rb * w1, b1, sx1 + (rb + 0.12) * w1, b1, sx2 + (rb + 0.12) * w2, b2, sx2 + rb * w2, b2);
+                    if (i % 36 === 3 && n >= 6 && n < 160) { // a boat every 72 m (the test had one every 18 m)
+                        const hv3 = testHash(i * 13 + 2);
+                        drawBoat(sx1 + (ra + rb) / 2 * w1 + (hv3 - 0.5) * 0.9 * w1, (b1 + b2) / 2, pp1, f2 * 0.7, hv3);
+                    }
+                }
+                four(hazed([164, 158, 142], f2), xr1, y1, xr2, y2, xr2, b2, xr1, b1);
+                if (n < 90) {
+                    for (const down of [-5, -10, -15, -20, -25]) {
+                        if (-down <= d.valley[t] - 1) {
+                            four('rgba(90,84,70,.22)', xr1, yAt(down, n), xr2, yAt(down, n + 1), xr2, yAt(down - 0.8, n + 1), xr1, yAt(down - 0.8, n));
+                        }
+                    }
+                }
+            }
+
+            // The road; the start and the goal across it in checks
+            const gate = Math.floor(t * SEG / Track.SEGMENT) - Track.RUN_UP;
+            const startLine = gate === 0 || gate === 1 || gate === goal || gate === goal + 1;
+            four(startLine ? '#f2f2f2' : hazed(i % 2 ? D.road[0] : D.road[1], f), sx1 - w1, y1, sx1 + w1, y1, sx2 + w2, y2, sx2 - w2, y2);
+            if (startLine) {
+                drawChecks(sx1, y1, w1, sx2, y2, w2, t);
+            }
+            if (inTunnel) {
+                four('rgba(34,22,44,.4)', sx1 - w1, y1, sx1 + w1, y1, sx2 + w2, y2, sx2 - w2, y2);
+                for (const side of [-1, 1]) {
+                    four(`rgba(255,80,96,${0.2 * (1 - f)})`, sx1 + side * 0.78 * w1, y1, sx1 + side * 0.78 * w1 + 0.1 * w1, y1,
+                        sx2 + side * 0.78 * w2 + 0.1 * w2, y2, sx2 + side * 0.78 * w2, y2);
+                }
+            }
+            const kerb = hazed(D.kerbColor, f);
+            four(kerb, sx1 - hl * w1, y1, sx1 - w1, y1, sx2 - w2, y2, sx2 - hl * w2, y2);
+            four(kerb, sx1 + w1, y1, sx1 + hl * w1, y1, sx2 + hl * w2, y2, sx2 + w2, y2);
+            if (n < 110 && !startLine) {
+                const line = hazed(rgbMix(D.line, D.road[0], 0.35), f);
+                four(line, sx1 - 0.93 * w1, y1, sx1 - 0.9 * w1, y1, sx2 - 0.9 * w2, y2, sx2 - 0.93 * w2, y2);
+                four(line, sx1 + 0.9 * w1, y1, sx1 + 0.93 * w1, y1, sx2 + 0.93 * w2, y2, sx2 + 0.9 * w2, y2);
+                if (Math.floor(i / 3) % 2 === 0) {
+                    four(line, sx1 - 0.012 * w1, y1, sx1 + 0.012 * w1, y1, sx2 + 0.012 * w2, y2, sx2 - 0.012 * w2, y2);
+                }
+            }
+            // Guardrails, and the parapet's blocks over the valley
+            if (!inTunnel) {
+                for (const side of [-1, 1]) {
+                    const rx1 = sx1 + side * hl * w1;
+                    const rx2 = sx2 + side * hl * w2;
+                    four(hazed(D.railDark, f), rx1, y1, rx1, y1 - 0.55 * pp1, rx2, y2 - 0.55 * pp2, rx2, y2);
+                    four(hazed(D.rail, f), rx1, y1 - 0.55 * pp1, rx1, y1 - 1.08 * pp1, rx2, y2 - 1.08 * pp2, rx2, y2 - 0.55 * pp2);
+                }
+                if (i % 2 === 0 && d.valley[t] >= 12) {
+                    const rx1 = sx1 + hl * w1;
+                    const rx2 = sx2 + hl * w2;
+                    four(hazed([196, 190, 172], f), rx1, y1 - 1.08 * pp1, rx2, y2 - 1.08 * pp2, rx2, y2 - 1.75 * pp2, rx1, y1 - 1.75 * pp1);
+                }
+            }
+
+            // What stands on the road (and the banners), where its segment begins
+            const segment = t % 2 === 0 ? track.segments[t / 2] : null;
+            if (segment && z1 >= 1) {
+                const entry = {roadX: xn, scale1: F / z1, y1, clip: H};
+                for (const thing of segment.things) {
+                    drawThing(thing, entry, look, cameraX, n);
+                }
+            }
+            // The bikes
+            for (const other of bikesIn.get(n) || []) {
+                const z = other.z + start;
+                if (other.own) {
+                    // Blinks while it rides through things after a crash (shown, then gone; never see-through)
+                    if (bike.ghost > 0 && Math.floor(bike.ghost * 8) % 2 === 1) {
+                        continue;
+                    }
+                    const perMeter = F / D.cameraBack;
+                    const lean = bike.steer * 0.42 + (bike.crash > 0 ? Math.sin(bike.crash * 18) * 0.3 : 0);
+                    drawBike(W / 2, HZ + F * (D.cameraHigh + cameraY - groundAtZ(z)) / D.cameraBack, perMeter * D.bike,
+                        RIDER_COLORS[view.color], lean, view.braking, null, 0, bike.air * perMeter);
+                    continue;
+                }
+                const ahead = z - camZ;
+                if (ahead < 4.6) {
+                    continue; // as in the test: right in front of the camera, not drawn
+                }
+                const tt = z / SEG - Math.floor(z / SEG);
+                const xi = X(n) + (X(n + 1) - X(n)) * tt;
+                const scale = F / ahead;
+                drawBike(W / 2 + (xi + other.x - cameraX) * scale, HZ + F * (D.cameraHigh + cameraY - groundAtZ(z)) / ahead,
+                    scale * D.bike, other.color, other.lean, other.braking, other.name, 0, (other.air || 0) * scale);
+            }
         }
     }
 
@@ -615,22 +759,6 @@ const Scene = (() => {
                 blob(color, x + dx * w, y + dy * w * 0.5 + (color === '#c8d8ee' ? w * 0.04 : 0), rx * w * 0.5, ry * w * 0.5);
             }
         }
-    }
-
-    // A band with a wavy top, from top down to top + tall (or the bottom of the screen)
-    function wavy(color, top, tall, shift, waves, seed, toBottom) {
-        const bottom = toBottom ? height + 2 : top + tall;
-        const amp = Math.max(3, Math.min(tall, height) * 0.06);
-        ctx.fillStyle = color;
-        ctx.beginPath();
-        ctx.moveTo(0, bottom);
-        for (let x = 0; x <= width + 8; x += 8) {
-            const at = (x + shift) * waves;
-            ctx.lineTo(x, top + amp * (0.5 + 0.3 * Math.sin(at) + 0.2 * Math.sin(at * 2.3 + seed)));
-        }
-        ctx.lineTo(width, bottom);
-        ctx.closePath();
-        ctx.fill();
     }
 
     function clipped(clipY, paint) {
@@ -680,10 +808,6 @@ const Scene = (() => {
     }
 
     function drawSky(look, horizon, upright) {
-        if (look.mountain) {
-            drawMountainBack(look, horizon);
-            return;
-        }
         const sky = ctx.createLinearGradient(0, 0, 0, horizon);
         sky.addColorStop(0, look.sky[0]);
         sky.addColorStop(1, look.sky[1]);
@@ -815,10 +939,6 @@ const Scene = (() => {
         }
         if (thing.obstacle) {
             clipped(entry.clip, () => drawObstacle(thing, {x: sx, y: sy}, size * OBSTACLE_SCALE, look));
-            return;
-        }
-        if (thing.kind === 'portal') {
-            clipped(entry.clip, () => drawPortal(entry, look, n));
             return;
         }
         if (thing.kind === 'start' || thing.kind === 'goal') {
@@ -1039,44 +1159,6 @@ const Scene = (() => {
                 glow('rgba(255,120,60,0.22)', x, -3.05, 0.7);
             }
         },
-        // A rocky peak on the summit
-        crag(tint, thing) {
-            const tall = 4 + (Math.abs(thing.x) * 7 % 1) * 4;
-            shape(tint('#8e8f8b'), [[-2.2, 0], [-1.6, -tall * 0.5], [-0.7, -tall], [0.1, -tall * 0.82], [0.9, -tall * 0.95], [1.8, -tall * 0.4], [2.4, 0]]);
-            shape(tint('#a5a6a1'), [[-1.6, -tall * 0.5], [-0.7, -tall], [-0.3, -tall * 0.6], [-0.9, -tall * 0.3]]);
-            shape(tint('#777874'), [[0.9, -tall * 0.95], [1.8, -tall * 0.4], [2.4, 0], [1.1, 0], [0.7, -tall * 0.5]]);
-        },
-        // A round leafy tree
-        broadleaf(tint) {
-            shape(tint('#5a4636'), [[-0.25, 0], [-0.2, -2.6], [0.2, -2.6], [0.25, 0]]);
-            blob(tint('#3d6b3e'), -0.9, -3.4, 1.5, 1.3);
-            blob(tint('#467845'), 0.8, -3.6, 1.6, 1.4);
-            blob(tint('#4f834c'), 0, -4.5, 1.6, 1.3);
-        },
-        // A village house: white walls, a grey tiled roof with its ends turned up
-        house(tint) {
-            shape(tint('#eeebe3'), [[-2.4, 0], [-2.4, -2.6], [2.4, -2.6], [2.4, 0]]);
-            shape(tint('#5a3f2c'), [[-0.45, 0], [-0.45, -1.6], [0.45, -1.6], [0.45, 0]]);
-            ctx.fillStyle = tint('#5b6066');
-            ctx.fillRect(-1.8, -2, 0.7, 0.6);
-            ctx.fillRect(1.1, -2, 0.7, 0.6);
-            shape(tint('#4f545b'), [[-3.1, -2.4], [-2.6, -2.7], [-2, -3.7], [2, -3.7], [2.6, -2.7], [3.1, -2.4], [2.4, -2.55], [-2.4, -2.55]]);
-            shape(tint('#3f4349'), [[-2.1, -3.6], [2.1, -3.6], [2.1, -3.85], [-2.1, -3.85]]);
-        },
-        // A willow by the river, its branches hanging down
-        willow(tint) {
-            shape(tint('#5e4a38'), [[-0.25, 0], [-0.15, -2.8], [0.15, -2.8], [0.25, 0]]);
-            blob(tint('#7aa457'), 0, -3.6, 1.9, 1.1);
-            ctx.strokeStyle = tint('#6e9a4d');
-            ctx.lineWidth = 0.3;
-            ctx.lineCap = 'round';
-            ctx.beginPath();
-            for (const x of [-1.6, -1, -0.4, 0.3, 0.9, 1.5]) {
-                ctx.moveTo(x, -3.4);
-                ctx.lineTo(x * 1.1, -1.3 - Math.abs(x) * 0.4);
-            }
-            ctx.stroke();
-        },
         // A post with two red lanterns
         lantern(tint) {
             ctx.fillStyle = tint('#2b2b31');
@@ -1173,6 +1255,32 @@ const Scene = (() => {
                 for (const [x, r] of [[-1.15, 0.1], [-0.95, 0.07], [1.05, 0.12], [1.25, 0.08], [0.85, 0.06]]) {
                     blob('#857e74', x, -r * 0.8, r, r * 0.8);
                 }
+                break;
+            case 'sledge':
+                // A wooden sledge hauling a cut stone block, tied down with ropes; the tips of its runners curl up past it
+                blob('rgba(0,0,0,0.3)', 0, 0, 1.0, 0.12);
+                for (const side of [-1, 1]) {
+                    shape('#5a3a22', [[side * 0.62, -0.2], [side * 0.6, -0.5], [side * 0.66, -0.68], [side * 0.76, -0.66], [side * 0.72, -0.5], [side * 0.74, -0.2]]);
+                    shape('#4a2f1b', [[side * 0.6, 0], [side * 0.6, -0.2], [side * 0.8, -0.2], [side * 0.8, 0]]);
+                }
+                shape('#8a5a32', [[-0.88, -0.17], [-0.88, -0.33], [0.88, -0.33], [0.88, -0.17]]);
+                for (const x of [-0.45, 0, 0.45]) {
+                    shape('#6e4626', [[x - 0.015, -0.17], [x - 0.015, -0.33], [x + 0.015, -0.33], [x + 0.015, -0.17]]);
+                }
+                shape('#9a948a', [[-0.62, -0.33], [-0.6, -1.12], [0.58, -1.14], [0.62, -0.33]]);
+                shape('#7f796f', [[0.3, -0.33], [0.29, -1.135], [0.58, -1.14], [0.62, -0.33]]);
+                shape('#b3ada2', [[-0.6, -1.12], [-0.48, -1.22], [0.66, -1.24], [0.58, -1.14]]);
+                shape('rgba(255,255,255,0.14)', [[-0.6, -0.4], [-0.59, -1.1], [-0.5, -1.1], [-0.52, -0.4]]);
+                ctx.strokeStyle = '#c9a46a';
+                ctx.lineWidth = 0.05;
+                ctx.beginPath();
+                for (const x of [-0.3, 0.32]) {
+                    ctx.moveTo(x, -0.33);
+                    ctx.lineTo(x, -1.13);
+                }
+                ctx.moveTo(-0.61, -0.75);
+                ctx.lineTo(0.61, -0.72);
+                ctx.stroke();
                 break;
             case 'rock': {
                 const [body, lit, dark] = ROCK_COLORS[Math.floor(thing.look * 2)];

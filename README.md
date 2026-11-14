@@ -159,19 +159,23 @@ Levels: the one who opened the race picks **Easy**, **Medium** or **Hard** for t
   ride faster and ease off less; Hard are faster still, with a little more top speed than a bike has, hardly ease off and see
   far ahead.
 
-The four courses, all drawn in code: **Seaside** (long bends along the sea and some sharp ones, two ramps a lap, palms, rocks, huts
+The courses: **Seaside** (long bends along the sea and some sharp ones, two ramps a lap, palms, rocks, huts
 and sun umbrellas with a swim ring and a sun chair; crabs crossing the road), **Canyon** (sharp
 turns and steep hills, cacti, boulders and mesas; its medium has as much on the road as hard elsewhere, and its hard is
-that on a wilder road with higher crests, deeper drops and bends to brake for), **Forest** (winding through pines and birches at dusk) and **Chongqing**
-(up and down the mountain city at night: lit towers on the hills, a river with an arch bridge, houses on stilts, red
-lanterns, big fig trees, and a monorail over the road with its train going by; bamboo baskets of oranges on the road).
-**Tianmen** is a road down a mountain, ridden once from the summit to the valley floor: a short straight on a ridge above
-a sea of clouds, then down through the mist into tight hairpins, between a rock cliff and a crenellated parapet over the
-drop, through three tunnels, past bare limestone, forest and a misty valley, to the goal on the flat by a river and a
-village (softer bends on easy). Each stretch eases into its drop and out of it, so the road keeps dropping away over
-crests, and past the parapet you look down onto the valley, the river and more of the road snaking down. Between its walls
-the bike can't leave the road: rubbing along one slows it down. The far view there turns by the real heading, never more
-than a little in a frame, so the hairpins don't spin it.
+that on a wilder road with higher crests, deeper drops and bends to brake for), **Forest** (winding through pines and birches at dusk), all drawn in code, and two
+ridden once from start to goal, made from the user's brief (2026-11-14, flat anime look):
+- **Chongqing**, across the city from day into night in four stretches: a cable bridge (day), a river crossing (sunset),
+  the old town (dusk) and a neon arch bridge (night). Far off are the user's four pictures (`moto/art/chongqing-*.webp`,
+  the part above the road), each fading into the next; the sky, the river below the road and the road itself follow the
+  time of day, and at night the lamps glow and lights shine on the water. Only street lamps stand beside the road.
+- **Tianmen**, down a mountain from the summit to the valley floor: a short straight on a ridge above a sea of clouds,
+  then through the mist into tight hairpins, a forest slope on one side and a stone wall with a crenellated parapet over
+  the drop on the other, through three tunnels, to the goal on the flat by a river and a village (softer bends on easy).
+  Each stretch eases into its drop and out of it, so the road keeps dropping away over crests; layers of green karst peaks
+  far off rise as the road goes down. A bike goes up to 40% slower by itself in the tightest hairpins.
+
+On both, rails or walls keep the bike on the road (rubbing along one slows it down), and the far view turns by the real
+heading, at most 30 px a frame and eased, so sharp bends don't spin it.
 The others are each a loop of bends and hills ridden three times over, one after the other, from the start to the goal. (From 2026-11-11 to
 2026-11-13 the courses were Sakura River, Neon City and Mountain Pass, made from the user's pictures; the user took them
 out again. Their times stay in the database, unlisted.)
@@ -218,7 +222,7 @@ and open `http://<the Mac's address>:8083`.
 | `src/main/resources/static/survive/` | Survive: Lost Island |
 | `src/main/resources/static/solitaire/` | Solitaire |
 | `src/main/resources/static/mahjong/` | Mahjong (`board.js` the rules, `faces.js` the tiles) |
-| `src/main/resources/static/moto/` | Moto Race (`track.js` the courses and riding, `scene.js` the drawing, `moto.js` the game, `art/` the pieces of the user's pictures) |
+| `src/main/resources/static/moto/` | Moto Race (`track.js` the courses and riding, `scene.js` the drawing, `moto.js` the game, `art/` the user's Chongqing pictures) |
 | `src/main/java/games/Races.java`, `RaceSocket.java` | Moto Race's races, over the WebSocket `/api/race` |
 | `src/main/java/games/Leaderboard.java` | the rules of the list, in SQLite (`games.db`) |
 | `src/main/java/games/LeaderboardController.java` | `GET`/`POST /api/leaderboard/{game}` |

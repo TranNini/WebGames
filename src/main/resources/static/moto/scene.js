@@ -339,38 +339,34 @@ const Scene = (() => {
                 }
                 return;
             }
-            for (const side of [-1, 1]) {
-                if (entry.z1 < 3.5) {
-                    continue; // right beside the camera a rail would fill the screen
+            if (!look.mountain) {
+                for (const side of [-1, 1]) {
+                    // Rails on both sides: dark below, lighter above
+                    strip(mix('#968f7e', look.fog, fade), side, 0, 0.55);
+                    strip(mix('#bcb6a4', look.fog, fade), side, 0.55, 1.08);
                 }
-                // Rails on both sides: dark below, lighter above
-                strip(mix('#968f7e', look.fog, fade), side, 0, 0.55);
-                strip(mix('#bcb6a4', look.fog, fade), side, 0.55, 1.08);
+                return;
             }
-            // The mountain: merlons on the parapet over the drop, every other segment; on the other side the forest slope
-            // going up 22 m (a little bare rock here and there), round trees on it near by
+            // The mountain, drawn as in the html test: on the hill side one smooth forest slope (22 m, a few round bushes on it), on the drop side the plain stone wall (drawBelowRoad). No rails,
+            // no parapet blocks, no single trees, so nothing floats or stands apart.
             const drop = segment.drop;
             const rock = -drop;
-            if (entry.z1 >= 3.5) {
-                strip(mix('#aaa391', look.fog, fade), drop, 1.08, 1.2); // a continuous cap, so the merlons sit on something
-                if (segment.index % 2 === 0) {
-                    strip(mix('#c4beac', look.fog, fade), drop, 1.2, 1.75);
-                }
-            }
             const fog = Math.min(1, fade + 0.12);
             const tone = hash(segment.index * 5 + 3);
             const tone2 = hash(segment.index * 11 + 7);
-            // One forest green, barely changing, so no seams show; a little bare rock, close to it
-            const forest = hexMix('#2a6644', '#2e6c48', tone);
-            const face = forest;
+            const forest = hexMix('#1e5638', '#3a7a4a', tone);
+            const face = tone < 0.07 ? hexMix('#768076', '#868c82', tone2) : forest;
+            const edge = rock < 0 ? -4 : width + 4;
             const foot1 = x1 + rock * wall * scale1;
             const foot2 = x2 + rock * wall * scale2;
             const top1 = foot1 + rock * 9 * scale1;
             const top2 = foot2 + rock * 9 * scale2;
             shape(mix(face, look.fog, fog), [[foot1, y1], [top1, y1 - 22 * scale1], [top2, y2 - 22 * scale2], [foot2, y2]]);
-            // Trees on it (trees() below), none on the nearest segments, where they would grow huge
-            if (n >= 5 && n < 150) {
-                treesLater.push({n, clip: entry.clip, paint: () => trees(segment, n, rock, foot1, top1, y1, scale1, look.fog, fog)});
+            if (n >= 2 && n < 110 && tone2 < 0.85) {
+                for (const u of [0.45, 0.9]) {
+                    const r = (2.6 + tone2 * 2) * scale1;
+                    blob(mix(hexMix('#1c5838', '#2e7646', tone2), look.fog, fog), foot1 + (top1 - foot1) * (u + tone * 0.1), y1 - 22 * u * scale1, r, r);
+                }
             }
         });
     }
@@ -393,10 +389,10 @@ const Scene = (() => {
         // Higher rows are painted first so lower trees overlap them.
         [0.92, 0.74, 0.56, 0.38, 0.2].forEach((along, k) => {
             const pick = hash(segment.index * 7 + k * 13);
-            if (pick < 0.3) {
+            if (pick < 0.42) {
                 return;
             }
-            const u = along + (pick - 0.5) * 0.08;
+            const u = along + (pick - 0.5) * 0.2;
             const r = (1.4 + hash(segment.index * 3 + k) * 1.3) * (0.8 + 0.2 * along) * scale1;
             const x = foot1 + (top1 - foot1) * u;
             const y = y1 - 22 * u * scale1; // the foot of the tree, on the slope surface
@@ -427,7 +423,7 @@ const Scene = (() => {
         const drop = segment.drop;
         const rock = -drop;
         const fog = Math.min(1, fade + 0.12);
-        shape(mix('#245a3c', look.fog, Math.min(1, fog + 0.2)), [[side1(drop), y1 + 28 * scale1],
+        shape(mix(hexMix('#286240', '#1a4a34', hash(segment.index * 5 + 3)), look.fog, Math.min(1, fog + 0.2)), [[side1(drop), y1 + 28 * scale1],
             [out(drop), y1 + 28 * scale1], [out(drop), y2 + 28 * scale2], [side2(drop), y2 + 28 * scale2]]);
         const stone = mix('#a49e8e', look.fog, fog);
         shape(stone, [[side1(drop), y1], [side2(drop), y2], [side2(drop), y2 + 28 * scale2], [side1(drop), y1 + 28 * scale1]]);
@@ -438,7 +434,7 @@ const Scene = (() => {
                     [side1(drop), y1 + (at + 0.8) * scale1]]);
             }
         }
-        shape(mix('#2a6644', look.fog, fog), [[out(rock), y1], [side1(rock), y1], [side2(rock), y2], [out(rock), y2]]);
+        shape(mix(hexMix('#1e5638', '#3a7a4a', hash(segment.index * 5 + 3)), look.fog, fog), [[out(rock), y1], [side1(rock), y1], [side2(rock), y2], [out(rock), y2]]);
     }
 
     // A tunnel's mouth: the rock face round it, rough at the top, and the arch the road goes into

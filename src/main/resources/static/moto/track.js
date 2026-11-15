@@ -37,15 +37,24 @@ const Track = (() => {
     // section eases into its bend and out of it.
     // The climbs of a course add up to 0, so its sections can be ridden again: laps of them, one after the other, make the
     // way from the start to the goal (three, as the first races had, so their times on the leaderboards still compare).
-    // Tianmen, as in the html test (tianmen-descent-test.html), in its 2 m steps: a short straight, then ten hairpins, right
-    // and left in turn, each easing in over 36 m, held, and easing out [steps in, held, steps out, turn per step (rad)];
-    // then straight on to the goal. The road drops away from 100 m on, steepest in the middle, flat again at the end; three
-    // long tunnels; near the end the valley floor rises to the road, with a river along it.
+    // Tianmen, as in the html test (tianmen-to-chongqing-course.html), in its 2 m steps: a short straight, then three
+    // stretches one after the other, each a list of bends easing in, held and easing out [steps in, held, steps out, turn
+    // per step (rad)], then straight on to its end. The mountain: ten hairpins, right and left in turn; the road drops away
+    // from 100 m on, steepest in the middle, then once more, steeply, through the last tunnel, which comes out in Chongqing
+    // at night; three long tunnels; a river along the valley floor below the road. Then a bridge over the river with long
+    // gentle bends, and the riverside under the old town. Day turns to dusk on the way down, and night in the city.
     const STEP = 2;
-    const HAIRPINS = [[18, 40, 18, 0.045], [18, 50, 18, -0.047], [18, 60, 18, 0.045], [18, 40, 18, -0.047], [18, 50, 18, 0.045],
-        [18, 60, 18, -0.047], [18, 40, 18, 0.045], [18, 50, 18, -0.047], [18, 60, 18, 0.045], [18, 40, 18, -0.047]];
-    const DESCENT = 1000; // steps from the first hairpin to the end of the mountain; the goal is there
-    const DESCENT_TUNNELS = [[110, 290], [380, 560], [600, 780]]; // steps into the descent
+    const STRETCHES = [
+        {kind: 'mountain', steps: 1000, tod: 0.05, water: -14, bends: [[18, 40, 18, 0.045], [18, 50, 18, -0.047], [18, 60, 18, 0.045],
+            [18, 40, 18, -0.047], [18, 50, 18, 0.045], [18, 60, 18, -0.047], [18, 40, 18, 0.045], [18, 50, 18, -0.047],
+            [18, 60, 18, 0.045], [18, 40, 18, -0.047]]},
+        {kind: 'bridge', steps: 960, tod: 0.95, water: -14, bends: [[30, 50, 30, 0], [50, 70, 50, 0.012], [60, 90, 60, -0.016],
+            [40, 60, 40, 0.008], [50, 80, 50, -0.012], [40, 70, 40, 0.014]]},
+        {kind: 'riverside', steps: 950, tod: 1, water: -9, bends: [[50, 150, 50, 0.02], [40, 60, 40, -0.012], [50, 70, 50, 0.016]]}
+    ];
+    const DESCENT_TUNNELS = [[110, 290], [380, 560], [820, 1000]]; // steps into the mountain
+    const BOATS = 14; // on the river, spread over the open road (and two more where the gaps are longest near the end)
+    const LAMPS = 120; // along the bridge and the riverside: lamp posts (every third in the riverside) or lights in the rails
 
     const TRACKS = {
         seaside: {
@@ -102,13 +111,13 @@ const Track = (() => {
         },
         tianmen: {
             name: 'Tianmen',
-            about: 'From the summit down to the valley',
-            // Built from the test's course (descend()): between a forest slope on the left and a stone wall over the valley
-            // on the right the whole way (drawn by scene.js), nothing else beside the road. Its hairpins push a bike out
-            // this share of how sharp they look, so they ride like hairpins of 7.
+            about: 'Down the mountain and on into Chongqing at night',
+            // Built from the test's course (descend()): the mountain between a forest slope and a stone wall over the
+            // valley, then the city's bridge and riverside between rails (drawn by scene.js), nothing beside the road. Its
+            // bends push a bike out this share of how sharp they look, so the hairpins ride like bends of 7.
             descent: {bends: 1 / 3},
             laps: 1, // from the top to the foot: not a loop
-            bendSlow: 0.4, // in the tightest hairpins a bike goes this much slower by itself
+            bendSlow: 0.4, // in the tightest hairpins a bike goes this much slower by itself (not in the city)
             obstacles: ['sledge', 'truck', 'sledge', 'moped', 'rockslide', 'sledge', 'truck', 'sledge'], // a stone sledge: a sledge hauling a stone block
             levels: {
                 // The same way down, its bends pushing less
@@ -192,15 +201,18 @@ const Track = (() => {
             height = start + climb;
         };
         if (spec.descent) {
-            // Two of the test's steps to a segment: the bend it is drawn with (view) and the one that pushes the bike
-            goal = (RUN_UP * SEGMENT + 20 * STEP + DESCENT * STEP) / SEGMENT;
-            descent = descend((goal + RUN_OUT) * SEGMENT / STEP + 240);
+            // Two of the test's steps to a segment: the bend it is drawn with (view) and the one that pushes the bike (only
+            // the mountain's hairpins slow a bike down by themselves)
+            const total = STRETCHES.reduce((sum, stretch) => sum + stretch.steps, 0);
+            goal = (RUN_UP * SEGMENT + 20 * STEP + total * STEP) / SEGMENT;
+            descent = descend((goal + RUN_OUT) * SEGMENT / STEP + 240, goal * SEGMENT / STEP);
             const bends = own.bends || spec.descent.bends;
             for (let i = 0; i < goal + RUN_OUT; i++) {
                 const view = (descent.turn[2 * i] + descent.turn[2 * i + 1]) / BEND;
                 segments.push({
                     index: i, bend: view * bends, view, y1: descent.height[2 * i], y2: descent.height[2 * i + 2], things: [],
-                    walls: true, tunnel: descent.tunnel[2 * i] || descent.tunnel[2 * i + 1]
+                    walls: true, tunnel: descent.tunnel[2 * i] || descent.tunnel[2 * i + 1],
+                    slows: descent.kind[2 * i] === 'mountain'
                 });
             }
         } else {
@@ -276,47 +288,116 @@ const Track = (() => {
     }
 
     // The test's course, step by step from the first segment of the run-up: how much the road turns in each step (rad), its
-    // height where each step begins (m), how far below the road the valley floor is (m), the tunnels, and how far into
-    // the descent each step is
-    function descend(steps) {
+    // height where each step begins (m), which stretch it is in (kind) and how far into that, how far below the road the
+    // valley floor is (m, the mountain) or the water (m, the city), the tunnels, the boats on the river, the lamps
+    // (1: a light in the rails, 2: a lamp post on the left); and the stretches, where they begin and end (in steps) and
+    // how dark it is in each (tod: 0 day, 1 night). The goal is at step end.
+    function descend(steps, end) {
         const before = RUN_UP * SEGMENT / STEP + 20; // the run-up and 40 m on from the start line
         const turn = [];
         const local = [];
-        const add = (bend, l) => {
+        const kind = [];
+        const stretches = [];
+        const add = (bend, l, stretch) => {
             turn.push(bend);
             local.push(l);
+            kind.push(stretch.kind);
         };
         const inOut = t => (t < 0.5 ? 2 * t * t : 1 - 2 * (1 - t) * (1 - t));
         const smooth = (a, b, x) => ease(Math.max(0, Math.min(1, (x - a) / (b - a))));
         while (turn.length < before) {
-            add(0, 0);
+            add(0, 0, STRETCHES[0]);
         }
-        let l = 0;
-        for (const [into, held, out, bend] of HAIRPINS) {
-            for (let n = 0; n < into; n++) {
-                add(bend * inOut(n / into), l++);
+        for (const stretch of STRETCHES) {
+            const start = turn.length;
+            let l = 0;
+            for (const [into, held, out, bend] of stretch.bends) {
+                for (let n = 0; n < into; n++) {
+                    add(bend * inOut(n / into), l++, stretch);
+                }
+                for (let n = 0; n < held; n++) {
+                    add(bend, l++, stretch);
+                }
+                for (let n = 0; n < out; n++) {
+                    add(bend * (1 - inOut(n / out)), l++, stretch);
+                }
             }
-            for (let n = 0; n < held; n++) {
-                add(bend, l++);
+            while (turn.length - start < stretch.steps) {
+                add(0, l++, stretch);
             }
-            for (let n = 0; n < out; n++) {
-                add(bend * (1 - inOut(n / out)), l++);
-            }
+            stretches.push({...stretch, start, end: turn.length});
         }
-        while (turn.length < steps) {
-            add(0, l++);
+        const last = stretches[stretches.length - 1];
+        for (let l = 2000; turn.length < steps; l++) {
+            add(0, l, last);
         }
+        const mountain = stretches[0];
+        const into = i => (i < before ? 0 : local[i]); // the run-up counts as the mountain's first step
         const height = [0];
         local.forEach((l, i) => {
-            const drop = l < 50 || l >= DESCENT ? 0
-                : (60 + 95 * smooth(60, 170, l)) * (1 - smooth(DESCENT - 170, DESCENT - 10, l)) * (0.85 + 0.25 * Math.sin(l * 0.05)) / 500;
-            height.push(height[i] - drop);
+            const k = mountain.steps;
+            const drop = kind[i] !== 'mountain' || i < before || l < 50 ? 0
+                : (60 + 95 * smooth(60, 170, l)) * (1 - smooth(k - 170, k - 10, l)) * (0.85 + 0.25 * Math.sin(l * 0.05))
+                + 230 * smooth(k - 300, k - 190, l) * (1 - smooth(k - 70, k - 4, l));
+            height.push(height[i] - drop / 500);
         });
+        const tunnel = local.map((l, i) => kind[i] === 'mountain' && i >= before && DESCENT_TUNNELS.some(([a, b]) => l >= a && l < b));
+
+        // The water: each stretch's level in its middle, smoothly from one to the next
+        const middles = stretches.map(stretch => [(stretch.start + stretch.end) / 2, stretch.water]);
+        const water = local.map((l, i) => {
+            if (i <= middles[0][0]) {
+                return middles[0][1];
+            }
+            for (let k = 0; k < middles.length - 1; k++) {
+                if (i < middles[k + 1][0]) {
+                    return middles[k][1] + (middles[k + 1][1] - middles[k][1]) * smooth(middles[k][0], middles[k + 1][0], i);
+                }
+            }
+            return middles[middles.length - 1][1];
+        });
+
+        // Boats spread evenly along the open road from the first tunnel's end, and two more in the longest gaps between
+        // steps 690 and 820 of the mountain
+        const boat = local.map(() => false);
+        const open = [];
+        for (let l = 290; l < mountain.steps; l++) {
+            if (!tunnel[mountain.start + l]) {
+                open.push(mountain.start + l);
+            }
+        }
+        for (let k = 0; k < BOATS; k++) {
+            boat[open[Math.floor((k + 0.5) * open.length / BOATS)]] = true;
+        }
+        const marks = [690];
+        for (let l = 690; l < 820; l++) {
+            if (boat[mountain.start + l]) {
+                marks.push(l);
+            }
+        }
+        marks.push(819);
+        const gaps = [];
+        for (let k = 0; k < marks.length - 1; k++) {
+            gaps.push([marks[k + 1] - marks[k], Math.round((marks[k] + marks[k + 1]) / 2)]);
+        }
+        gaps.sort((a, b) => b[0] - a[0]);
+        for (const [, l] of gaps.slice(0, 2)) {
+            boat[mountain.start + l] = true;
+        }
+
+        // The lamps, from the bridge to the riverside's end
+        const lamp = local.map(() => 0);
+        const from = stretches[1].start;
+        const to = last.end - 6;
+        for (let k = 0; k < LAMPS; k++) {
+            const i = Math.round(from + (k + 0.5) * (to - from) / LAMPS);
+            lamp[i] = kind[i] === 'riverside' && k % 3 === 2 ? 2 : 1;
+        }
         return {
-            turn, height, local,
-            valley: local.map(l => 28 - 26 * smooth(780, 950, l)),
-            tunnel: local.map((l, i) => i >= before && DESCENT_TUNNELS.some(([a, b]) => l >= a && l < b)),
-            step: STEP
+            turn, height, local, kind, tunnel, water, boat, lamp,
+            valley: local.map((l, i) => (kind[i] === 'mountain' ? 28 - 24.5 * smooth(10, 150, into(i)) : 28)),
+            stretches: stretches.map(({kind, start, end, tod}) => ({kind, start, end, tod})),
+            before, end, step: STEP
         };
     }
 
@@ -450,7 +531,7 @@ const Track = (() => {
         }
         bike.draft += (draftWanted - bike.draft) * Math.min(1, seconds * 1.5);
         bike.offRoad = Math.abs(bike.x) > ROAD + 0.2;
-        const bendSlow = track.bendSlow ? 1 - track.bendSlow * Math.min(1, Math.abs(segment.bend) / 7) : 1;
+        const bendSlow = track.bendSlow && segment.slows !== false ? 1 - track.bendSlow * Math.min(1, Math.abs(segment.bend) / 7) : 1;
         const top = (bike.offRoad ? OFF_ROAD_SPEED : TOP_SPEED) * (bike.power || 1) * (1 + DRAFT_BOOST * bike.draft) * bendSlow;
         if (flying) {
             // keeps its speed until it lands

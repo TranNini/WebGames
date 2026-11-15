@@ -237,25 +237,46 @@ const Scene = (() => {
 
     const haze = n => Math.min(1, (n / DRAW_SEGMENTS) ** 1.6);
 
-    // Tianmen, drawn as the html test draws it (tianmen-descent-test.html), 1:1: its camera, its 2 m steps, its colors. On
-    // the left a forest slope 22 m high, darker forest above it; on the right a stone wall down to the valley floor 28 m
-    // below, a parapet with blocks on it; guardrails on both sides. In a tunnel: a concrete underpass, pillars with orange
-    // lamps every fourth step, the green slope and the valley seen between them, beams and a red neon line under its roof.
-    // Near the end the valley floor rises to the road, with a river on it and Chinese boats. Far off, the sky, clouds and
-    // four layers of green karst peaks, rising as the road goes down.
+    // Tianmen to Chongqing, drawn as the html test draws it (tianmen-to-chongqing-course.html), 1:1: its camera, its 2 m
+    // steps, its colors, its light. The mountain: on the left a forest slope 22 m high, darker forest above it; on the right
+    // a stone wall down to the valley floor, a river with Chinese boats on it; guardrails on both sides, a parapet with
+    // blocks while the valley is deep. In a tunnel: a concrete gallery, pillars with orange lamps every fourth step, the
+    // valley seen between them, beams and a red neon line under its roof. Far off, the sky, clouds and four layers of
+    // green peaks, rising as the road goes down; day turns to dusk, the peaks fade and Chongqing's towers rise before the
+    // last tunnel. Then the city at night, the user's pictures of it far off: a bridge over the river, then the riverside
+    // under a green bank, lights in the rails and lamp posts, their light on the wet road.
     const DESCENT = {
-        cameraHigh: 2, cameraBack: 6.5, near: 0.52, ahead: 220, behind: 30, kerb: 1.12, roof: 5.8,
+        cameraHigh: 2, cameraBack: 6.5, near: 0.52, ahead: 220, behind: 30, kerb: 1.12, roof: 6.7,
         bike: 0.81, // the bikes as tall as the test's riders (1.42 m)
-        sky: [[118, 158, 214], [176, 204, 230], [214, 228, 236]], // its last color is the haze
-        road: [[182, 182, 176], [188, 188, 182]], kerbColor: [208, 206, 196], line: [238, 236, 226],
-        rail: [188, 182, 164], railDark: [150, 144, 126]
+        px: 1 / 1.5 // the test drew in device pixels, up to 1.5 to a CSS pixel; we draw in CSS pixels
     };
+    const hexRgb = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+    // The sky by the time of day (0 day, 0.34 sunset, 0.66 dusk, 1 night); the city's colors by day and by night
+    const DESCENT_SKY = [[0, ['#2a74e6', '#5b9bf0', '#c4def8']], [0.34, ['#2e3f9c', '#7a4fa8', '#ff9f7a']],
+        [0.66, ['#1b2160', '#4a3a96', '#d86aa0']], [1, ['#070c2c', '#0f1a54', '#3a3f8a']]].map(([t, c]) => [t, c.map(hexRgb)]);
+    const CITY_COLORS = {
+        asph: [[90, 94, 126], [30, 32, 52]], asph2: [[92, 96, 128], [31, 33, 53]], kerb: [[128, 120, 158], [58, 50, 88]],
+        rail: [[182, 169, 198], [112, 98, 142]], railD: [[142, 128, 162], [70, 60, 100]], water: [[74, 106, 208], [16, 24, 96]],
+        hill: [[47, 138, 82], [14, 44, 50]], line: [[244, 244, 251], [206, 208, 234]]
+    };
+    // On the mountain: a pale road and rails; its blue sky, turning to dusk
+    const MOUNTAIN_COLORS = {asph: [182, 182, 176], asph2: [188, 188, 182], kerb: [208, 206, 196], line: [238, 236, 226], rail: [188, 182, 164],
+        railD: [150, 144, 126]};
+    const MOUNTAIN_SKY = [[118, 158, 214], [176, 204, 230], [214, 228, 236]];
+    const DUSK_SKY = [[50, 42, 124], [150, 82, 152], [240, 150, 142]];
+    const PICTURES = {bridge: 'chongqing-bridge.jpg', riverside: 'chongqing-riverside.jpg'}; // 1774 x 470, the horizon at the bottom
     const roadX = new Float64Array(DESCENT.ahead + DESCENT.behind + 2); // the road's middle, m sideways, step by step
     const roadZ = new Float64Array(DESCENT.ahead + DESCENT.behind + 2); // how far ahead of the camera, m
     let farShift = 0; // the far view's turn, px, and eased
     let farShiftSmooth = 0;
     let descentLayers = null;
+    let descentCity = null;
     let descentGlow = null;
+    let descentLamp = null;
+    const pictures = {};
+    // The light where the camera is: time of day, how dark, the sky, the haze far off, the road's colors; on the mountain
+    // (mountain: 1 there, 0 in the city) how far into dusk, how far Chongqing has risen, how far the peaks have faded
+    const light = {tod: 0, night: 0, sky: MOUNTAIN_SKY, haze: MOUNTAIN_SKY[2], colors: {}, mountain: 1, dusk: 0, city: 0, fade: 0};
 
     // The test's hash and random numbers, so its patterns come out the same
     const testHash = i => ((Math.imul(i ^ 0x9e3779b9, 2654435761) >>> 0) % 100000) / 100000;
@@ -270,7 +291,11 @@ const Scene = (() => {
     };
     const rgbMix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
     const rgb = c => `rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0})`;
-    const hazed = (c, f) => rgb(rgbMix(c, DESCENT.sky[2], f));
+    const hazed = (c, f) => rgb(rgbMix(c, light.haze, f));
+    const smoothStep = (a, b, x) => {
+        const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
+        return t * t * (3 - 2 * t);
+    };
 
     function four(color, x1, y1, x2, y2, x3, y3, x4, y4) {
         ctx.fillStyle = color;
@@ -287,15 +312,62 @@ const Scene = (() => {
         const c = document.createElement('canvas');
         c.width = w;
         c.height = h;
-        paint(c.getContext('2d'));
+        paint(c.getContext('2d'), w, h);
         return c;
     }
 
-    // A warm glow in the tunnels
-    function tunnelGlow(x, y, r, a) {
-        if (r < 2) {
-            return;
+    function roundRect(c, x, y, w, h, r) {
+        c.beginPath();
+        if (c.roundRect) {
+            c.roundRect(x, y, w, h, Math.min(r, w / 2, h / 2));
+        } else {
+            c.rect(x, y, w, h);
         }
+    }
+
+    // The light at step p, as the test's setLight
+    function setLight(d, p) {
+        const mids = d.stretches.map(s => [(s.start + s.end) / 2, s.tod]);
+        let tod = mids[mids.length - 1][1];
+        if (p <= mids[0][0]) {
+            tod = mids[0][1];
+        } else {
+            for (let k = 0; k < mids.length - 1; k++) {
+                if (p < mids[k + 1][0]) {
+                    tod = mids[k][1] + (mids[k + 1][1] - mids[k][1]) * smoothStep(0, 1, (p - mids[k][0]) / (mids[k + 1][0] - mids[k][0]));
+                    break;
+                }
+            }
+        }
+        let k = 0;
+        while (k < DESCENT_SKY.length - 2 && tod > DESCENT_SKY[k + 1][0]) {
+            k++;
+        }
+        const along = Math.max(0, Math.min(1, (tod - DESCENT_SKY[k][0]) / (DESCENT_SKY[k + 1][0] - DESCENT_SKY[k][0])));
+        const sky = DESCENT_SKY[k][1].map((c, j) => rgbMix(c, DESCENT_SKY[k + 1][1][j], along));
+        light.tod = tod;
+        light.night = smoothStep(0.22, 0.9, tod);
+        for (const key in CITY_COLORS) {
+            light.colors[key] = rgbMix(CITY_COLORS[key][0], CITY_COLORS[key][1], light.night);
+        }
+        const mountain = d.stretches[0];
+        light.mountain = 1 - smoothStep(mountain.end - 60, mountain.end + 60, p);
+        light.dusk = light.city = light.fade = 0;
+        light.sky = sky;
+        light.haze = sky[2];
+        if (light.mountain > 0) {
+            for (const key in MOUNTAIN_COLORS) {
+                light.colors[key] = rgbMix(light.colors[key], MOUNTAIN_COLORS[key], light.mountain);
+            }
+            light.dusk = smoothStep(560, 860, p - mountain.start);
+            light.city = smoothStep(830, 970, p - mountain.start);
+            light.fade = smoothStep(600, 800, p - mountain.start);
+            light.sky = sky.map((c, j) => rgbMix(c, rgbMix(MOUNTAIN_SKY[j], DUSK_SKY[j], light.dusk * 0.95), light.mountain));
+            light.haze = light.sky[2];
+        }
+    }
+
+    function glowSprite() {
         descentGlow = descentGlow || canvasOf(128, 128, c => {
             const g = c.createRadialGradient(64, 64, 0, 64, 64, 64);
             g.addColorStop(0, 'rgba(255,190,100,.95)');
@@ -304,26 +376,70 @@ const Scene = (() => {
             c.fillStyle = g;
             c.fillRect(0, 0, 128, 128);
         });
+        return descentGlow;
+    }
+
+    // A warm glow (in the tunnels; by lamps at night, as dark as it is)
+    function tunnelGlow(x, y, r, a) {
+        if (r < 2 * DESCENT.px) {
+            return;
+        }
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
         ctx.globalAlpha = a;
-        ctx.drawImage(descentGlow, x - r, y - r, r * 2, r * 2);
+        ctx.drawImage(glowSprite(), x - r, y - r, r * 2, r * 2);
         ctx.restore();
     }
 
-    // The four layers of peaks, paler and bluer further off, limestone showing on the nearer two, the road snaking down two
+    function lampGlow(x, y, r, a) {
+        if (light.night >= 0.05) {
+            tunnelGlow(x, y, r, a * light.night);
+        }
+    }
+
+    // A lamp post with two lamps, by day and by night (the test's sprite)
+    function lampSprite() {
+        descentLamp = descentLamp || [false, true].map(night => canvasOf(40, 84, (c, w, h) => {
+            c.fillStyle = night ? '#2b2f4a' : '#6f7488';
+            roundRect(c, w / 2 - 2, h * 0.18, 4, h * 0.82, 2);
+            c.fill();
+            c.strokeStyle = night ? '#2b2f4a' : '#6f7488';
+            c.lineWidth = 3;
+            c.beginPath();
+            c.moveTo(w / 2, h * 0.2);
+            c.lineTo(w * 0.2, h * 0.2);
+            c.moveTo(w / 2, h * 0.2);
+            c.lineTo(w * 0.8, h * 0.2);
+            c.stroke();
+            for (const x of [w * 0.2, w * 0.8]) {
+                const y = h * 0.17;
+                c.fillStyle = night ? '#ffe2a0' : '#f4efe6';
+                c.beginPath();
+                c.ellipse(x, y, 8, 5, 0, 0, 7);
+                c.fill();
+                c.fillStyle = night ? '#fff6dc' : '#fff';
+                c.beginPath();
+                c.ellipse(x, y + 1, 5, 3, 0, 0, 7);
+                c.fill();
+            }
+        }));
+        return descentLamp;
+    }
+
+    // The four layers of peaks, paler and bluer further off
     function makeDescentLayers() {
         const colors = [['#b4c9dc', '#cfdde8'], ['#8fb0b8', '#bcd0d4'], ['#5f9272', '#8fb59a'], ['#3d7452', '#5f9272']];
-        const waves = [[5, 11], [7, 15], [9, 19], [11, 23]];
+        const waves = [[4, 9], [5, 12], [6, 13], [7, 16]];
         const tall = [0.5, 0.6, 0.75, 0.85];
         return colors.map((c, j) => canvasOf(2048, 420, x => {
             const ph = [j * 1.3, j * 2.1 + 0.7];
             const peak = u => {
-                const a = Math.pow(1 - Math.abs(Math.sin(waves[j][0] * u + ph[0] * 3)), 1.6);
-                const b = Math.pow(1 - Math.abs(Math.sin(waves[j][1] * u + ph[1] * 3)), 1.3);
-                return tall[j] * (0.62 * a + 0.38 * b);
+                const a = 0.5 + 0.5 * Math.sin(waves[j][0] * u + ph[0] * 3);
+                const b = 0.5 + 0.5 * Math.sin(waves[j][1] * u + ph[1] * 3);
+                const v = 0.62 * a + 0.38 * b;
+                return tall[j] * v * v * (3 - 2 * v) * 1.05;
             };
-            const top = u => 420 - 20 - peak(u / 2048 * 6.2832) * 330;
+            const top = u => 420 - 20 - (0.17 * tall[j] + peak(u / 2048 * 6.2832)) * 330;
             const g = x.createLinearGradient(0, 60, 0, 420);
             g.addColorStop(0, c[0]);
             g.addColorStop(1, c[1]);
@@ -335,73 +451,285 @@ const Scene = (() => {
             }
             x.lineTo(2048, 420);
             x.fill();
-            if (j >= 2) {
-                const random = testRandom(j * 17);
-                x.fillStyle = 'rgba(205,204,192,.5)';
-                for (let k = 0; k < 26; k++) {
-                    const u = random() * 2040;
-                    const y = top(u);
-                    x.beginPath();
-                    x.moveTo(u, y + 4);
-                    x.lineTo(u + 10 + random() * 14, y + 40 + random() * 50);
-                    x.lineTo(u - 8 - random() * 10, y + 36 + random() * 50);
-                    x.closePath();
-                    x.fill();
-                }
-            }
-            if (j === 1 || j === 2) {
-                const u0 = 300 + j * 600;
-                const y0 = top(u0) + 60;
-                x.strokeStyle = 'rgba(240,236,222,.85)';
-                x.lineWidth = 3;
-                x.lineJoin = 'round';
-                x.beginPath();
-                for (let t = 0; t < 9; t++) {
-                    x.lineTo(u0 + (t % 2 ? 64 : 0) + t * 5, y0 + t * 13);
-                }
-                x.stroke();
-            }
         }));
     }
 
-    // The far view: sky, clouds, the peaks (lower at the summit, rising as the road goes down: down is 0 to 1), mist
-    function drawDescentBack(horizon, down) {
-        const [s0, s1, s2] = DESCENT.sky;
+    // Chongqing's towers far off, seen from the mountain at dusk: a strip that repeats sideways
+    function makeDescentCity() {
+        return canvasOf(2048, 420, c => {
+            const random = testRandom(41);
+            const wrapped = (x, w, paint) => {
+                for (const o of [0, -2048]) {
+                    if (x + o + w < 0 || x + o > 2048) {
+                        continue;
+                    }
+                    c.save();
+                    c.translate(o, 0);
+                    paint();
+                    c.restore();
+                }
+            };
+            const rect = (x, y, w, h, color, r) => wrapped(x, w, () => {
+                c.fillStyle = color;
+                roundRect(c, x, y, w, h, r || 3);
+                c.fill();
+            });
+            const windows = (x, y, w, h, seed, colors) => {
+                const q = testRandom(seed);
+                const across = Math.max(2, Math.round(w / 15));
+                const rows = Math.max(3, Math.round(h / 19));
+                wrapped(x, w, () => {
+                    for (let j = 0; j < rows; j++) {
+                        for (let i = 0; i < across; i++) {
+                            if (q() < 0.42) {
+                                c.fillStyle = colors[(q() * colors.length) | 0];
+                                roundRect(c, x + i * w / across + w / across * 0.22, y + j * h / rows + h / rows * 0.25, w / across * 0.56,
+                                    h / rows * 0.45, 1.2);
+                                c.fill();
+                            }
+                        }
+                    }
+                });
+            };
+            for (let x = 0; x < 2048; x += 24 + random() * 28) {
+                const h = 70 + random() * 150;
+                rect(x, 400 - h, 20 + random() * 30, h + 30, '#34377e', 4);
+            }
+            const bodies = ['#27327c', '#2c3682', '#303a88'];
+            const tops = ['#ff7aa0', '#5ab0ff', '#ffd070', '#ff9cc0', '#ffe7a8'];
+            let x = 10;
+            let k = 0;
+            while (x < 2040) {
+                const w = 44 + random() * 34;
+                const h = 90 + random() * 170;
+                if (x > 470 && x < 580) {
+                    x += w + 6;
+                    continue;
+                }
+                rect(x, 400 - h, w, h + 30, bodies[k % 3], 5);
+                rect(x, 400 - h, w, 8, tops[k % 5], 3);
+                rect(x + w * 0.3, 400 - h - 9, w * 0.4, 11, tops[k % 5], 3);
+                windows(x + 5, 400 - h + 18, w - 10, h - 24, 70 + k, ['#ffe7a8', '#ffd070', '#fff3d0']);
+                x += w + 4 + random() * 10;
+                k++;
+            }
+            rect(500, 150, 56, 260, '#2c3680', 7); // the tall tower
+            rect(500, 150, 56, 9, '#9fb6ff', 4);
+        });
+    }
+
+    function pictureOf(kind) {
+        const file = PICTURES[kind];
+        if (!file) {
+            return null;
+        }
+        if (!pictures[kind]) {
+            const image = new Image();
+            image.src = file;
+            pictures[kind] = {image, top: null};
+        }
+        return pictures[kind];
+    }
+
+    // One of the city's pictures across the horizon, mirrored every other time so it repeats without a seam; above it, its
+    // sky's color
+    function drawPicture(kind, alpha, horizon) {
+        const picture = pictureOf(kind);
+        if (!picture || !picture.image.complete || !picture.image.naturalWidth || alpha < 0.01) {
+            return;
+        }
+        const image = picture.image;
+        if (!picture.top) {
+            const pixels = canvasOf(8, 8, c => c.drawImage(image, 0, 0, 1774, 12, 0, 0, 8, 8)).getContext('2d').getImageData(0, 0, 8, 8).data;
+            let r = 0;
+            let g = 0;
+            let b = 0;
+            for (let i = 0; i < 256; i += 4) {
+                r += pixels[i];
+                g += pixels[i + 1];
+                b += pixels[i + 2];
+            }
+            picture.top = [r / 64 | 0, g / 64 | 0, b / 64 | 0];
+        }
+        const W = width;
+        const H = height;
+        const BY = 470;
+        const scale = 0.58 * (W < H ? Math.max(W / 1774 * 1.5, horizon / BY * 0.78) : Math.max(horizon / BY, W / 1774 * 1.15));
+        const shown = Math.min(BY, horizon / scale);
+        const gap = horizon - shown * scale;
+        const [r, g, b] = picture.top;
+        ctx.globalAlpha = alpha;
+        if (gap > 0) {
+            ctx.fillStyle = `rgb(${r},${g},${b})`;
+            ctx.fillRect(0, 0, W, gap + 1);
+        }
+        const iw = image.naturalWidth;
+        const tile = iw * scale;
+        const first = Math.floor(farShiftSmooth / tile);
+        const off = farShiftSmooth - first * tile;
+        for (let t = 0; t <= Math.ceil(W / tile) + 1; t++) {
+            const x = -off + t * tile;
+            if ((first + t) & 1) {
+                ctx.save();
+                ctx.translate(x + tile, 0);
+                ctx.scale(-1, 1);
+                ctx.drawImage(image, 0, BY - shown, iw, shown, 0, horizon - shown * scale, tile + 1, shown * scale);
+                ctx.restore();
+            } else {
+                ctx.drawImage(image, 0, BY - shown, iw, shown, x, horizon - shown * scale, tile + 1, shown * scale);
+            }
+        }
+        if (gap > 0) {
+            const fade = ctx.createLinearGradient(0, gap, 0, gap + H * 0.07);
+            fade.addColorStop(0, `rgba(${r},${g},${b},1)`);
+            fade.addColorStop(1, `rgba(${r},${g},${b},0)`);
+            ctx.fillStyle = fade;
+            ctx.fillRect(0, gap, W, H * 0.07);
+        }
+        ctx.globalAlpha = 1;
+    }
+
+    // The far view: the sky, the city's pictures; on the mountain its own sky, clouds and peaks over them (lower at the
+    // summit, rising as the road goes down: down is 0 to 1), and Chongqing rising at dusk
+    function drawDescentBack(d, p, horizon, down) {
+        const W = width;
+        const H = height;
+        const sky = light.sky;
         const g = ctx.createLinearGradient(0, 0, 0, horizon + 2);
-        g.addColorStop(0, rgb(s0));
-        g.addColorStop(0.6, rgb(s1));
-        g.addColorStop(1, rgb(s2));
+        g.addColorStop(0, rgb(sky[0]));
+        g.addColorStop(0.55, rgb(sky[1]));
+        g.addColorStop(1, rgb(sky[2]));
         ctx.fillStyle = g;
-        ctx.fillRect(0, 0, width, horizon + 2);
-        ctx.fillStyle = 'rgb(204,220,222)';
-        ctx.fillRect(0, horizon, width, height - horizon);
+        ctx.fillRect(0, 0, W, horizon + 2);
+        let drawn = false;
+        for (let k = 0; k < d.stretches.length - 1; k++) {
+            const b = d.stretches[k].end;
+            if (p > b - 70 && p < b + 70) {
+                drawPicture(d.stretches[k].kind, 1, horizon);
+                drawPicture(d.stretches[k + 1].kind, smoothStep(b - 70, b + 70, p), horizon);
+                drawn = true;
+                break;
+            }
+        }
+        if (!drawn) {
+            drawPicture(d.kind[Math.max(0, Math.min(d.kind.length - 1, Math.floor(p)))], 1, horizon);
+        }
+        const [hr, hg, hb] = light.haze.map(c => c | 0);
+        const haze = ctx.createLinearGradient(0, horizon - H * 0.04, 0, horizon + 2);
+        haze.addColorStop(0, `rgba(${hr},${hg},${hb},0)`);
+        haze.addColorStop(1, `rgba(${hr},${hg},${hb},.5)`);
+        ctx.fillStyle = haze;
+        ctx.fillRect(0, horizon - H * 0.04, W, H * 0.04 + 2);
+        ctx.fillStyle = rgb(light.colors.water);
+        ctx.fillRect(0, horizon, W, H - horizon);
+        if (light.mountain > 0.01) {
+            drawMountainBack(light.mountain, horizon, down);
+            return;
+        }
+        const water = ctx.createLinearGradient(0, horizon, 0, horizon + H * 0.07);
+        water.addColorStop(0, `rgba(${hr},${hg},${hb},.9)`);
+        water.addColorStop(1, `rgba(${hr},${hg},${hb},0)`);
+        ctx.fillStyle = water;
+        ctx.fillRect(0, horizon, W, H * 0.07);
+    }
+
+    function drawMountainBack(w, horizon, down) {
+        const W = width;
+        const H = height;
+        const sky = MOUNTAIN_SKY.map((c, j) => rgbMix(c, DUSK_SKY[j], light.dusk * 0.95));
+        const g = ctx.createLinearGradient(0, 0, 0, horizon + 2);
+        g.addColorStop(0, rgb(sky[0]));
+        g.addColorStop(0.6, rgb(sky[1]));
+        g.addColorStop(1, rgb(sky[2]));
+        ctx.globalAlpha = w;
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, W, horizon + 2);
+        ctx.fillStyle = rgb(sky[2]);
+        ctx.fillRect(0, horizon, W, H - horizon);
+        const white = rgb(rgbMix([255, 255, 255], [255, 196, 206], light.dusk));
+        const shade = rgb(rgbMix([200, 216, 238], [160, 120, 186], light.dusk));
         for (const [fx, fy, fs] of [[0.05, 0.2, 0.34], [0.28, 0.34, 0.16], [0.5, 0.16, 0.3], [0.72, 0.3, 0.18], [0.9, 0.12, 0.26],
             [1.15, 0.28, 0.2], [1.4, 0.14, 0.3], [1.65, 0.34, 0.15]]) {
-            const span = width * 2.2;
-            const x = ((fx * span - farShiftSmooth * 0.2) % span + span) % span - width * 0.2;
-            cloud(x, horizon * fy * 0.9, width * fs * 0.5);
+            const span = W * 2.2;
+            const x = ((fx * span - farShiftSmooth * 0.2) % span + span) % span - W * 0.2;
+            cloud(x, horizon * fy * 0.9, W * fs * 0.5, white, shade);
         }
         descentLayers = descentLayers || makeDescentLayers();
         const turns = [0.35, 0.55, 0.8, 1];
-        const below = ['#cfdde8', '#bcd0d4', '#8fb59a', '#5f9272'];
         descentLayers.forEach((layer, j) => {
-            const s = height * (0.3 + 0.07 * j) / 420;
-            const y0 = horizon + height * (0.035 * j + 0.16 * (1 - Math.min(1, down * 1.6)));
+            const s = H * (0.3 + 0.07 * j) / 420;
+            const y0 = horizon + H * (0.035 * j + 0.16 * (1 - Math.min(1, down * 1.6)));
             const tile = 2048 * s;
             const off = ((farShiftSmooth * turns[j]) % tile + tile) % tile;
-            for (let x = -off; x < width; x += tile) {
+            ctx.globalAlpha = w * (1 - light.fade);
+            for (let x = -off; x < W; x += tile) {
                 ctx.drawImage(layer, x, y0 - 420 * s, tile + 1, 420 * s);
             }
-            ctx.fillStyle = below[j];
-            ctx.fillRect(0, y0 - 1, width, height);
+            ctx.fillStyle = j < 2 ? rgb(rgbMix(hexRgb(j ? '#bcd0d4' : '#cfdde8'), sky[2], light.dusk * 0.9)) : j === 2 ? '#8fb59a' : '#5f9272';
+            ctx.fillRect(0, y0 - 1, W, H);
             if (j === 1) {
-                const mist = ctx.createLinearGradient(0, y0 - height * 0.16, 0, y0 + height * 0.04);
+                const mist = ctx.createLinearGradient(0, y0 - H * 0.16, 0, y0 + H * 0.04);
                 mist.addColorStop(0, 'rgba(240,246,250,0)');
                 mist.addColorStop(1, `rgba(240,246,250,${0.55 * (1 - down * 0.6)})`);
                 ctx.fillStyle = mist;
-                ctx.fillRect(0, y0 - height * 0.16, width, height * 0.2);
+                ctx.fillRect(0, y0 - H * 0.16, W, H * 0.2);
+                if (light.city > 0.01) {
+                    ctx.globalAlpha = w * light.city;
+                    descentCity = descentCity || makeDescentCity();
+                    const s2 = H * 0.29 / 420;
+                    const y2 = y0 + H * 0.05;
+                    const tile2 = 2048 * s2;
+                    const off2 = ((farShiftSmooth * 0.6) % tile2 + tile2) % tile2;
+                    const ground = ctx.createLinearGradient(0, y2, 0, y2 + H * 0.3);
+                    ground.addColorStop(0, '#5a4a9c');
+                    ground.addColorStop(1, '#3a3080');
+                    ctx.fillStyle = ground;
+                    ctx.fillRect(0, y2 - 1, W, H);
+                    for (let x = -off2; x < W; x += tile2) {
+                        ctx.drawImage(descentCity, x, y2 - 420 * s2, tile2 + 1, 420 * s2);
+                    }
+                }
             }
         });
+        ctx.globalAlpha = 1;
+    }
+
+    // The valley floor beyond the wall on the right, from xs to the screen's edge, and from 30 steps into the mountain a
+    // river along it, its banks shading into the grass; where it is (m from the road's middle), or null
+    function drawValleyFloor(d, t, sx1, sx2, w1, w2, b1, b2, f, xs1, xs2) {
+        const px = DESCENT.px;
+        const W = width;
+        const f2 = Math.min(1, f + 0.12);
+        const grass = rgbMix([40, 98, 64], [26, 74, 52], 0.5);
+        four(hazed(grass, Math.min(0.5, f2 + 0.2)), xs1, b1 + px, W + 4, b1 + px, W + 4, b2 - 1.5 * px, xs2, b2 - 1.5 * px);
+        if (d.local[t] < 30) {
+            return null;
+        }
+        const ra = 12;
+        const rb = 22;
+        const river = rgbMix(grass, [70, 176, 204], smoothStep(30, 260, d.local[t]));
+        const top1 = b1 + px;
+        const top2 = b2 - 3.2 * px;
+        four(hazed(river, f2 * 0.7), sx1 + ra * w1, top1, sx1 + rb * w1, top1, sx2 + rb * w2, top2, sx2 + ra * w2, top2);
+        const strips = 8;
+        const dw = (rb - ra) * 0.1;
+        const fogNear = Math.min(1, f2 + 0.2);
+        const fogRiver = f2 * 0.7;
+        for (let j = 0; j < strips; j++) {
+            const tl = (j + 1) / (strips + 1);
+            const tt = tl * tl * (3 - 2 * tl);
+            const l1 = ra - (strips - j) * dw * 0.5;
+            const l2 = ra - (strips - 1 - j) * dw * 0.5;
+            const r1 = rb + j * dw * 0.5;
+            const r2 = rb + (j + 1) * dw * 0.5;
+            four(hazed(rgbMix(grass, river, tt), fogNear + (fogRiver - fogNear) * tt),
+                sx1 + l1 * w1, top1, sx1 + l2 * w1, top1, sx2 + l2 * w2, top2, sx2 + l1 * w2, top2);
+            const tr = (strips - j) / (strips + 1);
+            const tu = tr * tr * (3 - 2 * tr);
+            four(hazed(rgbMix(grass, river, tu), fogNear + (fogRiver - fogNear) * tu),
+                sx1 + r1 * w1, top1, sx1 + r2 * w1, top1, sx2 + r2 * w2, top2, sx2 + r1 * w2, top2);
+        }
+        return [ra, rb];
     }
 
     // A Chinese boat on the river: a junk with a battened red sail, or a sampan with a woven canopy and a fisherman in a
@@ -459,6 +787,7 @@ const Scene = (() => {
         const {track, bike} = view;
         const d = track.descent;
         const D = DESCENT;
+        const px = D.px;
         const W = width;
         const H = height;
         const F = W < H ? W * 0.66 : Math.max(W * 0.5 / Math.tan(40 * Math.PI / 180), H * 0.42);
@@ -483,12 +812,17 @@ const Scene = (() => {
         const X = n => roadX[n + OFF];
         const Z = n => roadZ[n + OFF];
         const yAt = (high, n) => HZ - F * (high - D.cameraHigh - cameraY + groundAt(base + n)) / Math.max(D.near, Z(n));
+        const roadMiddle = n => W / 2 + F * (X(n) - cameraX) / Z(n);
+        const roadY = n => HZ + F * (D.cameraHigh + cameraY - groundAt(base + n)) / Z(n);
         const goal = track.length / Track.SEGMENT;
 
+        setLight(d, pos / SEG);
+        const colors = light.colors;
+        const night = light.night;
         // The far view turns with the road
         farShift += Math.max(-45, Math.min(45, (view.heading || 0) * F));
         farShiftSmooth += (farShift - farShiftSmooth) * 0.25;
-        drawDescentBack(HZ, Math.max(0, Math.min(1, cameraY / Math.min(-1, d.height[d.height.length - 1]))));
+        drawDescentBack(d, pos / SEG, HZ, Math.max(0, Math.min(1, cameraY / Math.min(-1, d.height[d.end]))));
 
         let x = 0;
         let dx = -(turnAt(base) * pct);
@@ -524,7 +858,8 @@ const Scene = (() => {
         for (const list of bikesIn.values()) {
             list.sort((a, b) => b.z - a.z);
         }
-        const look = LOOKS.tianmen;
+        // What stands on the road fades into the haze; its lights come on in the dark
+        const look = {...LOOKS.tianmen, fog: '#' + light.haze.map(c => (c | 0).toString(16).padStart(2, '0')).join(''), lights: night};
 
         for (let n = D.ahead - 1; n >= -4; n--) {
             const t = base + n;
@@ -556,56 +891,57 @@ const Scene = (() => {
             const hl = D.kerb;
             const pp1 = F / z1;
             const pp2 = F / z2;
-            const inTunnel = d.tunnel[t];
+            const onMountain = d.kind[t] === 'mountain';
+            const inTunnel = onMountain && d.tunnel[t];
+            const xl1 = sx1 - hl * w1;
+            const xl2 = sx2 - hl * w2;
+            const xr1 = sx1 + hl * w1;
+            const xr2 = sx2 + hl * w2;
             if (inTunnel) {
                 const tc1 = yAt(D.roof, n);
                 const tc2 = yAt(D.roof, n + 1);
-                const xl1 = sx1 - hl * w1;
-                const xl2 = sx2 - hl * w2;
-                const xr1 = sx1 + hl * w1;
-                const xr2 = sx2 + hl * w2;
                 const pillar = i % 4 === 0;
                 const beam = i % 2 === 0;
                 const f2 = Math.min(1, f + 0.05);
+                const concrete = hazed([172, 166, 150], f2);
                 // The portal: a pale concrete face where the tunnel begins, ending at the thick outer wall on the right
                 // (nothing above it: the sky stays); the wall's front face runs from the lintel down to the bottom
-                const rb1 = sx1 + (hl + 0.45) * w1;
+                const thick = 0.45;
+                const rb1 = sx1 + (hl + thick) * w1;
                 const yb1 = yAt(-60, n);
                 if (!d.tunnel[t - 1]) {
-                    const h2 = yAt(8.5, n);
-                    four(hazed([172, 166, 150], f2), -4, tc1, rb1, tc1, rb1, h2, -4, h2);
-                    four(hazed([120, 112, 98], f2), -4, tc1, rb1, tc1, rb1, tc1 - 0.7 * pp1, -4, tc1 - 0.7 * pp1);
-                    four(hazed([172, 166, 150], f2), xr1, h2, rb1, h2, rb1, yb1, xr1, yb1);
+                    const h2 = yAt(9.6, n);
+                    four(concrete, -4, tc1, rb1, tc1, rb1, h2, -4, h2);
+                    four(concrete, xr1, h2, rb1, h2, rb1, yb1, xr1, yb1);
                 }
+                // Between the pillars: the valley and the river
+                drawValleyFloor(d, t, sx1, sx2, w1, w2, yAt(-d.valley[t], n), yAt(-d.valley[t + 1], n + 1), f, xr1, xr2);
                 for (const side of [-1, 1]) {
                     const e = side < 0 ? -4 : W + 4;
                     const a1 = sx1 + side * hl * w1;
                     const a2 = sx2 + side * hl * w2;
                     if (pillar) {
-                        const concrete = hazed([108, 92, 86], f2);
+                        const dark = hazed([108, 92, 86], f2);
                         if (side < 0) {
-                            four(concrete, e, y1, a1, y1, a2, y2, e, y2);
-                            four(concrete, e, tc1, a1, tc1, a1, y1, e, y1);
+                            four(dark, e, y1, a1, y1, a2, y2, e, y2);
+                            four(dark, e, tc1, a1, tc1, a1, y1, e, y1);
                         } else {
-                            four(concrete, a1, tc1, rb1, tc1, rb1, yb1, a1, yb1);
+                            four(dark, a1, tc1, rb1, tc1, rb1, yb1, a1, yb1);
                         }
-                        four(concrete, a1, y1, a2, y2, a2, tc2, a1, tc1);
+                        four(dark, a1, y1, a2, y2, a2, tc2, a1, tc1);
                         const l1 = yAt(2.2, n);
                         const l2 = yAt(3.4, n);
                         four(hazed([255, 154, 60], f2), a1, l1, a1, l2, a2, yAt(3.4, n + 1), a2, yAt(2.2, n + 1));
                         if (n >= 3 && n < 70) {
-                            tunnelGlow(a1, (l1 + l2) / 2, Math.min(pp1 * 1.7, 40), 0.5);
+                            tunnelGlow(a1, (l1 + l2) / 2, Math.min(pp1 * 1.7, 60 * px), 0.5);
                         }
                     } else {
                         if (side < 0) {
-                            const slope = hazed(i % 3 === 1 ? [150, 186, 160] : [128, 168, 140], Math.min(1, f2 + 0.25));
-                            four(slope, e, tc1, a1, tc1, a2, tc2, a2, y2);
-                            four(slope, e, tc1, a2, tc2, a2, y2, e, y1);
+                            const rock = hazed(i % 3 === 1 ? [178, 168, 152] : [160, 150, 134], Math.min(1, f2 + 0.25));
+                            four(rock, e, tc1, a1, tc1, a2, tc2, a2, y2);
+                            four(rock, e, tc1, a2, tc2, a2, y2, e, y1);
                         } else {
-                            const vb1 = yAt(-28, n);
-                            const vb2 = yAt(-28, n + 1);
-                            four(hazed([40, 98, 64], Math.min(1, f2 + 0.2)), a1, vb1, W + 4, vb1, W + 4, vb2, a2, vb2);
-                            four(hazed([164, 158, 142], f2), a1, y1, a2, y2, a2, vb2, a1, vb1);
+                            four(hazed([164, 158, 142], f2), a1, y1, a2, y2, a2, yAt(-d.valley[t + 1], n + 1), a1, yAt(-d.valley[t], n));
                         }
                         const p1 = yAt(1, n);
                         const p2 = yAt(1, n + 1);
@@ -613,22 +949,26 @@ const Scene = (() => {
                         four(hazed([176, 161, 152], f2), a1, p1, a2, p2, a2, yAt(1.18, n + 1), a1, yAt(1.18, n));
                     }
                 }
-                // The roof with beams, and a red neon line along each side
-                four(hazed(beam ? [74, 64, 61] : [102, 92, 86], f2), xl1, tc1, xr1, tc1, xr2, tc2, xl2, tc2);
+                // The roof with beams, its edges' faces up to the slab's top, and a red neon line along each side
+                four(hazed(beam ? [74, 64, 61] : [102, 92, 86], f2), sx1 - (hl + 1.4) * w1, tc1, sx1 + (hl + thick) * w1, tc1,
+                    sx2 + (hl + thick) * w2, tc2, sx2 - (hl + 1.4) * w2, tc2);
+                for (const side of [-1, 1]) {
+                    const out = hl + (side > 0 ? thick : 0.5);
+                    four(concrete, sx1 + side * out * w1, tc1, sx2 + side * out * w2, tc2, sx2 + side * out * w2, yAt(9.6, n + 1),
+                        sx1 + side * out * w1, yAt(9.6, n));
+                }
                 for (const side of [-1, 1]) {
                     const a = side * 0.74;
                     const b = side * 0.84;
                     four(hazed([255, 74, 90], f * 0.5), sx1 + a * w1, tc1, sx1 + b * w1, tc1, sx2 + b * w2, tc2, sx2 + a * w2, tc2);
                     if (n >= 3 && n < 70 && i % 2 === 0) {
-                        tunnelGlow(sx1 + side * 0.79 * w1, tc1, Math.min(pp1 * 1.2, 33), 0.4);
+                        tunnelGlow(sx1 + side * 0.79 * w1, tc1, Math.min(pp1 * 1.2, 50 * px), 0.4);
                     }
                 }
-            } else {
+            } else if (onMountain) {
                 const f2 = Math.min(1, f + 0.12);
                 const hv = testHash(i * 5 + 3);
                 const hv2 = testHash(i * 11 + 7);
-                const xl1 = sx1 - hl * w1;
-                const xl2 = sx2 - hl * w2;
                 const xt1 = xl1 - 9 * pp1;
                 const xt2 = xl2 - 9 * pp2;
                 const t1 = yAt(22, n);
@@ -648,25 +988,22 @@ const Scene = (() => {
                         ctx.fill();
                     }
                 }
-                const xr1 = sx1 + hl * w1;
-                const xr2 = sx2 + hl * w2;
                 const b1 = yAt(-d.valley[t], n);
                 const b2 = yAt(-d.valley[t + 1], n + 1);
-                four(hazed(rgbMix([40, 98, 64], [26, 74, 52], hv), Math.min(1, f2 + 0.2)), xr1, b1, W + 4, b1, W + 4, b2, xr2, b2);
-                // A river across the valley floor at the foot of the mountain, boats on it
-                if (d.valley[t] < 12) {
-                    const ra = 7;
-                    const rb = 10;
-                    four(hazed([86, 184, 204], f2 * 0.7), sx1 + ra * w1, b1, sx1 + rb * w1, b1, sx2 + rb * w2, b2, sx2 + ra * w2, b2);
-                    const bank = hazed([150, 150, 120], f2);
-                    four(bank, sx1 + (ra - 0.12) * w1, b1, sx1 + ra * w1, b1, sx2 + ra * w2, b2, sx2 + (ra - 0.12) * w2, b2);
-                    four(bank, sx1 + rb * w1, b1, sx1 + (rb + 0.12) * w1, b1, sx2 + (rb + 0.12) * w2, b2, sx2 + rb * w2, b2);
-                    if (i % 36 === 3 && n >= 6 && n < 160) { // a boat every 72 m (the test had one every 18 m)
-                        const hv3 = testHash(i * 13 + 2);
-                        drawBoat(sx1 + (ra + rb) / 2 * w1 + (hv3 - 0.5) * 0.9 * w1, (b1 + b2) / 2, pp1, f2 * 0.7, hv3);
-                    }
+                const river = drawValleyFloor(d, t, sx1, sx2, w1, w2, b1, b2, f, xr1, xr2);
+                if (river && d.boat[t] && n >= 6 && n < 160) {
+                    const hv3 = testHash(i * 13 + 2);
+                    drawBoat(sx1 + (river[0] + river[1]) / 2 * w1 + (hv3 - 0.5) * 0.9 * w1, (b1 + b2) / 2, pp1, f2 * 0.7, hv3);
                 }
                 four(hazed([164, 158, 142], f2), xr1, y1, xr2, y2, xr2, b2, xr1, b1);
+                if (d.valley[t] < 20) {
+                    const m1 = yAt(-d.valley[t] * 0.45, n);
+                    const m2 = yAt(-d.valley[t + 1] * 0.45, n + 1);
+                    four(hazed([124, 118, 102], f2), xr1, m1, xr2, m2, xr2, b2, xr1, b1);
+                    const k1 = yAt(-d.valley[t] * 0.8, n);
+                    const k2 = yAt(-d.valley[t + 1] * 0.8, n + 1);
+                    four(hazed([98, 94, 82], f2), xr1, k1, xr2, k2, xr2, b2, xr1, b1);
+                }
                 if (n < 90) {
                     for (const down of [-5, -10, -15, -20, -25]) {
                         if (-down <= d.valley[t] - 1) {
@@ -674,45 +1011,143 @@ const Scene = (() => {
                         }
                     }
                 }
+            } else {
+                // The city: the river below on the right (and on the left, on the bridge), lights on it at night; along the
+                // riverside a green bank on the left
+                const wy1 = yAt(d.water[t], n);
+                const wy2 = yAt(d.water[t], n + 1);
+                const water = hazed(rgbMix(colors.water, i % 4 < 2 ? [255, 255, 255] : [0, 0, 0], 0.012), f);
+                four(water, xr1, wy1, W + 4, wy1, W + 4, wy2, xr2, wy2);
+                if (night > 0.15 && i % 3 === 0) {
+                    const hv = testHash(i * 7 + 1);
+                    const hv2 = testHash(i * 13 + 5);
+                    if (hv < 0.55) {
+                        ctx.save();
+                        ctx.globalCompositeOperation = 'lighter';
+                        const off = 5 + hv * 26;
+                        const wide = 0.6 + hv2 * 1.6;
+                        const z3 = Z(n + 3);
+                        const wy3 = yAt(d.water[t], n + 3);
+                        four(hv2 < 0.5 ? `rgba(255,176,74,${0.26 * night})` : hv2 < 0.75 ? `rgba(255,90,190,${0.24 * night})` : `rgba(110,170,255,${0.24 * night})`,
+                            W / 2 + F * (X(n) + off - cameraX) / z1, wy1, W / 2 + F * (X(n) + off + wide - cameraX) / z1, wy1,
+                            W / 2 + F * (X(n + 3) + off + wide - cameraX) / z3, wy3, W / 2 + F * (X(n + 3) + off - cameraX) / z3, wy3);
+                        ctx.restore();
+                    }
+                }
+                if (d.kind[t] !== 'riverside') {
+                    four(water, -4, wy1, xl1, wy1, xl2, wy2, -4, wy2);
+                } else {
+                    const hy1 = yAt(-4, n);
+                    const hy2 = yAt(-4, n + 1);
+                    four(hazed(rgbMix(colors.hill, i % 4 < 2 ? [255, 255, 255] : [0, 0, 0], 0.012), f), -4, hy1, xl1, hy1, xl2, hy2, -4, hy2);
+                }
             }
 
             // The road; the start and the goal across it in checks
             const gate = Math.floor(t * SEG / Track.SEGMENT) - Track.RUN_UP;
             const startLine = gate === 0 || gate === 1 || gate === goal || gate === goal + 1;
-            four(startLine ? '#f2f2f2' : hazed(i % 2 ? D.road[0] : D.road[1], f), sx1 - w1, y1, sx1 + w1, y1, sx2 + w2, y2, sx2 - w2, y2);
+            const o = 1.2 * px; // a little over the next, so no seams show
+            four(startLine ? '#f2f2f2' : hazed(inTunnel ? rgbMix(colors.asph2, [34, 22, 44], 0.4) : colors.asph2, f),
+                sx1 - w1, y1 + o, sx1 + w1, y1 + o, sx2 + w2, y2 - o, sx2 - w2, y2 - o);
             if (startLine) {
                 drawChecks(sx1, y1, w1, sx2, y2, w2, t);
             }
             if (inTunnel) {
-                four('rgba(34,22,44,.4)', sx1 - w1, y1, sx1 + w1, y1, sx2 + w2, y2, sx2 - w2, y2);
                 for (const side of [-1, 1]) {
                     four(`rgba(255,80,96,${0.2 * (1 - f)})`, sx1 + side * 0.78 * w1, y1, sx1 + side * 0.78 * w1 + 0.1 * w1, y1,
                         sx2 + side * 0.78 * w2 + 0.1 * w2, y2, sx2 + side * 0.78 * w2, y2);
                 }
             }
-            const kerb = hazed(D.kerbColor, f);
-            four(kerb, sx1 - hl * w1, y1, sx1 - w1, y1, sx2 - w2, y2, sx2 - hl * w2, y2);
-            four(kerb, sx1 + w1, y1, sx1 + hl * w1, y1, sx2 + hl * w2, y2, sx2 + w2, y2);
+            const kerb = hazed(colors.kerb, f);
+            four(kerb, xl1, y1 + o, sx1 - w1, y1 + o, sx2 - w2, y2 - o, xl2, y2 - o);
+            four(kerb, sx1 + w1, y1 + o, xr1, y1 + o, xr2, y2 - o, sx2 + w2, y2 - o);
             if (n < 110 && !startLine) {
-                const line = hazed(rgbMix(D.line, D.road[0], 0.35), f);
+                const line = hazed(rgbMix(colors.line, colors.asph, 0.35), f);
                 four(line, sx1 - 0.93 * w1, y1, sx1 - 0.9 * w1, y1, sx2 - 0.9 * w2, y2, sx2 - 0.93 * w2, y2);
                 four(line, sx1 + 0.9 * w1, y1, sx1 + 0.93 * w1, y1, sx2 + 0.93 * w2, y2, sx2 + 0.9 * w2, y2);
                 if (Math.floor(i / 3) % 2 === 0) {
                     four(line, sx1 - 0.012 * w1, y1, sx1 + 0.012 * w1, y1, sx2 + 0.012 * w2, y2, sx2 - 0.012 * w2, y2);
                 }
             }
-            // Guardrails, and the parapet's blocks over the valley
+            // At night: the lamps' light on the wet road, and now and then a neon sign's
+            if (night > 0.1 && n < 170 && n > 6) {
+                ctx.save();
+                ctx.globalCompositeOperation = 'lighter';
+                if (d.lamp[t] === 1) {
+                    const k = n + 2;
+                    const wk = F * ROAD / Z(k);
+                    for (const side of [-1, 1]) {
+                        const a = side * 0.55;
+                        const b = side * 0.92;
+                        four(`rgba(255,154,60,${0.2 * night})`, sx1 + a * w1, y1, sx1 + b * w1, y1, roadMiddle(k) + b * wk, roadY(k),
+                            roadMiddle(k) + a * wk, roadY(k));
+                    }
+                }
+                const hv = testHash(i * 3 + 9);
+                if (i % 5 === 0 && hv < 0.45) {
+                    const c = hv < 0.15 ? '255,63,168' : hv < 0.3 ? '63,208,255' : '168,107,255';
+                    const at = hv * 4 - 0.9;
+                    const k = n + 4;
+                    const wk = F * ROAD / Z(k);
+                    four(`rgba(${c},${0.2 * night})`, sx1 + (at - 0.1) * w1, y1, sx1 + (at + 0.1) * w1, y1, roadMiddle(k) + (at + 0.1) * wk, roadY(k),
+                        roadMiddle(k) + (at - 0.1) * wk, roadY(k));
+                }
+                ctx.restore();
+            }
+            // Guardrails with a flat top (a light in them in the city), and the parapet's blocks over a deep valley
             if (!inTunnel) {
                 for (const side of [-1, 1]) {
                     const rx1 = sx1 + side * hl * w1;
                     const rx2 = sx2 + side * hl * w2;
-                    four(hazed(D.railDark, f), rx1, y1, rx1, y1 - 0.55 * pp1, rx2, y2 - 0.55 * pp2, rx2, y2);
-                    four(hazed(D.rail, f), rx1, y1 - 0.55 * pp1, rx1, y1 - 1.08 * pp1, rx2, y2 - 1.08 * pp2, rx2, y2 - 0.55 * pp2);
+                    four(hazed(colors.railD, f), rx1, y1, rx1, y1 - 0.55 * pp1, rx2, y2 - 0.55 * pp2, rx2, y2);
+                    four(hazed(colors.rail, f), rx1, y1 - 0.55 * pp1, rx1, y1 - 1.08 * pp1, rx2, y2 - 1.08 * pp2, rx2, y2 - 0.55 * pp2);
+                    const top1 = 0.3 * w1;
+                    const top2 = 0.3 * w2;
+                    four(hazed(rgbMix(colors.rail, [255, 255, 255], 0.35), f), rx1, y1 - 1.08 * pp1, rx1 + side * top1, y1 - 1.08 * pp1,
+                        rx2 + side * top2, y2 - 1.08 * pp2, rx2, y2 - 1.08 * pp2);
+                    if (i % 6 === 0) {
+                        four(hazed(colors.railD, f), rx1, y1 - 1.08 * pp1, rx1 + side * top1, y1 - 1.08 * pp1, rx1 + side * top1, y1 - 0.5 * pp1,
+                            rx1, y1 - 0.55 * pp1);
+                    }
+                    if (d.lamp[t] === 1) {
+                        const a = y1 - 0.64 * pp1;
+                        const b = y1 - 0.98 * pp1;
+                        four(night > 0.5 ? '#ffe9b8' : '#fff3dc', rx1, a, rx1, b, rx2, y2 - 0.98 * pp2, rx2, y2 - 0.64 * pp2);
+                        if (n < 120) {
+                            lampGlow((rx1 + rx2) / 2, (a + b) / 2, pp1 * 3.2, 0.75);
+                        }
+                    }
                 }
-                if (i % 2 === 0 && d.valley[t] >= 12) {
-                    const rx1 = sx1 + hl * w1;
-                    const rx2 = sx2 + hl * w2;
-                    four(hazed([196, 190, 172], f), rx1, y1 - 1.08 * pp1, rx2, y2 - 1.08 * pp2, rx2, y2 - 1.75 * pp2, rx1, y1 - 1.75 * pp1);
+                if (onMountain && i % 2 === 0 && d.valley[t] >= 12) {
+                    four(hazed([196, 190, 172], f), xr1, y1 - 1.08 * pp1, xr2, y2 - 1.08 * pp2, xr2, y2 - 1.75 * pp2, xr1, y1 - 1.75 * pp1);
+                    four(hazed([226, 220, 202], f), xr1, y1 - 1.75 * pp1, xr1 + 0.3 * w1, y1 - 1.75 * pp1, xr2 + 0.3 * w2, y2 - 1.75 * pp2,
+                        xr2, y2 - 1.75 * pp2);
+                    four(hazed([150, 144, 128], f), xr1, y1 - 1.08 * pp1, xr1 + 0.3 * w1, y1 - 1.08 * pp1, xr1 + 0.3 * w1, y1 - 1.75 * pp1,
+                        xr1, y1 - 1.75 * pp1);
+                }
+            }
+            // A lamp post on the left, along the riverside
+            if (d.lamp[t] === 2) {
+                const alpha = Math.max(0, Math.min(1, (D.ahead - n) / 40)) * Math.max(0, Math.min(1, (z1 - 4.8) / 4.4));
+                const dw = 3.4 * pp1;
+                const dh = 7 * pp1;
+                const cx = W / 2 + F * (X(n) - 4.9 - cameraX) / z1;
+                const top = y1 - dh;
+                if (alpha >= 0.02 && dw >= 1.5 * px) {
+                    const [day, dark] = lampSprite();
+                    ctx.save();
+                    ctx.globalAlpha = alpha;
+                    if (night <= 0.97) {
+                        ctx.drawImage(day, cx - dw / 2, top, dw, dh);
+                    }
+                    if (night >= 0.03) {
+                        ctx.globalAlpha = alpha * (night > 0.97 ? 1 : night);
+                        ctx.drawImage(dark, cx - dw / 2, top, dw, dh);
+                    }
+                    ctx.restore();
+                    for (const hx of [0.2, 0.8]) {
+                        lampGlow(cx - dw / 2 + hx * dw, top + 0.17 * dh, pp1 * 4.5, 0.85);
+                    }
                 }
             }
 
@@ -735,7 +1170,7 @@ const Scene = (() => {
                     const perMeter = F / D.cameraBack;
                     const lean = bike.steer * 0.42 + (bike.crash > 0 ? Math.sin(bike.crash * 18) * 0.3 : 0);
                     drawBike(W / 2, HZ + F * (D.cameraHigh + cameraY - groundAtZ(z)) / D.cameraBack, perMeter * D.bike,
-                        RIDER_COLORS[view.color], lean, view.braking, null, 0, bike.air * perMeter);
+                        RIDER_COLORS[view.color], lean, view.braking, null, night, bike.air * perMeter);
                     continue;
                 }
                 const ahead = z - camZ;
@@ -746,17 +1181,22 @@ const Scene = (() => {
                 const xi = X(n) + (X(n + 1) - X(n)) * tt;
                 const scale = F / ahead;
                 drawBike(W / 2 + (xi + other.x - cameraX) * scale, HZ + F * (D.cameraHigh + cameraY - groundAtZ(z)) / ahead,
-                    scale * D.bike, other.color, other.lean, other.braking, other.name, 0, (other.air || 0) * scale);
+                    scale * D.bike, other.color, other.lean, other.braking, other.name, night, (other.air || 0) * scale);
             }
+        }
+        // Darker at night
+        if (night > 0.02) {
+            ctx.fillStyle = `rgba(6,8,40,${0.12 * night})`;
+            ctx.fillRect(0, 0, W, H);
         }
     }
 
     // A soft cloud: a shaded underside, then the white
-    function cloud(x, y, w) {
-        for (const [color, parts] of [['#c8d8ee', [[0, 0.05, 0.5, 0.22], [0.34, 0.1, 0.36, 0.2], [-0.36, 0.12, 0.34, 0.18], [0.1, -0.06, 0.32, 0.22]]],
-            ['#ffffff', [[0, 0, 0.5, 0.22], [0.34, 0.06, 0.36, 0.2], [-0.36, 0.08, 0.34, 0.18], [0.1, -0.1, 0.32, 0.22]]]]) {
+    function cloud(x, y, w, white = '#ffffff', shade = '#c8d8ee') {
+        for (const [color, parts] of [[shade, [[0, 0.05, 0.5, 0.22], [0.34, 0.1, 0.36, 0.2], [-0.36, 0.12, 0.34, 0.18], [0.1, -0.06, 0.32, 0.22]]],
+            [white, [[0, 0, 0.5, 0.22], [0.34, 0.06, 0.36, 0.2], [-0.36, 0.08, 0.34, 0.18], [0.1, -0.1, 0.32, 0.22]]]]) {
             for (const [dx, dy, rx, ry] of parts) {
-                blob(color, x + dx * w, y + dy * w * 0.5 + (color === '#c8d8ee' ? w * 0.04 : 0), rx * w * 0.5, ry * w * 0.5);
+                blob(color, x + dx * w, y + dy * w * 0.5 + (color === shade ? w * 0.04 : 0), rx * w * 0.5, ry * w * 0.5);
             }
         }
     }

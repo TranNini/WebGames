@@ -185,7 +185,7 @@ old it is, and each phone draws the others where they should be now. The server 
 at the goal by its own clock, gives the others a minute after the winner, and puts each finish on the course's
 leaderboard of fastest times (`moto-seaside`, `moto-canyon`, `moto-forest`, `moto-chongqing`, `moto-tianmen`; only the server adds to them). The menu
 doesn't stop the race. Afterwards the one who opened the race can start another with the same riders. It has its own
-music and an engine sound that follows the speed.
+music and a soft engine hum that follows the speed.
 
 ## Leaderboards
 

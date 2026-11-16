@@ -53,7 +53,8 @@ const Track = (() => {
         {kind: 'riverside', steps: 950, tod: 1, water: -9, bends: [[50, 150, 50, 0.02], [40, 60, 40, -0.012], [50, 70, 50, 0.016]]}
     ];
     const DESCENT_TUNNELS = [[110, 290], [380, 560], [820, 1000]]; // steps into the mountain
-    const BOATS = 14; // on the river, spread over the open road (and two more where the gaps are longest near the end)
+    const BOATS = 16; // on the mountain's river
+    const CITY_WATER = -2.6; // m: in the city the river comes up to just below the road
     const LAMPS = 120; // along the bridge and the riverside: lamp posts (every third in the riverside) or lights in the rails
 
     const TRACKS = {
@@ -343,7 +344,8 @@ const Track = (() => {
         });
         const tunnel = local.map((l, i) => kind[i] === 'mountain' && i >= before && DESCENT_TUNNELS.some(([a, b]) => l >= a && l < b));
 
-        // The water: each stretch's level in its middle, smoothly from one to the next
+        // The water: each stretch's level in its middle, smoothly from one to the next; from the bridge on, just below
+        // the road
         const middles = stretches.map(stretch => [(stretch.start + stretch.end) / 2, stretch.water]);
         const water = local.map((l, i) => {
             if (i <= middles[0][0]) {
@@ -355,34 +357,12 @@ const Track = (() => {
                 }
             }
             return middles[middles.length - 1][1];
-        });
+        }).map((level, i) => level + (CITY_WATER - level) * smooth(stretches[1].start - 10, stretches[1].start + 60, i));
 
-        // Boats spread evenly along the open road from the first tunnel's end, and two more in the longest gaps between
-        // steps 690 and 820 of the mountain
+        // Boats spread evenly along the mountain's river from step 170 to its end, in the tunnels too
         const boat = local.map(() => false);
-        const open = [];
-        for (let l = 290; l < mountain.steps; l++) {
-            if (!tunnel[mountain.start + l]) {
-                open.push(mountain.start + l);
-            }
-        }
         for (let k = 0; k < BOATS; k++) {
-            boat[open[Math.floor((k + 0.5) * open.length / BOATS)]] = true;
-        }
-        const marks = [690];
-        for (let l = 690; l < 820; l++) {
-            if (boat[mountain.start + l]) {
-                marks.push(l);
-            }
-        }
-        marks.push(819);
-        const gaps = [];
-        for (let k = 0; k < marks.length - 1; k++) {
-            gaps.push([marks[k + 1] - marks[k], Math.round((marks[k] + marks[k + 1]) / 2)]);
-        }
-        gaps.sort((a, b) => b[0] - a[0]);
-        for (const [, l] of gaps.slice(0, 2)) {
-            boat[mountain.start + l] = true;
+            boat[mountain.start + Math.round(170 + (k + 0.5) * (mountain.steps - 170) / BOATS)] = true;
         }
 
         // The lamps, from the bridge to the riverside's end

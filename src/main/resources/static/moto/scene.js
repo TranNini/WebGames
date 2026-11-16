@@ -243,8 +243,10 @@ const Scene = (() => {
     // blocks while the valley is deep. In a tunnel: a concrete gallery, pillars with orange lamps every fourth step, the
     // valley seen between them, beams and a red neon line under its roof. Far off, the sky, clouds and four layers of
     // green peaks, rising as the road goes down; day turns to dusk, the peaks fade and Chongqing's towers rise before the
-    // last tunnel. Then the city at night, the user's pictures of it far off: a bridge over the river, then the riverside
-    // under a green bank, lights in the rails and lamp posts, their light on the wet road.
+    // last tunnel. Then Chongqing at night, the river just below the road on both sides, boats with lit decks on it and
+    // the lights' reflections; far off violet hills, the city's towers and the stars coming out. Along the bridge's first
+    // 600 m a hillside of old houses on the left: stilted floors with warm windows, balconies, lanterns and tiled eaves on
+    // a lavender retaining wall; then the riverside, lights in the rails and lamp posts, their light on the wet road.
     const DESCENT = {
         cameraHigh: 2, cameraBack: 6.5, near: 0.52, ahead: 220, behind: 30, kerb: 1.12, roof: 6.7,
         bike: 0.81, // the bikes as tall as the test's riders (1.42 m)
@@ -257,14 +259,25 @@ const Scene = (() => {
     const CITY_COLORS = {
         asph: [[90, 94, 126], [30, 32, 52]], asph2: [[92, 96, 128], [31, 33, 53]], kerb: [[128, 120, 158], [58, 50, 88]],
         rail: [[182, 169, 198], [112, 98, 142]], railD: [[142, 128, 162], [70, 60, 100]], water: [[74, 106, 208], [16, 24, 96]],
-        hill: [[47, 138, 82], [14, 44, 50]], line: [[244, 244, 251], [206, 208, 234]]
+        line: [[244, 244, 251], [206, 208, 234]]
     };
     // On the mountain: a pale road and rails; its blue sky, turning to dusk
     const MOUNTAIN_COLORS = {asph: [182, 182, 176], asph2: [188, 188, 182], kerb: [208, 206, 196], line: [238, 236, 226], rail: [188, 182, 164],
         railD: [150, 144, 126]};
     const MOUNTAIN_SKY = [[118, 158, 214], [176, 204, 230], [214, 228, 236]];
     const DUSK_SKY = [[50, 42, 124], [150, 82, 152], [240, 150, 142]];
-    const PICTURES = {bridge: 'chongqing-bridge.jpg', riverside: 'chongqing-riverside.jpg'}; // 1774 x 470, the horizon at the bottom
+    // The city's sky as the night comes in (from the bridge on, over 3.4 km): its top, middle and horizon, at first and at last
+    const CITY_SKY = [[[54, 38, 116], [14, 12, 62]], [[146, 80, 158], [54, 34, 112]], [[228, 152, 174], [118, 72, 152]]];
+    // The hillside houses: their fronts' colors, their roofs', and how far off the road each of their four tiers stands
+    // (in half road widths)
+    const CITY_FRONTS = [[158, 88, 84], [138, 80, 116], [114, 86, 148], [170, 98, 86], [100, 86, 142]];
+    const CITY_ROOFS = [[60, 40, 84], [98, 52, 58], [74, 46, 70]];
+    const CITY_TIERS = [2.1, 3.1, 4.3, 6.0];
+    // The far hills behind the city: per layer, its waves (how many, how high, phase)
+    const CITY_HILLS = [[[3, 1, 0.4], [7, 0.5, 2.1], [13, 0.25, 4.4]], [[4, 1, 1.3], [9, 0.5, 3.7], [17, 0.25, 0.6]],
+        [[5, 1, 2.2], [11, 0.5, 0.9], [19, 0.25, 5.1]]];
+    const CLOUDS = [[0.05, 0.2, 0.34], [0.28, 0.34, 0.16], [0.5, 0.16, 0.3], [0.72, 0.3, 0.18], [0.9, 0.12, 0.26],
+        [1.15, 0.28, 0.2], [1.4, 0.14, 0.3], [1.65, 0.34, 0.15]];
     const roadX = new Float64Array(DESCENT.ahead + DESCENT.behind + 2); // the road's middle, m sideways, step by step
     const roadZ = new Float64Array(DESCENT.ahead + DESCENT.behind + 2); // how far ahead of the camera, m
     let farShift = 0; // the far view's turn, px, and eased
@@ -273,10 +286,12 @@ const Scene = (() => {
     let descentCity = null;
     let descentGlow = null;
     let descentLamp = null;
-    const pictures = {};
+    const cities = new WeakMap(); // the hillside houses and the boats of each course, as laid out
     // The light where the camera is: time of day, how dark, the sky, the haze far off, the road's colors; on the mountain
-    // (mountain: 1 there, 0 in the city) how far into dusk, how far Chongqing has risen, how far the peaks have faded
-    const light = {tod: 0, night: 0, sky: MOUNTAIN_SKY, haze: MOUNTAIN_SKY[2], colors: {}, mountain: 1, dusk: 0, city: 0, fade: 0};
+    // (mountain: 1 there, 0 in the city) how far into dusk, how far Chongqing has risen, how far the peaks have faded; in the
+    // city how far into the night (cityNight, 0 to 1)
+    const light = {tod: 0, night: 0, sky: MOUNTAIN_SKY, haze: MOUNTAIN_SKY[2], colors: {}, mountain: 1, dusk: 0, city: 0, fade: 0,
+        cityNight: 0};
 
     // The test's hash and random numbers, so its patterns come out the same
     const testHash = i => ((Math.imul(i ^ 0x9e3779b9, 2654435761) >>> 0) % 100000) / 100000;
@@ -363,6 +378,14 @@ const Scene = (() => {
             light.city = smoothStep(830, 970, p - mountain.start);
             light.fade = smoothStep(600, 800, p - mountain.start);
             light.sky = sky.map((c, j) => rgbMix(c, rgbMix(MOUNTAIN_SKY[j], DUSK_SKY[j], light.dusk * 0.95), light.mountain));
+            light.haze = light.sky[2];
+        }
+        // From the bridge on, the city's own sky
+        const bridge = d.stretches[1].start;
+        const city = smoothStep(bridge - 70, bridge + 70, p);
+        light.cityNight = Math.max(0, Math.min(1, (p - bridge) / 1700));
+        if (city > 0) {
+            light.sky = light.sky.map((c, j) => rgbMix(c, rgbMix(CITY_SKY[j][0], CITY_SKY[j][1], light.cityNight), city));
             light.haze = light.sky[2];
         }
     }
@@ -454,143 +477,182 @@ const Scene = (() => {
         }));
     }
 
-    // Chongqing's towers far off, seen from the mountain at dusk: a strip that repeats sideways
+    // Chongqing's towers far off (risen at dusk over the mountain, then behind the city): a strip that repeats sideways;
+    // violet silhouettes behind navy and indigo towers with windows, flat roofs, crown lights and antennas
     function makeDescentCity() {
         return canvasOf(2048, 420, c => {
             const random = testRandom(41);
-            const wrapped = (x, w, paint) => {
-                for (const o of [0, -2048]) {
-                    if (x + o + w < 0 || x + o > 2048) {
-                        continue;
+            const lit = ['#ffd98a', '#ffe9b8', '#ffcf70', '#ffe2a0', '#6fd8ff', '#ff8fc4'];
+            for (let x = 0; x < 2048;) {
+                const w = 30 + random() * 40;
+                const h = 60 + random() * 110;
+                c.fillStyle = '#4a3e8e';
+                c.fillRect(x, 400 - h, Math.min(w, 2048 - x), h + 30);
+                if (random() < 0.5) {
+                    c.fillStyle = 'rgba(170,150,230,.35)';
+                    for (let q = 0; q < 4; q++) {
+                        c.fillRect(x + 5 + random() * (w - 12), 400 - h + 8 + random() * (h - 14), 3, 4);
                     }
-                    c.save();
-                    c.translate(o, 0);
-                    paint();
-                    c.restore();
                 }
-            };
-            const rect = (x, y, w, h, color, r) => wrapped(x, w, () => {
-                c.fillStyle = color;
-                roundRect(c, x, y, w, h, r || 3);
-                c.fill();
-            });
-            const windows = (x, y, w, h, seed, colors) => {
-                const q = testRandom(seed);
-                const across = Math.max(2, Math.round(w / 15));
-                const rows = Math.max(3, Math.round(h / 19));
-                wrapped(x, w, () => {
-                    for (let j = 0; j < rows; j++) {
-                        for (let i = 0; i < across; i++) {
-                            if (q() < 0.42) {
-                                c.fillStyle = colors[(q() * colors.length) | 0];
-                                roundRect(c, x + i * w / across + w / across * 0.22, y + j * h / rows + h / rows * 0.25, w / across * 0.56,
-                                    h / rows * 0.45, 1.2);
-                                c.fill();
-                            }
-                        }
-                    }
-                });
-            };
-            for (let x = 0; x < 2048; x += 24 + random() * 28) {
-                const h = 70 + random() * 150;
-                rect(x, 400 - h, 20 + random() * 30, h + 30, '#34377e', 4);
+                x += w + 2 + random() * 6;
             }
-            const bodies = ['#27327c', '#2c3682', '#303a88'];
-            const tops = ['#ff7aa0', '#5ab0ff', '#ffd070', '#ff9cc0', '#ffe7a8'];
-            let x = 10;
+            const bodies = ['#252a78', '#2b3082', '#202570', '#2f3386'];
+            const crowns = ['#ff7aa8', '#5ab8ff', '#ffd070', '#ff9cc8', '#9ff0ff'];
+            let x = 4;
             let k = 0;
             while (x < 2040) {
-                const w = 44 + random() * 34;
-                const h = 90 + random() * 170;
-                if (x > 470 && x < 580) {
-                    x += w + 6;
-                    continue;
+                const w = 34 + random() * 46;
+                const tall = random() < 0.1;
+                const h = tall ? 250 + random() * 80 : 80 + random() * 150;
+                const ww = Math.min(w, 2048 - x);
+                c.fillStyle = bodies[k % 4];
+                c.fillRect(x, 400 - h, ww, h + 30);
+                c.fillStyle = 'rgba(120,110,210,.25)';
+                c.fillRect(x, 400 - h, 3, h);
+                // The windows: warm yellow, a few pink and cyan
+                const across = Math.max(2, Math.floor(ww / 9));
+                const rows = Math.max(3, Math.floor(h / 13));
+                for (let j = 0; j < rows; j++) {
+                    for (let i = 0; i < across; i++) {
+                        const r = random();
+                        if (r < 0.4) {
+                            c.fillStyle = lit[r < 0.34 ? (random() * 4) | 0 : 4 + ((random() * 2) | 0)];
+                            c.fillRect(x + 3 + i * ((ww - 6) / across), 400 - h + 8 + j * ((h - 12) / rows), Math.max(2, (ww - 6) / across - 3),
+                                Math.max(3, (h - 12) / rows - 5));
+                        }
+                    }
                 }
-                rect(x, 400 - h, w, h + 30, bodies[k % 3], 5);
-                rect(x, 400 - h, w, 8, tops[k % 5], 3);
-                rect(x + w * 0.3, 400 - h - 9, w * 0.4, 11, tops[k % 5], 3);
-                windows(x + 5, 400 - h + 18, w - 10, h - 24, 70 + k, ['#ffe7a8', '#ffd070', '#fff3d0']);
-                x += w + 4 + random() * 10;
+                // On the roof a crown light and an antenna (the tall ones), or a lit edge and a hut
+                const crown = crowns[k % 5];
+                if (tall) {
+                    c.fillStyle = crown;
+                    c.fillRect(x + ww * 0.15, 400 - h - 7, ww * 0.7, 8);
+                    c.fillRect(x + ww * 0.45, 400 - h - 30, 3, 24);
+                    c.fillStyle = 'rgba(255,255,255,.5)';
+                    c.fillRect(x + ww * 0.45 - 1, 400 - h - 32, 5, 4);
+                } else if (random() < 0.45) {
+                    c.fillStyle = crown;
+                    c.fillRect(x + 2, 400 - h - 4, ww - 4, 4);
+                    if (random() < 0.5) {
+                        c.fillStyle = '#403a96';
+                        c.fillRect(x + ww * 0.3, 400 - h - 12, ww * 0.4, 9);
+                    }
+                }
+                x += w + 3 + random() * 7;
                 k++;
             }
-            rect(500, 150, 56, 260, '#2c3680', 7); // the tall tower
-            rect(500, 150, 56, 9, '#9fb6ff', 4);
+            // Haze at the skyline's foot
+            const g = c.createLinearGradient(0, 320, 0, 420);
+            g.addColorStop(0, 'rgba(120,80,170,0)');
+            g.addColorStop(1, 'rgba(120,80,170,.55)');
+            c.fillStyle = g;
+            c.fillRect(0, 320, 2048, 100);
         });
     }
 
-    function pictureOf(kind) {
-        const file = PICTURES[kind];
-        if (!file) {
-            return null;
+    // The city as the test lays it out, numbered by its steps (i = t - 40): along the bridge's first 300 steps the hillside
+    // houses in sections of 5 to 12 steps, each with four tiers of its own heights, colors and roof (lower at first);
+    // and a boat every 330 steps from step 170 of the bridge
+    function cityOf(d) {
+        let city = cities.get(d);
+        if (!city) {
+            const z0 = d.stretches[1].start - 40;
+            const end = z0 + 300;
+            const sections = [];
+            const section = new Int16Array(d.turn.length).fill(-1);
+            const boat = new Uint8Array(d.turn.length);
+            const random = testRandom(913);
+            let i = z0;
+            while (i < end) {
+                const steps = 5 + Math.floor(random() * 8);
+                const ramp = 0.3 + 0.7 * smoothStep(0, 90, i - z0);
+                const t0 = (4.5 + random() * 6) * ramp + 1.5;
+                const t1 = t0 + (5 + random() * 8) * ramp;
+                const t2 = t1 + (7 + random() * 10) * ramp;
+                const t3 = t2 + (10 + random() * 16) * ramp;
+                sections.push({tiers: [t0, t1, t2, t3], front: Math.floor(random() * 5), roof: Math.floor(random() * 3),
+                    shift: [(random() - 0.5) * 0.3, (random() - 0.5) * 0.3, (random() - 0.5) * 0.3, 0], start: i});
+                for (let k = 0; k < steps && i + k < end; k++) {
+                    section[i + k] = sections.length - 1;
+                }
+                i += steps;
+            }
+            for (let l = 170; l < 1900; l += 330) {
+                boat[z0 + l] = 1;
+            }
+            city = {end, sections, section, boat};
+            cities.set(d, city);
         }
-        if (!pictures[kind]) {
-            const image = new Image();
-            image.src = file;
-            pictures[kind] = {image, top: null};
-        }
-        return pictures[kind];
+        return city;
     }
 
-    // One of the city's pictures across the horizon, mirrored every other time so it repeats without a seam; above it, its
-    // sky's color
-    function drawPicture(kind, alpha, horizon) {
-        const picture = pictureOf(kind);
-        if (!picture || !picture.image.complete || !picture.image.naturalWidth || alpha < 0.01) {
+    // The city's far view (alpha: as much as it shows; late: how far into the night): stars once the night comes in, broad
+    // soft clouds, three layers of violet hills and the towers small against the haze
+    function drawCityBack(alpha, late, horizon) {
+        if (alpha < 0.01) {
             return;
-        }
-        const image = picture.image;
-        if (!picture.top) {
-            const pixels = canvasOf(8, 8, c => c.drawImage(image, 0, 0, 1774, 12, 0, 0, 8, 8)).getContext('2d').getImageData(0, 0, 8, 8).data;
-            let r = 0;
-            let g = 0;
-            let b = 0;
-            for (let i = 0; i < 256; i += 4) {
-                r += pixels[i];
-                g += pixels[i + 1];
-                b += pixels[i + 2];
-            }
-            picture.top = [r / 64 | 0, g / 64 | 0, b / 64 | 0];
         }
         const W = width;
         const H = height;
-        const BY = 470;
-        const scale = 0.58 * (W < H ? Math.max(W / 1774 * 1.5, horizon / BY * 0.78) : Math.max(horizon / BY, W / 1774 * 1.15));
-        const shown = Math.min(BY, horizon / scale);
-        const gap = horizon - shown * scale;
-        const [r, g, b] = picture.top;
+        const sky = light.sky;
         ctx.globalAlpha = alpha;
-        if (gap > 0) {
-            ctx.fillStyle = `rgb(${r},${g},${b})`;
-            ctx.fillRect(0, 0, W, gap + 1);
-        }
-        const iw = image.naturalWidth;
-        const tile = iw * scale;
-        const first = Math.floor(farShiftSmooth / tile);
-        const off = farShiftSmooth - first * tile;
-        for (let t = 0; t <= Math.ceil(W / tile) + 1; t++) {
-            const x = -off + t * tile;
-            if ((first + t) & 1) {
-                ctx.save();
-                ctx.translate(x + tile, 0);
-                ctx.scale(-1, 1);
-                ctx.drawImage(image, 0, BY - shown, iw, shown, 0, horizon - shown * scale, tile + 1, shown * scale);
-                ctx.restore();
-            } else {
-                ctx.drawImage(image, 0, BY - shown, iw, shown, x, horizon - shown * scale, tile + 1, shown * scale);
+        if (late > 0.25) {
+            ctx.fillStyle = '#fff';
+            for (let k = 0; k < 42; k++) {
+                const x = ((testHash(k * 7 + 1) * W * 1.6 - farShiftSmooth * 0.04) % W + W) % W;
+                ctx.globalAlpha = alpha * Math.max(0, Math.min(0.7, (late - 0.25) * 1.2)) * (0.5 + 0.5 * testHash(k * 5));
+                ctx.fillRect(x, testHash(k * 11 + 3) * horizon * 0.55, 1.6 * DESCENT.px, 1.6 * DESCENT.px);
             }
+            ctx.globalAlpha = alpha;
         }
-        if (gap > 0) {
-            const fade = ctx.createLinearGradient(0, gap, 0, gap + H * 0.07);
-            fade.addColorStop(0, `rgba(${r},${g},${b},1)`);
-            fade.addColorStop(1, `rgba(${r},${g},${b},0)`);
-            ctx.fillStyle = fade;
-            ctx.fillRect(0, gap, W, H * 0.07);
+        const white = rgb(rgbMix(sky[1], [255, 200, 224], 0.4));
+        const shade = rgb(rgbMix(sky[1], [255, 200, 224], 0.18));
+        for (const [fx, fy, fs] of CLOUDS) {
+            const span = W * 2.2;
+            cloud(((fx * span - farShiftSmooth * 0.2) % span + span) % span - W * 0.2, horizon * fy * 0.9, W * fs * 0.5, white, shade);
         }
+        const layers = [[0.28, 0.34, 0.4], [0.4, 0.28, 0.33], [0.55, 0.22, 0.27]]; // per layer: its turn, -, its height
+        const colors = [rgbMix(sky[2], [96, 80, 170], 0.42), rgbMix(sky[2], [60, 52, 134], 0.62), rgbMix(sky[2], [36, 34, 98], 0.82)];
+        for (let j = 0; j < 3; j++) {
+            const span = H * 1.6 * (1 + j * 0.35);
+            const off = farShiftSmooth * layers[j][0];
+            const foot = horizon + H * 0.01;
+            const high = H * layers[j][2];
+            ctx.fillStyle = rgb(colors[j]);
+            ctx.beginPath();
+            ctx.moveTo(-10, foot + 4 * DESCENT.px);
+            for (let x = -10; x <= W + 14; x += 12 * DESCENT.px) {
+                const u = (x + off) / span * 6.2832;
+                let v = 0;
+                for (const [waves, high2, phase] of CITY_HILLS[j]) {
+                    v += high2 * Math.sin(u * waves + phase);
+                }
+                v = 0.5 + 0.5 * v / 1.75;
+                ctx.lineTo(x, foot - high * (0.25 + 0.75 * v) * (1 - j * 0.18));
+            }
+            ctx.lineTo(W + 14, foot + 4 * DESCENT.px);
+            ctx.closePath();
+            ctx.fill();
+        }
+        descentCity = descentCity || makeDescentCity();
+        const s = H * 0.3 / 420;
+        const y = horizon + 20 * s;
+        const tile = 2048 * s;
+        const off = ((farShiftSmooth * 0.6) % tile + tile) % tile;
+        for (let x = -off; x < W; x += tile) {
+            ctx.drawImage(descentCity, x, y - 420 * s, tile + 1, 420 * s);
+        }
+        const [r, g, b] = sky[2].map(c => c | 0);
+        const haze = ctx.createLinearGradient(0, horizon - H * 0.1, 0, horizon + 2);
+        haze.addColorStop(0, `rgba(${r},${g},${b},0)`);
+        haze.addColorStop(1, `rgba(${r},${g},${b},.5)`);
+        ctx.fillStyle = haze;
+        ctx.fillRect(0, horizon - H * 0.1, W, H * 0.1 + 2);
         ctx.globalAlpha = 1;
     }
 
-    // The far view: the sky, the city's pictures; on the mountain its own sky, clouds and peaks over them (lower at the
-    // summit, rising as the road goes down: down is 0 to 1), and Chongqing rising at dusk
+    // The far view: the sky, the city's; on the mountain its own sky, clouds and peaks over them (lower at the summit,
+    // rising as the road goes down: down is 0 to 1), and Chongqing rising at dusk
     function drawDescentBack(d, p, horizon, down) {
         const W = width;
         const H = height;
@@ -601,18 +663,18 @@ const Scene = (() => {
         g.addColorStop(1, rgb(sky[2]));
         ctx.fillStyle = g;
         ctx.fillRect(0, 0, W, horizon + 2);
+        // The city's far view comes in as the mountain ends (stretch 0 is the mountain, the others are the city)
         let drawn = false;
         for (let k = 0; k < d.stretches.length - 1; k++) {
             const b = d.stretches[k].end;
             if (p > b - 70 && p < b + 70) {
-                drawPicture(d.stretches[k].kind, 1, horizon);
-                drawPicture(d.stretches[k + 1].kind, smoothStep(b - 70, b + 70, p), horizon);
+                drawCityBack(k > 0 ? 1 : smoothStep(b - 70, b + 70, p), light.cityNight, horizon);
                 drawn = true;
                 break;
             }
         }
-        if (!drawn) {
-            drawPicture(d.kind[Math.max(0, Math.min(d.kind.length - 1, Math.floor(p)))], 1, horizon);
+        if (!drawn && d.kind[Math.max(0, Math.min(d.kind.length - 1, Math.floor(p)))] !== 'mountain') {
+            drawCityBack(1, light.cityNight, horizon);
         }
         const [hr, hg, hb] = light.haze.map(c => c | 0);
         const haze = ctx.createLinearGradient(0, horizon - H * 0.04, 0, horizon + 2);
@@ -648,8 +710,7 @@ const Scene = (() => {
         ctx.fillRect(0, horizon, W, H - horizon);
         const white = rgb(rgbMix([255, 255, 255], [255, 196, 206], light.dusk));
         const shade = rgb(rgbMix([200, 216, 238], [160, 120, 186], light.dusk));
-        for (const [fx, fy, fs] of [[0.05, 0.2, 0.34], [0.28, 0.34, 0.16], [0.5, 0.16, 0.3], [0.72, 0.3, 0.18], [0.9, 0.12, 0.26],
-            [1.15, 0.28, 0.2], [1.4, 0.14, 0.3], [1.65, 0.34, 0.15]]) {
+        for (const [fx, fy, fs] of CLOUDS) {
             const span = W * 2.2;
             const x = ((fx * span - farShiftSmooth * 0.2) % span + span) % span - W * 0.2;
             cloud(x, horizon * fy * 0.9, W * fs * 0.5, white, shade);
@@ -779,6 +840,196 @@ const Scene = (() => {
             ctx.lineTo(cx + hw * 0.8, by - 3.3 * pp);
             ctx.lineTo(cx + hw * 0.8 + 0.8 * pp, by - 2.3 * pp);
             ctx.closePath();
+            ctx.fill();
+        }
+    }
+
+    // A river boat in the city, 70 to 110 m off the road (now and then on the left, where no houses are): a dark hull with
+    // its light on the water, three white decks with lit windows, a red funnel
+    function drawCityBoat(city, i, sx1, pp, by, f) {
+        const px = DESCENT.px;
+        const off = (70 + 40 * testHash(i * 3 + 1)) * (city.section[i] < 0 && testHash(i * 5 + 2) < 0.5 ? -1 : 1);
+        const cx = sx1 + off * pp;
+        const hw = 11 * pp;
+        const ff = f * 0.5;
+        if (hw < 4 * px) {
+            return;
+        }
+        ctx.fillStyle = `rgba(255,214,140,${0.22 * (1 - ff)})`;
+        ctx.beginPath();
+        ctx.ellipse(cx, by + 0.9 * pp, hw * 0.95, 0.55 * pp, 0, 0, 7);
+        ctx.fill();
+        four(hazed([58, 46, 88], ff), cx - hw, by - 1.1 * pp, cx + hw * 1.08, by - 1.25 * pp, cx + hw * 0.92, by + 0.05 * pp, cx - hw * 0.86, by + 0.05 * pp);
+        const deck = (x0, x1, yb, h, color) => {
+            ctx.fillStyle = hazed(color, ff);
+            ctx.fillRect(x0, yb - h, x1 - x0, h);
+            const windows = Math.max(4, Math.round((x1 - x0) / (1.25 * pp)));
+            ctx.fillStyle = hazed([255, 214, 130], ff * 0.6);
+            for (let q = 0; q < windows; q++) {
+                ctx.fillRect(x0 + (q + 0.2) * (x1 - x0) / windows, yb - h * 0.72, (x1 - x0) / windows * 0.58, h * 0.42);
+            }
+        };
+        deck(cx - hw * 0.92, cx + hw * 0.98, by - 1.1 * pp, 1.7 * pp, [238, 234, 226]);
+        deck(cx - hw * 0.72, cx + hw * 0.78, by - 2.8 * pp, 1.6 * pp, [250, 238, 196]);
+        deck(cx - hw * 0.42, cx + hw * 0.4, by - 4.4 * pp, 1.5 * pp, [240, 236, 228]);
+        ctx.fillStyle = hazed([146, 58, 70], ff);
+        ctx.fillRect(cx - 0.5 * pp, by - 6.7 * pp, 1.1 * pp, 1.4 * pp);
+        lampGlow(cx, by - 4.4 * pp, pp * 4, 0.5);
+    }
+
+    // The hillside houses on the left in step i (numbered as in the test), seen at the road's step n: a dark mass behind,
+    // four tiers of house fronts (far to near) with posts, rows of warm windows and long wooden balconies, paper lanterns
+    // under the eaves and the tiled eaves themselves; below them the lavender retaining wall, bushes along its top and a
+    // tree where a section begins. Towards the end they get lower and the wall goes down to the road
+    function drawCityHouses(city, i, n, {sx1, sx2, w1, w2, y1, y2, pp1, pp2, f, yAt}) {
+        const house = city.sections[city.section[i]];
+        const px = DESCENT.px;
+        const lerp = (a, b, t) => a + (b - a) * t;
+        const BASE = 2.4;
+        const low = 1 - smoothStep(city.end - 70, city.end, i);
+        const wall = 1 - smoothStep(city.end - 28, city.end, i);
+        const foot = BASE * wall;
+        const tiers = house.tiers.map(v => foot + (v - BASE) * low);
+        const ex = 1.3 * px;
+        const first = i === house.start;
+        const into = i - house.start;
+        const by1 = yAt(foot, n);
+        const by2 = yAt(foot, n + 1);
+        {
+            const o = CITY_TIERS[3] + 0.4;
+            const xa1 = sx1 - o * w1;
+            const xa2 = sx2 - o * w2;
+            const top1 = yAt(tiers[3] * 0.85, n);
+            const top2 = yAt(tiers[3] * 0.85, n + 1);
+            const dark = hazed([40, 32, 90], f);
+            four(dark, -4, by1, xa1, by1, xa1, top1, -4, top1);
+            four(dark, xa1, by1, xa2 + ex, by2, xa2 + ex, top2, xa1, top1);
+        }
+        for (let k = 3; k >= 0; k--) {
+            const o = CITY_TIERS[k] + house.shift[k];
+            const xa1 = sx1 - o * w1;
+            const xa2 = sx2 - o * w2;
+            const top = tiers[k];
+            const ty1 = yAt(top, n);
+            const ty2 = yAt(top, n + 1);
+            const under = k === 0 ? foot : tiers[k - 1];
+            four(hazed(rgbMix(CITY_FRONTS[house.front], [70, 52, 120], k * 0.14), f), xa1, by1, xa2 + ex, by2, xa2 + ex, ty2, xa1, ty1);
+            // Dark wooden posts every three bays
+            if (into % 3 === 0) {
+                const x = lerp(xa1, xa2, 0.1);
+                four(hazed([50, 30, 46], f), xa1, by1, x, lerp(by1, by2, 0.1), x, lerp(ty1, ty2, 0.1), xa1, ty1);
+            }
+            // Rows of warm windows and long wooden balconies
+            if (n < 120 && pp1 > 2.2 * px && k < 3) {
+                const floor = 3.2;
+                for (let q = Math.max(0, Math.ceil((under - foot - 0.9) / floor)); q < 40; q++) {
+                    const hb = foot + q * floor + 0.9;
+                    const ht = hb + 1.7;
+                    if (ht > top - 0.5) {
+                        break;
+                    }
+                    const hs = testHash(i * 31 + k * 7 + q * 13 + house.start);
+                    const xl = lerp(xa1, xa2, 0.2);
+                    const xr = lerp(xa1, xa2, 0.8);
+                    const b1 = yAt(hb, n);
+                    const b2 = yAt(hb, n + 1);
+                    const t1 = yAt(ht, n);
+                    const t2 = yAt(ht, n + 1);
+                    four(hs < 0.84 ? hazed(hs < 0.3 ? [255, 236, 170] : hs < 0.6 ? [255, 204, 100] : [255, 178, 80], f * 0.5) : hazed([64, 40, 70], f),
+                        xl, lerp(b1, b2, 0.2), xr, lerp(b1, b2, 0.8), xr, lerp(t1, t2, 0.8), xl, lerp(t1, t2, 0.2));
+                    if (k < 2 && pp1 > 3.5 * px) {
+                        const hf = foot + q * floor + 0.2;
+                        const xo1 = sx1 - (o - 0.45) * w1;
+                        const xo2 = sx2 - (o - 0.45) * w2;
+                        const g1 = yAt(hf + 0.14, n);
+                        const g2 = yAt(hf + 0.14, n + 1);
+                        four(hazed([70, 42, 54], f), xa1, yAt(hf, n), xa2 + ex, yAt(hf, n + 1), xo2 + ex, g2, xo1, g1);
+                        four(hazed([108, 66, 64], f), xo1, g1, xo2 + ex, g2, xo2 + ex, yAt(hf + 0.55, n + 1), xo1, yAt(hf + 0.55, n));
+                    }
+                }
+            }
+            // Paper lanterns under the eaves, and a warm wash of light on the lowest fronts
+            if (into % 3 === 0 && n < 110 && k < 3) {
+                const lx = lerp(xa1, xa2, 0.1) + (sx1 - (o - 0.38) * w1 - xa1) * 0.9;
+                const ly = yAt(top - 0.3, n);
+                ctx.fillStyle = hazed([255, 96, 64], f * 0.4);
+                ctx.beginPath();
+                ctx.arc(lx, ly + pp1 * 0.35, Math.max(1.2 * px, pp1 * 0.32), 0, 7);
+                ctx.fill();
+                lampGlow(lx, ly + pp1 * 0.3, pp1 * 2.6, 0.55);
+            }
+            if (k === 0 && n < 120 && into % 2 === 0) {
+                ctx.save();
+                ctx.globalCompositeOperation = 'lighter';
+                four('rgba(255,170,90,.12)', xa1, by1, xa2 + ex, by2, xa2 + ex, yAt(foot + (top - foot) * 0.55, n + 1), xa1, yAt(foot + (top - foot) * 0.55, n));
+                ctx.restore();
+            }
+            // Wide eaves with a tiled edge, turned up at the section's corner
+            {
+                const e = 0.38;
+                const xo1 = sx1 - (o - e) * w1;
+                const xo2 = sx2 - (o - e) * w2;
+                const yo1 = yAt(top + 0.25, n);
+                const yo2 = yAt(top + 0.25, n + 1);
+                const yf1 = yAt(top + 0.9, n);
+                const yf2 = yAt(top + 0.9, n + 1);
+                four(hazed(CITY_ROOFS[house.roof], f), xa1, ty1, xa2 + ex, ty2, xo2 + ex, yo2, xo1, yo1);
+                const tile = hazed(rgbMix(CITY_ROOFS[house.roof], [230, 150, 140], 0.38), f);
+                four(tile, xo1, yo1, xo2 + ex, yo2, xo2 + ex, yf2, xo1, yf1);
+                if (first && n < 130) {
+                    ctx.beginPath();
+                    ctx.moveTo(xo1, yo1);
+                    ctx.lineTo(sx1 - (o - e - 0.5) * w1, yAt(top + 1.3, n));
+                    ctx.lineTo(xo1, yf1);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+            }
+        }
+        // The retaining wall: lavender panels with darker seams, a lit one now and then
+        const xw1 = sx1 - 1.34 * w1;
+        const xw2 = sx2 - 1.34 * w2;
+        const panel = hazed(Math.floor(i / 4) & 1 ? [124, 110, 174] : [116, 102, 166], f);
+        if (xw1 > -4) {
+            four(panel, -4, y1, xw1, y1, xw1, by1, -4, by1);
+        }
+        four(panel, xw1, y1, xw2 + ex, y2, xw2 + ex, by2, xw1, by1);
+        four(hazed([152, 140, 198], f), xw1, yAt(foot - 0.3, n), xw2 + ex, yAt(foot - 0.3, n + 1), xw2 + ex, by2, xw1, by1);
+        if (n < 130 && i % 6 === 1 && wall > 0.3) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            four('rgba(255,176,96,.16)', xw1, y1, xw2 + ex, y2, xw2 + ex, by2, xw1, by1);
+            ctx.restore();
+            lampGlow((xw1 + xw2) / 2, (by1 + by2) / 2, (pp1 + pp2) * 1.6, 0.5);
+        }
+        if (i % 4 === 0) {
+            const xs = lerp(xw1, xw2, 0.1);
+            four(hazed([86, 74, 134], f), xw1, y1, xs, lerp(y1, y2, 0.1), xs, lerp(by1, by2, 0.1), xw1, by1);
+        }
+        // Rounded bushes along the wall's top, and a tree where a section begins
+        if (n < 110 && n > 3 && wall > 0.35 && testHash(i * 17 + 3) < 0.5) {
+            const cx = (sx1 + sx2) / 2 - 1.45 * (w1 + w2) / 2;
+            const cy = (by1 + by2) / 2;
+            const r = (0.38 + testHash(i * 5 + 1) * 0.42) * (pp1 + pp2) / 2;
+            for (let q = 0; q < 3; q++) {
+                const hq = testHash(i * 9 + q * 4 + 2);
+                ctx.fillStyle = hazed(hq < 0.33 ? [40, 102, 98] : hq < 0.66 ? [58, 126, 108] : [34, 86, 92], f);
+                ctx.beginPath();
+                ctx.arc(cx + (q - 1) * r * 0.9, cy - r * (0.45 + (q === 1 ? 0.35 : 0)), r * (q === 1 ? 1.05 : 0.8), 0, 7);
+                ctx.fill();
+            }
+        }
+        if (first && n < 130 && testHash(house.start * 3 + 1) < 0.7) {
+            const cx = sx1 - (CITY_TIERS[0] + house.shift[0] - 0.2) * w1;
+            const cy = yAt(tiers[0] + 0.6, n);
+            const r = 1.2 * pp1 * Math.min(1, low * 2);
+            ctx.fillStyle = hazed([40, 98, 92], f);
+            ctx.beginPath();
+            ctx.arc(cx, cy - r * 0.6, r, 0, 7);
+            ctx.fill();
+            ctx.fillStyle = hazed([58, 120, 102], f);
+            ctx.beginPath();
+            ctx.arc(cx - r * 0.4, cy - r * 0.9, r * 0.6, 0, 7);
             ctx.fill();
         }
     }
@@ -914,8 +1165,14 @@ const Scene = (() => {
                     four(concrete, -4, tc1, rb1, tc1, rb1, h2, -4, h2);
                     four(concrete, xr1, h2, rb1, h2, rb1, yb1, xr1, yb1);
                 }
-                // Between the pillars: the valley and the river
-                drawValleyFloor(d, t, sx1, sx2, w1, w2, yAt(-d.valley[t], n), yAt(-d.valley[t + 1], n + 1), f, xr1, xr2);
+                // Between the pillars: the valley, the river and its boats
+                const b1 = yAt(-d.valley[t], n);
+                const b2 = yAt(-d.valley[t + 1], n + 1);
+                const river = drawValleyFloor(d, t, sx1, sx2, w1, w2, b1, b2, f, xr1, xr2);
+                if (river && d.boat[t] && n >= 6 && n < 160) {
+                    const hv3 = testHash(i * 13 + 2);
+                    drawBoat(sx1 + (river[0] + river[1]) / 2 * w1 + (hv3 - 0.5) * 0.9 * w1, (b1 + b2) / 2, pp1, f2 * 0.7, hv3);
+                }
                 for (const side of [-1, 1]) {
                     const e = side < 0 ? -4 : W + 4;
                     const a1 = sx1 + side * hl * w1;
@@ -1012,34 +1269,42 @@ const Scene = (() => {
                     }
                 }
             } else {
-                // The city: the river below on the right (and on the left, on the bridge), lights on it at night; along the
-                // riverside a green bank on the left
+                // The city: the river just below the road on the right, its violet swell, a boat now and then, the lights'
+                // reflections; on the left the hillside houses, or the river
+                const city = cityOf(d);
                 const wy1 = yAt(d.water[t], n);
                 const wy2 = yAt(d.water[t], n + 1);
-                const water = hazed(rgbMix(colors.water, i % 4 < 2 ? [255, 255, 255] : [0, 0, 0], 0.012), f);
+                const water = hazed(rgbMix(rgbMix(colors.water, [18, 26, 88], 0.35), [76, 48, 140],
+                    (0.5 + 0.5 * Math.sin(i * 0.037 + Math.sin(i * 0.011) * 2)) * 0.5), f);
                 four(water, xr1, wy1, W + 4, wy1, W + 4, wy2, xr2, wy2);
-                if (night > 0.15 && i % 3 === 0) {
+                if (city.boat[i] && n >= 8) {
+                    drawCityBoat(city, i, sx1, pp1, (wy1 + wy2) / 2, f);
+                }
+                if (i % 2 === 0 && n > 12) {
                     const hv = testHash(i * 7 + 1);
                     const hv2 = testHash(i * 13 + 5);
-                    if (hv < 0.55) {
+                    if (hv < 0.85) {
+                        const side = city.section[i] < 0 && i % 4 === 2 ? -1 : 1;
+                        const cx = sx1 + side * (14 + hv * 110) * pp1;
+                        const cy = (wy1 + wy2) / 2;
+                        const rx = (3 + hv2 * 8) * pp1;
+                        const ry = Math.max(0.8 * px, rx * 0.07);
                         ctx.save();
                         ctx.globalCompositeOperation = 'lighter';
-                        const off = 5 + hv * 26;
-                        const wide = 0.6 + hv2 * 1.6;
-                        const z3 = Z(n + 3);
-                        const wy3 = yAt(d.water[t], n + 3);
-                        four(hv2 < 0.5 ? `rgba(255,176,74,${0.26 * night})` : hv2 < 0.75 ? `rgba(255,90,190,${0.24 * night})` : `rgba(110,170,255,${0.24 * night})`,
-                            W / 2 + F * (X(n) + off - cameraX) / z1, wy1, W / 2 + F * (X(n) + off + wide - cameraX) / z1, wy1,
-                            W / 2 + F * (X(n + 3) + off + wide - cameraX) / z3, wy3, W / 2 + F * (X(n + 3) + off - cameraX) / z3, wy3);
+                        ctx.fillStyle = hv2 < 0.4 ? 'rgba(255,176,74,.24)' : hv2 < 0.7 ? 'rgba(255,96,170,.2)' : 'rgba(255,224,120,.22)';
+                        ctx.beginPath();
+                        ctx.ellipse(cx, cy, rx, ry, 0, 0, 7);
+                        ctx.fill();
+                        ctx.beginPath();
+                        ctx.ellipse(cx, cy, rx * 0.45, ry * 0.6, 0, 0, 7);
+                        ctx.fill();
                         ctx.restore();
                     }
                 }
-                if (d.kind[t] !== 'riverside') {
-                    four(water, -4, wy1, xl1, wy1, xl2, wy2, -4, wy2);
+                if (city.section[i] >= 0) {
+                    drawCityHouses(city, i, n, {sx1, sx2, w1, w2, y1, y2, pp1, pp2, f, yAt});
                 } else {
-                    const hy1 = yAt(-4, n);
-                    const hy2 = yAt(-4, n + 1);
-                    four(hazed(rgbMix(colors.hill, i % 4 < 2 ? [255, 255, 255] : [0, 0, 0], 0.012), f), -4, hy1, xl1, hy1, xl2, hy2, -4, hy2);
+                    four(water, -4, wy1, xl1, wy1, xl2, wy2, -4, wy2);
                 }
             }
 

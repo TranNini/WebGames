@@ -165,18 +165,18 @@ turns and steep hills, cacti, boulders and mesas; its medium has as much on the 
 that on a wilder road with higher crests, deeper drops and bends to brake for), **Forest** (winding through pines and birches at dusk) and **Chongqing**
 (up and down the mountain city at night: lit towers on the hills, a river with an arch bridge, houses on stilts, red
 lanterns, big fig trees, and a monorail over the road with its train going by; bamboo baskets of oranges on the road),
-all drawn in code. **Tianmen** is ridden once from start to goal and looks exactly like the user's test page
-(`tianmen-to-chongqing-course_backup-before-copy.html`, 2026-11-16): its camera, its 2 m steps, its colors, its light
-and its course, 5.9 km in three stretches. First the mountain: 2 km down ten hairpins and about 310 m of drop, the last
+all drawn in code. **Tianmen** is ridden once from start to goal and is exactly the user's test page
+(`tianmen-to-chongqing-course.html`, "real game version", 2026-11-17, which runs the game's own `track.js` and
+`scene.js`): 5.8 km in three stretches. First the mountain: 1.95 km down ten hairpins and about 310 m of drop, the last
 part steep through the third tunnel. A forest slope is on the left, a stone wall over the valley on the right, guardrails
 on both sides, and a river with 16 junks and sampans runs along the valley floor (seen between the tunnel pillars too).
 The tunnels are concrete galleries with orange lamps, open sides and a red neon line. Green peaks far off rise as the
 road goes down, day turns to dusk, the peaks fade, and Chongqing's towers come up. The last tunnel comes out in Chongqing
-at night: a bridge, then the riverside, the river just below the road on both sides with its lights' reflections and
-river boats with lit decks. Along the bridge's first 600 m a hillside of old houses stands on the left (stilted tiers
-with warm windows, balconies, lanterns and tiled eaves on a lavender retaining wall). Far off, all drawn: violet hills,
-the city's towers, clouds, and stars as the night deepens. Lights are in the rails, lamp posts along the riverside, and
-their glow is on the wet road. Its bends push a bike out a third as hard as they look (a fifth on
+at night. First comes the old town: 600 m of hillside houses on the left (stilted tiers with warm windows, balconies,
+red paper lanterns and tiled eaves on a lavender retaining wall). Then, 300 m on, a long straight cable-stayed bridge
+over the river far below, with two pale A-frame pylons, red stay cables, a blinking light on top, amber lights in the
+barriers and a yellow line on the left. Then the riverside. Far off, all drawn: violet hills, the city's towers, clouds,
+and stars as the night deepens; river boats with lit decks, reflections, lamp posts and their glow on the wet road. Its bends push a bike out a third as hard as they look (a fifth on
 easy), and in the hairpins a bike goes up to 40% slower by itself. The bike can't leave the road (rubbing along a rail
 slows it down). On medium and hard, stone sledges (a wooden sledge hauling a cut stone block) stand on the road
 among the trucks, mopeds and rockslides, inside the lit tunnels too (not at their mouths). (Chongqing was briefly, on 2026-11-14, a ride

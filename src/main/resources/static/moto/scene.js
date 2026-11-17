@@ -374,9 +374,9 @@ const Scene = (() => {
             for (const key in MOUNTAIN_COLORS) {
                 light.colors[key] = rgbMix(light.colors[key], MOUNTAIN_COLORS[key], light.mountain);
             }
-            light.dusk = smoothStep(560, 860, p - mountain.start);
-            light.city = smoothStep(830, 970, p - mountain.start);
-            light.fade = smoothStep(600, 800, p - mountain.start);
+            light.dusk = smoothStep(535, 835, p - mountain.start);
+            light.city = smoothStep(805, 945, p - mountain.start);
+            light.fade = smoothStep(575, 775, p - mountain.start);
             light.sky = sky.map((c, j) => rgbMix(c, rgbMix(MOUNTAIN_SKY[j], DUSK_SKY[j], light.dusk * 0.95), light.mountain));
             light.haze = light.sky[2];
         }
@@ -881,6 +881,107 @@ const Scene = (() => {
     // four tiers of house fronts (far to near) with posts, rows of warm windows and long wooden balconies, paper lanterns
     // under the eaves and the tiled eaves themselves; below them the lavender retaining wall, bushes along its top and a
     // tree where a section begins. Towards the end they get lower and the wall goes down to the road
+    // A traditional red paper lantern (cord, gold caps, ribbed round body), simple when far off; u: px to a metre
+    function redLantern(x, y, u, f) {
+        const px = DESCENT.px;
+        const R = Math.max(1.6 * px, u * 0.62);
+        const Hh = R * 0.86;
+        const red = hazed([214, 30, 38], f * 0.4);
+        const gold = hazed([240, 196, 84], f * 0.5);
+        if (R < 6 * px) {
+            ctx.fillStyle = red;
+            ctx.fillRect(x - R, y + u * 0.3, R * 2, Hh * 1.9);
+            return;
+        }
+        if (R < 11 * px) {
+            ctx.fillStyle = red;
+            ctx.beginPath();
+            ctx.ellipse(x, y + u * 0.45 + Hh, R, Hh, 0, 0, 7);
+            ctx.fill();
+            ctx.fillStyle = gold;
+            ctx.fillRect(x - R * 0.6, y + u * 0.4, R * 1.2, Math.max(1.2 * px, u * 0.16));
+            return;
+        }
+        const cy = y + u * 0.45 + Hh;
+        ctx.strokeStyle = hazed([70, 40, 36], f);
+        ctx.lineWidth = Math.max(0.6 * px, u * 0.05);
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x, y + u * 0.45);
+        ctx.stroke();
+        ctx.fillStyle = red;
+        ctx.beginPath();
+        ctx.ellipse(x, cy, R, Hh, 0, 0, 7);
+        ctx.fill();
+        ctx.fillStyle = hazed([244, 70, 64], f * 0.4);
+        ctx.beginPath();
+        ctx.ellipse(x - R * 0.28, cy - Hh * 0.18, R * 0.34, Hh * 0.62, 0, 0, 7);
+        ctx.fill();
+        ctx.strokeStyle = hazed([150, 16, 28], f * 0.4);
+        ctx.lineWidth = Math.max(0.5 * px, u * 0.04);
+        for (const k of [0.36, 0.7]) {
+            ctx.beginPath();
+            ctx.ellipse(x, cy, R * k, Hh, 0, 0, 7);
+            ctx.stroke();
+        }
+        ctx.fillStyle = gold;
+        const cw = R * 0.62;
+        const ch = Math.max(1.2 * px, u * 0.16);
+        ctx.fillRect(x - cw, y + u * 0.45 - ch * 0.3, cw * 2, ch);
+        ctx.fillRect(x - cw, cy + Hh - ch * 0.7, cw * 2, ch);
+    }
+
+    // Which lantern spots are kept (83 of every 91), so the section ends up with 290
+    function lanternKept(city, i) {
+        const q = Math.floor(i / 3) - Math.floor((city.end - 300) / 3);
+        return Math.floor((q + 1) * 83 / 91) > Math.floor(q * 83 / 91);
+    }
+
+    function lanternFade(city, i) {
+        const kb = 1 - smoothStep(city.end - 70, city.end, i);
+        return Math.max(0, Math.min(1, (kb - 0.35) / 0.4));
+    }
+
+    function lastLantern(city) {
+        if (city.lastLantern === undefined) {
+            city.lastLantern = -1;
+            for (let i = city.end - 1; i >= city.end - 300 && city.lastLantern < 0; i--) {
+                if (i % 3 === 0 && lanternFade(city, i) > 0 && lanternKept(city, i)) {
+                    city.lastLantern = i;
+                }
+            }
+        }
+        return city.lastLantern;
+    }
+
+    // The cable-stayed bridge: its deck starts 300 m after the old-town houses end; two pylons; the river lies far below it
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const BRIDGE_XO = 120; // steps kept behind the camera in the sideways array
+    const bridgeX = new Float64Array(BRIDGE_XO + 1700);
+    const PYL = [[6, 0], [4.9, 12], [3.7, 26], [2.5, 40], [1.6, 52], [1.0, 62]]; // a pylon leg: how far from the middle (m), how high (m)
+    const PYLON_COLOR = [236, 228, 252];
+    const PYLON_DARK = [178, 164, 222];
+    const legLat = h => {
+        for (let k = 0; k < PYL.length - 1; k++) {
+            if (h <= PYL[k + 1][1]) {
+                return PYL[k][0] + (PYL[k + 1][0] - PYL[k][0]) * (h - PYL[k][1]) / (PYL[k + 1][1] - PYL[k][1]);
+            }
+        }
+        return 1;
+    };
+
+    function bridgeOf(d) {
+        if (!d.bridge) {
+            const T0 = d.stretches[1].start;
+            const BR0 = T0 + 300 + 150; // the houses end 300 steps in; then 300 m (150 steps) of road
+            d.bridge = {T0, BR0, BRP: [BR0 + 110, BR0 + 375], BRE: BR0 + 650};
+            for (let i = T0; i < d.water.length; i++) {
+                d.water[i] -= 20 * smoothStep(BR0 - 80, BR0 + 30, i);
+            }
+        }
+        return d.bridge;
+    }
+
     function drawCityHouses(city, i, n, {sx1, sx2, w1, w2, y1, y2, pp1, pp2, f, yAt}) {
         const house = city.sections[city.section[i]];
         const px = DESCENT.px;
@@ -913,14 +1014,55 @@ const Scene = (() => {
             const ty1 = yAt(top, n);
             const ty2 = yAt(top, n + 1);
             const under = k === 0 ? foot : tiers[k - 1];
+            // Where the houses come down at the section's end and no window fits any more: bushes instead of the roof
+            if (k < 3 && low < 1 && foot + Math.max(0, Math.ceil((under - foot - 0.9) / 3.2)) * 3.2 + 2.6 > top - 0.5) {
+                const cx = (xa1 + xa2) / 2;
+                const cy = (by1 + by2) / 2;
+                const r = (0.9 + testHash(i * 5 + k * 3 + 1) * 0.6) * (pp1 + pp2) / 2;
+                for (let q = 0; q < 3; q++) {
+                    const hq = testHash(i * 9 + q * 4 + k * 2 + 2);
+                    ctx.fillStyle = hazed(hq < 0.33 ? [40, 102, 98] : hq < 0.66 ? [58, 126, 108] : [34, 86, 92], f);
+                    ctx.beginPath();
+                    ctx.arc(cx + (q - 1) * r * 0.9, cy - r * (0.45 + (q === 1 ? 0.35 : 0)), r * (q === 1 ? 1.05 : 0.8), 0, 7);
+                    ctx.fill();
+                }
+                continue;
+            }
             four(hazed(rgbMix(CITY_FRONTS[house.front], [70, 52, 120], k * 0.14), f), xa1, by1, xa2 + ex, by2, xa2 + ex, ty2, xa1, ty1);
+            // The end face of each section: its side seen from the road, with its own rows of windows and a corner lantern
+            if (first && n < 150 && lanternFade(city, i) > 0 && pp1 > 1.2 * px) {
+                const xd = sx1 - (o + 2.6) * w1;
+                const yb = yAt(under, n);
+                const yt = ty1;
+                four(hazed(rgbMix(rgbMix(CITY_FRONTS[house.front], [70, 52, 120], k * 0.14), [48, 34, 84], 0.38), f), xd, yb, xa1, yb, xa1, yt, xd, yt);
+                if (k < 3) {
+                    for (let q = Math.max(0, Math.ceil((under - foot - 0.9) / 3.2)); q < 40; q++) {
+                        const hb2 = foot + q * 3.2 + 0.9;
+                        if (hb2 + 1.7 > top - 0.5) {
+                            break;
+                        }
+                        const ya = yAt(hb2, n);
+                        const yz = yAt(hb2 + 1.7, n);
+                        for (let c = 0; c < 3; c++) {
+                            const hs2 = testHash(i * 19 + k * 5 + q * 11 + c * 3);
+                            ctx.fillStyle = hs2 < 0.82 ? hazed(hs2 < 0.3 ? [255, 248, 206] : hs2 < 0.6 ? [255, 226, 132] : [255, 200, 104], f * 0.3) : hazed([64, 40, 70], f);
+                            ctx.fillRect(lerp(xd, xa1, 0.1 + c * 0.3), yz, lerp(xd, xa1, 0.32 + c * 0.3) - lerp(xd, xa1, 0.1 + c * 0.3), ya - yz);
+                        }
+                    }
+                    if (n < 110 && city.section[i] % 3 !== 0) {
+                        const lx = lerp(xd, xa1, 0.5);
+                        lampGlow(lx, yt + pp1 * 1.1, pp1 * 3.8, 0.95 * lanternFade(city, i));
+                        redLantern(lx, yt, pp1, f);
+                    }
+                }
+            }
             // Dark wooden posts every three bays
             if (into % 3 === 0) {
                 const x = lerp(xa1, xa2, 0.1);
                 four(hazed([50, 30, 46], f), xa1, by1, x, lerp(by1, by2, 0.1), x, lerp(ty1, ty2, 0.1), xa1, ty1);
             }
             // Rows of warm windows and long wooden balconies
-            if (n < 120 && pp1 > 2.2 * px && k < 3) {
+            if (n < 120 && pp1 > 2.2 * px) {
                 const floor = 3.2;
                 for (let q = Math.max(0, Math.ceil((under - foot - 0.9) / floor)); q < 40; q++) {
                     const hb = foot + q * floor + 0.9;
@@ -948,15 +1090,14 @@ const Scene = (() => {
                     }
                 }
             }
-            // Paper lanterns under the eaves, and a warm wash of light on the lowest fronts
-            if (into % 3 === 0 && n < 110 && k < 3) {
+            // Paper lanterns under the eaves, on the lowest three tiers
+            if (i % 3 === 0 && n < 110 && k < 3 && lanternFade(city, i) > 0 && lanternKept(city, i) && !(k === 2 && i === lastLantern(city))) {
                 const lx = lerp(xa1, xa2, 0.1) + (sx1 - (o - 0.38) * w1 - xa1) * 0.9;
                 const ly = yAt(top - 0.3, n);
-                ctx.fillStyle = hazed([255, 96, 64], f * 0.4);
-                ctx.beginPath();
-                ctx.arc(lx, ly + pp1 * 0.35, Math.max(1.2 * px, pp1 * 0.32), 0, 7);
-                ctx.fill();
-                lampGlow(lx, ly + pp1 * 0.3, pp1 * 2.6, 0.55);
+                if (pp1 > 3 * px) {
+                    lampGlow(lx, ly + pp1 * 1.1, pp1 * 3.3, 0.95 * lanternFade(city, i));
+                }
+                redLantern(lx, ly, pp1, f);
             }
             if (k === 0 && n < 120 && into % 2 === 0) {
                 ctx.save();
@@ -1093,6 +1234,185 @@ const Scene = (() => {
         }
         for (let n = -OFF; n <= D.ahead + 1; n++) {
             roadZ[n + OFF] = (base + n) * SEG - camZ;
+        }
+
+        // The bridge: far off (up to 2.9 km) it needs the road's sideways run well past what the steps are drawn to
+        const BR = bridgeOf(d);
+        const XO = BRIDGE_XO;
+        let brFar = false;
+        if (base >= BR.T0 - 4) {
+            let need = false;
+            for (const p of BR.BRP) {
+                if (p - base > -XO + 20 && p - base < 1450) {
+                    need = true;
+                }
+            }
+            if (need) {
+                let x2 = 0;
+                let dx2 = -(turnAt(base) * pct);
+                for (let n = 0; n <= 1600; n++) {
+                    bridgeX[n + XO] = x2;
+                    x2 += dx2;
+                    dx2 += turnAt(base + n);
+                }
+                x2 = 0;
+                dx2 = -(turnAt(base) * pct);
+                for (let n = -1; n >= -XO; n--) {
+                    dx2 -= turnAt(base + n);
+                    x2 -= dx2;
+                    bridgeX[n + XO] = x2;
+                }
+                brFar = true;
+            }
+        }
+        const bP3 = (ox, hm, nn) => [bridgeX[nn + XO] + ox - cameraX, hm - D.cameraHigh - cameraY + groundAt(base + nn), (base + nn) * SEG - camZ];
+        const bLine = (A, B, wm, col) => {
+            if (A[2] < D.near && B[2] < D.near) {
+                return;
+            }
+            let a = A;
+            let b = B;
+            if (a[2] < D.near) {
+                const k = (D.near - a[2]) / (b[2] - a[2]);
+                a = [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, D.near];
+            }
+            if (b[2] < D.near) {
+                const k = (D.near - b[2]) / (a[2] - b[2]);
+                b = [b[0] + (a[0] - b[0]) * k, b[1] + (a[1] - b[1]) * k, D.near];
+            }
+            ctx.lineWidth = Math.max(px, Math.min(H * 0.4, wm * F / ((a[2] + b[2]) / 2)));
+            ctx.strokeStyle = col;
+            ctx.beginPath();
+            ctx.moveTo(W / 2 + F * a[0] / a[2], HZ - F * a[1] / a[2]);
+            ctx.lineTo(W / 2 + F * b[0] / b[2], HZ - F * b[1] / b[2]);
+            ctx.stroke();
+        };
+        // A pale A-frame pylon with a fan of red stay cables, all tied to the deck's edges; pi: its step
+        const drawPylon = pi => {
+            const q = pi - base;
+            if (q < -XO + 20 || q > 1450) {
+                return;
+            }
+            const wb = d.water[Math.max(0, Math.min(last, pi))];
+            const HS = 2.7;
+            const fg = Math.max(0, Math.min(1, q / 1500)) * 0.3;
+            const P = (ox, h, nn) => bP3(ox, nn === q && h > 3 ? h * HS : h, nn);
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            const cc = hazed([255, 84, 60], fg);
+            const cc2 = hazed([255, 150, 110], fg);
+            for (let k = 0; k < 9; k++) {
+                const h = 33 + k * 3.3;
+                const lat = legLat(h);
+                const dd = Math.round((9 + k * 7.5) * 1.8);
+                for (const dir of [-1, 1]) {
+                    const nn = q + dir * dd;
+                    if (nn < -XO || nn > 1560) {
+                        continue;
+                    }
+                    for (const sd of [-1, 1]) {
+                        const A = P(sd * lat, h, q);
+                        const B = P(sd * 1.12 * ROAD, 1.1, nn);
+                        bLine(A, B, q > 150 ? 0.9 : 0.3, cc);
+                        if (q < 330) {
+                            bLine(A, B, 0.1, cc2);
+                        }
+                    }
+                }
+            }
+            if (night > 0.05) {
+                ctx.globalCompositeOperation = 'lighter';
+                for (let k = 0; k < 9; k += 2) {
+                    const h = 33 + k * 3.3;
+                    const lat = legLat(h);
+                    const dd = Math.round((9 + k * 7.5) * 1.8);
+                    for (const dir of [-1, 1]) {
+                        for (const sd of [-1, 1]) {
+                            const nn = q + dir * dd;
+                            if (nn < -XO || nn > 1560) {
+                                continue;
+                            }
+                            bLine(P(sd * lat, h, q), P(sd * 1.12 * ROAD, 1.1, nn), q > 150 ? 5 : 1.8, `rgba(255,80,50,${0.14 * night})`);
+                        }
+                    }
+                }
+                ctx.globalCompositeOperation = 'source-over';
+            }
+            for (const sd of [-1, 1]) {
+                for (let k = 0; k < PYL.length; k++) {
+                    const A = k ? P(sd * PYL[k - 1][0], PYL[k - 1][1], q) : P(sd * 6, wb, q);
+                    const B = P(sd * PYL[k][0], PYL[k][1], q);
+                    const wid = 5.4 + (2.8 - 5.4) * k / (PYL.length - 1);
+                    bLine(A, B, q > 150 ? wid * 1.8 : wid, hazed(PYLON_DARK, fg));
+                    bLine(A, B, q > 150 ? wid : wid * 0.55, hazed(PYLON_COLOR, fg));
+                }
+            }
+            bLine(P(-legLat(41), 41, q), P(legLat(41), 41, q), 1.1, hazed(PYLON_COLOR, fg));
+            bLine(P(-1.0, 63, q), P(1.0, 63, q), 1.8, hazed(PYLON_COLOR, fg));
+            bLine(P(0, 63, q), P(0, 71, q), 0.5, hazed(PYLON_COLOR, fg));
+            const T = P(0, 71.5, q);
+            if (T[2] > D.near) {
+                ctx.globalCompositeOperation = 'lighter';
+                ctx.fillStyle = `rgba(255,60,60,${0.5 + 0.4 * Math.sin(performance.now() * 0.004)})`;
+                ctx.beginPath();
+                ctx.arc(W / 2 + F * T[0] / T[2], HZ - F * T[1] / T[2], Math.max(1.5 * px, 3 * F / T[2]), 0, 7);
+                ctx.fill();
+                ctx.globalCompositeOperation = 'source-over';
+            }
+        };
+        // The deck of the far bridge: a ribbon with amber lights, seen before the road's own steps begin
+        const drawFarBridge = () => {
+            const n0 = Math.max(D.ahead - 6, BR.BR0 - base);
+            const n1 = Math.min(1480, BR.BRE - base);
+            if (n1 <= n0) {
+                return;
+            }
+            const st = 10;
+            ctx.lineCap = 'butt';
+            let prev = null;
+            for (let nn = n0; nn <= n1; nn += st) {
+                const c = bP3(0, 0, nn);
+                if (c[2] < D.near) {
+                    prev = null;
+                    continue;
+                }
+                const sx = W / 2 + F * c[0] / c[2];
+                const yy = HZ - F * c[1] / c[2];
+                const ww = F * ROAD / c[2];
+                if (prev) {
+                    four(hazed([92, 74, 150], Math.max(0, Math.min(1, nn / 1500)) * 0.55), prev[0] - prev[2], prev[1], prev[0] + prev[2], prev[1], sx + ww, yy, sx - ww, yy);
+                }
+                prev = [sx, yy, ww];
+            }
+            for (const sd of [-1, 1]) {
+                ctx.beginPath();
+                let first = true;
+                for (let nn = n0; nn <= n1; nn += st) {
+                    const c = bP3(sd * 1.12 * ROAD, 1.2, nn);
+                    if (c[2] < D.near) {
+                        continue;
+                    }
+                    const xx = W / 2 + F * c[0] / c[2];
+                    const yy = HZ - F * c[1] / c[2];
+                    if (first) {
+                        ctx.moveTo(xx, yy);
+                        first = false;
+                    } else {
+                        ctx.lineTo(xx, yy);
+                    }
+                }
+                ctx.lineWidth = Math.max(px, 1.6 * px);
+                ctx.strokeStyle = hazed([255, 176, 64], 0.15);
+                ctx.stroke();
+            }
+        };
+        if (brFar) {
+            drawFarBridge();
+            for (const p of BR.BRP) {
+                if (p - base >= D.ahead) {
+                    drawPylon(p);
+                }
+            }
         }
 
         // The bikes by the step they are in; the own one among them, so one just behind it is drawn over it
@@ -1309,10 +1629,11 @@ const Scene = (() => {
             }
 
             // The road; the start and the goal across it in checks
+            const brk = !onMountain ? smoothStep(BR.BR0 - 30, BR.BR0 + 20, t) : 0; // 0 before the bridge, 1 on it
             const gate = Math.floor(t * SEG / Track.SEGMENT) - Track.RUN_UP;
             const startLine = gate === 0 || gate === 1 || gate === goal || gate === goal + 1;
             const o = 1.2 * px; // a little over the next, so no seams show
-            four(startLine ? '#f2f2f2' : hazed(inTunnel ? rgbMix(colors.asph2, [34, 22, 44], 0.4) : colors.asph2, f),
+            four(startLine ? '#f2f2f2' : hazed(inTunnel ? rgbMix(colors.asph2, [34, 22, 44], 0.4) : brk > 0 ? rgbMix(colors.asph2, [70, 54, 124], 0.5 * brk) : colors.asph2, f),
                 sx1 - w1, y1 + o, sx1 + w1, y1 + o, sx2 + w2, y2 - o, sx2 - w2, y2 - o);
             if (startLine) {
                 drawChecks(sx1, y1, w1, sx2, y2, w2, t);
@@ -1328,10 +1649,12 @@ const Scene = (() => {
             four(kerb, sx1 + w1, y1 + o, xr1, y1 + o, xr2, y2 - o, sx2 + w2, y2 - o);
             if (n < 110 && !startLine) {
                 const line = hazed(rgbMix(colors.line, colors.asph, 0.35), f);
-                four(line, sx1 - 0.93 * w1, y1, sx1 - 0.9 * w1, y1, sx2 - 0.9 * w2, y2, sx2 - 0.93 * w2, y2);
-                four(line, sx1 + 0.9 * w1, y1, sx1 + 0.93 * w1, y1, sx2 + 0.93 * w2, y2, sx2 + 0.9 * w2, y2);
+                const lineL = brk > 0 ? hazed([255, 206, 70], f) : line; // on the bridge: yellow on the left, white on the right
+                const lineR = brk > 0 ? hazed([246, 246, 255], f) : line;
+                four(lineL, sx1 - 0.93 * w1, y1, sx1 - 0.9 * w1, y1, sx2 - 0.9 * w2, y2, sx2 - 0.93 * w2, y2);
+                four(lineR, sx1 + 0.9 * w1, y1, sx1 + 0.93 * w1, y1, sx2 + 0.93 * w2, y2, sx2 + 0.9 * w2, y2);
                 if (Math.floor(i / 3) % 2 === 0) {
-                    four(line, sx1 - 0.012 * w1, y1, sx1 + 0.012 * w1, y1, sx2 + 0.012 * w2, y2, sx2 - 0.012 * w2, y2);
+                    four(brk > 0 ? lineR : line, sx1 - 0.012 * w1, y1, sx1 + 0.012 * w1, y1, sx2 + 0.012 * w2, y2, sx2 - 0.012 * w2, y2);
                 }
             }
             // At night: the lamps' light on the wet road, and now and then a neon sign's
@@ -1364,8 +1687,18 @@ const Scene = (() => {
                 for (const side of [-1, 1]) {
                     const rx1 = sx1 + side * hl * w1;
                     const rx2 = sx2 + side * hl * w2;
-                    four(hazed(colors.railD, f), rx1, y1, rx1, y1 - 0.55 * pp1, rx2, y2 - 0.55 * pp2, rx2, y2);
-                    four(hazed(colors.rail, f), rx1, y1 - 0.55 * pp1, rx1, y1 - 1.08 * pp1, rx2, y2 - 1.08 * pp2, rx2, y2 - 0.55 * pp2);
+                    four(hazed(brk > 0 ? rgbMix(colors.railD, [150, 138, 198], 0.8 * brk) : colors.railD, f), rx1, y1, rx1, y1 - 0.55 * pp1, rx2, y2 - 0.55 * pp2, rx2, y2);
+                    four(hazed(brk > 0 ? rgbMix(colors.rail, [214, 204, 246], 0.85 * brk) : colors.rail, f), rx1, y1 - 0.55 * pp1, rx1, y1 - 1.08 * pp1, rx2, y2 - 1.08 * pp2, rx2, y2 - 0.55 * pp2);
+                    if (brk > 0.5 && i % 4 === 0 && n < 90 && n > 3) { // an amber light in the barrier
+                        const xm = lerp(rx1, rx2, 0.45);
+                        const xn2 = lerp(rx1, rx2, 0.6);
+                        const ym = lerp(y1, y2, 0.45);
+                        const yn = lerp(y1, y2, 0.6);
+                        const pm = lerp(pp1, pp2, 0.45);
+                        const pn = lerp(pp1, pp2, 0.6);
+                        four(hazed([255, 176, 64], f * 0.5), xm, ym - 0.55 * pm, xm, ym - 0.9 * pm, xn2, yn - 0.9 * pn, xn2, yn - 0.55 * pn);
+                        lampGlow(xm, ym - 0.72 * pm, pp1 * 2.2, 0.55);
+                    }
                     const top1 = 0.3 * w1;
                     const top2 = 0.3 * w2;
                     four(hazed(rgbMix(colors.rail, [255, 255, 255], 0.35), f), rx1, y1 - 1.08 * pp1, rx1 + side * top1, y1 - 1.08 * pp1,
@@ -1416,6 +1749,10 @@ const Scene = (() => {
                 }
             }
 
+            if (brFar && n >= 0 && (t === BR.BRP[0] || t === BR.BRP[1])) {
+                drawPylon(t);
+            }
+
             // What stands on the road (and the banners), where its segment begins
             const segment = t % 2 === 0 ? track.segments[t / 2] : null;
             if (segment && z1 >= 1) {
@@ -1447,6 +1784,14 @@ const Scene = (() => {
                 const scale = F / ahead;
                 drawBike(W / 2 + (xi + other.x - cameraX) * scale, HZ + F * (D.cameraHigh + cameraY - groundAtZ(z)) / ahead,
                     scale * D.bike, other.color, other.lean, other.braking, other.name, night, (other.air || 0) * scale);
+            }
+        }
+        // Pylons behind the camera
+        if (brFar) {
+            for (const p of BR.BRP) {
+                if (p - base < 0) {
+                    drawPylon(p);
+                }
             }
         }
         // Darker at night

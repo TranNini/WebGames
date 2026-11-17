@@ -45,14 +45,13 @@ const Track = (() => {
     // gentle bends, and the riverside under the old town. Day turns to dusk on the way down, and night in the city.
     const STEP = 2;
     const STRETCHES = [
-        {kind: 'mountain', steps: 1000, tod: 0.05, water: -14, bends: [[18, 40, 18, 0.045], [18, 50, 18, -0.047], [18, 60, 18, 0.045],
+        {kind: 'mountain', steps: 975, tod: 0.05, water: -14, bends: [[18, 40, 18, 0.045], [18, 25, 18, -0.047], [18, 60, 18, 0.045],
             [18, 40, 18, -0.047], [18, 50, 18, 0.045], [18, 60, 18, -0.047], [18, 40, 18, 0.045], [18, 50, 18, -0.047],
             [18, 60, 18, 0.045], [18, 40, 18, -0.047]]},
-        {kind: 'bridge', steps: 960, tod: 0.95, water: -14, bends: [[30, 50, 30, 0], [50, 70, 50, 0.012], [60, 90, 60, -0.016],
-            [40, 60, 40, 0.008], [50, 80, 50, -0.012], [40, 70, 40, 0.014]]},
-        {kind: 'riverside', steps: 950, tod: 1, water: -9, bends: [[50, 150, 50, 0.02], [40, 60, 40, -0.012], [50, 70, 50, 0.016]]}
+        {kind: 'bridge', steps: 960, tod: 0.95, water: -14, bends: [[30, 50, 30, 0], [50, 70, 50, 0.006], [30, 485, 30, 0]]},
+        {kind: 'riverside', steps: 951, tod: 1, water: -9, bends: [[50, 150, 50, 0.02], [40, 60, 40, -0.012], [50, 70, 50, 0.016]]}
     ];
-    const DESCENT_TUNNELS = [[110, 290], [380, 560], [820, 1000]]; // steps into the mountain
+    const DESCENT_TUNNELS = [[110, 215], [355, 535], [795, 975]]; // steps into the mountain
     const BOATS = 16; // on the mountain's river
     const CITY_WATER = -2.6; // m: in the city the river comes up to just below the road
     const LAMPS = 120; // along the bridge and the riverside: lamp posts (every third in the riverside) or lights in the rails
@@ -338,7 +337,7 @@ const Track = (() => {
         local.forEach((l, i) => {
             const k = mountain.steps;
             const drop = kind[i] !== 'mountain' || i < before || l < 50 ? 0
-                : (60 + 95 * smooth(60, 170, l)) * (1 - smooth(k - 170, k - 10, l)) * (0.85 + 0.25 * Math.sin(l * 0.05))
+                : smooth(46, 110, l) * (60 + 95 * smooth(60, 170, l)) * (1 - smooth(k - 170, k - 10, l)) * (0.85 + 0.25 * Math.sin(l * 0.05))
                 + 230 * smooth(k - 300, k - 190, l) * (1 - smooth(k - 70, k - 4, l));
             height.push(height[i] - drop / 500);
         });

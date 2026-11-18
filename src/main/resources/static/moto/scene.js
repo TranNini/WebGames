@@ -974,12 +974,127 @@ const Scene = (() => {
         if (!d.bridge) {
             const T0 = d.stretches[1].start;
             const BR0 = T0 + 300 + 150; // the houses end 300 steps in; then 300 m (150 steps) of road
-            d.bridge = {T0, BR0, BRP: [BR0 + 110, BR0 + 375], BRE: BR0 + 650};
+            // the city starts 700 m (350 steps) after the last red cable (124 steps past the second pylon)
+            d.bridge = {T0, BR0, BRP: [BR0 + 110, BR0 + 375], BRE: BR0 + 650, CITY: BR0 + 375 + 124 + 350};
             for (let i = T0; i < d.water.length; i++) {
                 d.water[i] -= 20 * smoothStep(BR0 - 80, BR0 + 30, i);
             }
+            // In the city only lamp posts: 14 on each side (2: left, 3: right), no lights in the rails
+            const cityEnd = d.turn.length - 8;
+            for (let i = d.bridge.CITY; i < d.lamp.length; i++) {
+                d.lamp[i] = 0;
+            }
+            // the posts that stood before the city (7, on the left) are moved into it: 18 on each side, evenly, level across the road
+            for (let i = 0; i < d.bridge.CITY; i++) {
+                if (d.lamp[i] === 2) {
+                    d.lamp[i] = 0;
+                }
+            }
+            const putPost = (i, side) => {
+                const has = d.lamp[i];
+                d.lamp[i] = side < 0 ? (has === 3 ? 4 : 2) : (has === 2 ? 4 : 3);
+            };
+            for (let k = 0; k < 18; k++) {
+                putPost(Math.round(d.bridge.CITY + (k + 0.5) * (cityEnd - d.bridge.CITY) / 18), -1);
+            }
+            for (let k = 0; k < 18; k++) {
+                putPost(Math.round(d.bridge.CITY + (k + 0.5) * (cityEnd - d.bridge.CITY) / 18), 1); // level with the left ones
+            }
         }
         return d.bridge;
+    }
+
+    // The skyscrapers on both sides of the road after the bridge: dark towers with lit windows, taller and denser with
+    // every step (the test's own)
+    const CITY_BODY = [[22, 26, 70], [30, 30, 86], [40, 34, 100], [26, 40, 92], [48, 32, 92]];
+    const CITY_WINDOWS = ['rgba(96,226,255,', 'rgba(255,96,196,', 'rgba(255,214,112,', 'rgba(150,130,255,'];
+
+    function drawSkyscrapers(water, start, i, t, n, {sx1, sx2, w1, w2, pp1, pp2, f, yAt}) {
+        const gk = smoothStep(start - 110, start + 510, t);
+        const b = i >> 3;
+        const li = i & 7;
+        const wy = water;
+        const ba = yAt(wy, n);
+        const bb = yAt(wy, n + 1);
+        for (let row = 1; row >= 0; row--) {
+            for (let sd = -1; sd <= 1; sd += 2) {
+                const hb = testHash(b * 13 + row * 5 + (sd > 0 ? 3 : 0) + 1);
+                const hc = testHash(b * 7 + row * 3 + (sd > 0 ? 1 : 0) + 9);
+                if (hb < 0.2 + 0.45 * (1 - gk) || li >= 5 + ((hc * 3) | 0)) {
+                    continue;
+                }
+                const lat = (row ? 32 : 11) + hc * (row ? 20 : 9);
+                const wid = 11 + hb * 9;
+                const hT = Math.max(26, ((row ? 90 : 46) + hc * (row ? 110 : 80)) * (0.22 + 0.78 * gk));
+                const col = CITY_BODY[(hb * 5) | 0];
+                const t1 = yAt(hT, n);
+                const t2 = yAt(hT, n + 1);
+                const xa1 = sx1 + sd * lat * pp1;
+                const xa2 = sx2 + sd * lat * pp2;
+                four(hazed(col, f * 0.5), xa1, ba, xa2, bb, xa2, t2, xa1, t1);
+                if (li === 0) {
+                    const xb1 = sx1 + sd * (lat + wid) * pp1;
+                    four(hazed(rgbMix(col, [0, 0, 20], 0.25), f), xa1, ba, xb1, ba, xb1, t1, xa1, t1);
+                    four(hazed(rgbMix(col, [150, 120, 230], 0.35), f), xa1, t1, xb1, t1, xb1, t1 - Math.min(1.3 * pp1, 6), xa1, t1 - Math.min(1.3 * pp1, 6));
+                    if (n < 140) {
+                        const floors = Math.max(2, Math.floor((hT - wy) / 3.6));
+                        const cells = n < 40 ? 26 : n < 90 ? 18 : 12;
+                        ctx.globalAlpha = 1 - f * 0.7;
+                        for (let k = 0; k < cells; k++) {
+                            const hk = testHash(i * 41 + k * 7 + row * 3 + (sd > 0 ? 5 : 0));
+                            const hj = testHash(i * 43 + k * 13 + row);
+                            const hu = testHash(i * 47 + k * 3 + 2);
+                            if (hk > 0.7) {
+                                continue;
+                            }
+                            const fh = wy + ((hj * floors) | 0) * 3.6 + 1;
+                            const u0 = 0.08 + ((hu * 5) | 0) * 0.17;
+                            const u1 = u0 + 0.11;
+                            ctx.fillStyle = CITY_WINDOWS[(hk * 20 | 0) % 4] + (0.55 + 0.4 * hj) + ')';
+                            const xx1 = lerp(xa1, xb1, u0);
+                            const xx2 = lerp(xa1, xb1, u1);
+                            ctx.beginPath();
+                            ctx.moveTo(xx1, yAt(fh, n));
+                            ctx.lineTo(xx2, yAt(fh, n));
+                            ctx.lineTo(xx2, yAt(fh + 1.5, n));
+                            ctx.lineTo(xx1, yAt(fh + 1.5, n));
+                            ctx.closePath();
+                            ctx.fill();
+                        }
+                        ctx.globalAlpha = 1;
+                    }
+                }
+                const windows = n < 30 ? 20 : n < 60 ? 14 : n < 80 ? 10 : n < 130 ? 9 : 8;
+                const floors = Math.max(2, Math.floor((hT - wy) / 3.6));
+                ctx.globalAlpha = 1 - f * 0.8;
+                for (let k = 0; k < windows; k++) {
+                    const hk = testHash(i * 17 + k * 5 + row * 3 + (sd > 0 ? 2 : 0));
+                    const hj = testHash(i * 29 + k * 11 + row);
+                    if (hk > 0.75) {
+                        continue;
+                    }
+                    const fh = wy + ((hj * floors) | 0) * 3.6 + 1;
+                    const ya = yAt(fh, n);
+                    const yb = yAt(fh + 1.5, n);
+                    const yc = yAt(fh + 1.5, n + 1);
+                    const yd = yAt(fh, n + 1);
+                    const u = 0.3;
+                    const v = 0.7;
+                    ctx.fillStyle = CITY_WINDOWS[(hk * 20 | 0) % 4] + (0.55 + 0.4 * hj) + ')';
+                    const x1 = lerp(xa1, xa2, u);
+                    const x2 = lerp(xa1, xa2, v);
+                    const ya1 = lerp(ya, yd, u);
+                    const ya2 = lerp(ya, yd, v);
+                    const yb1 = lerp(yb, yc, u);
+                    const yb2 = lerp(yb, yc, v);
+                    four(CITY_WINDOWS[(hk * 20 | 0) % 4] + (0.55 + 0.4 * hj) + ')', x1, ya1, x2, ya2, x2, yb2, x1, yb1);
+                    if (hk < 1 / 7 && n < 80 && n > 3) {
+                        lampGlow((x1 + x2) / 2, (ya1 + yb1) / 2, Math.min(pp1 * 3.2, 70 * DESCENT.px), 0.4);
+                    }
+                }
+                ctx.globalAlpha = 1;
+            }
+        }
     }
 
     function drawCityHouses(city, i, n, {sx1, sx2, w1, w2, y1, y2, pp1, pp2, f, yAt}) {
@@ -1628,6 +1743,9 @@ const Scene = (() => {
                 }
             }
 
+            if (!onMountain && t >= BR.CITY && n < D.ahead) {
+                drawSkyscrapers(d.water[t], BR.CITY, i, t, n, {sx1, sx2, w1, w2, pp1, pp2, f, yAt});
+            }
             // The road; the start and the goal across it in checks
             const brk = !onMountain ? smoothStep(BR.BR0 - 30, BR.BR0 + 20, t) : 0; // 0 before the bridge, 1 on it
             const gate = Math.floor(t * SEG / Track.SEGMENT) - Track.RUN_UP;
@@ -1689,7 +1807,7 @@ const Scene = (() => {
                     const rx2 = sx2 + side * hl * w2;
                     four(hazed(brk > 0 ? rgbMix(colors.railD, [150, 138, 198], 0.8 * brk) : colors.railD, f), rx1, y1, rx1, y1 - 0.55 * pp1, rx2, y2 - 0.55 * pp2, rx2, y2);
                     four(hazed(brk > 0 ? rgbMix(colors.rail, [214, 204, 246], 0.85 * brk) : colors.rail, f), rx1, y1 - 0.55 * pp1, rx1, y1 - 1.08 * pp1, rx2, y2 - 1.08 * pp2, rx2, y2 - 0.55 * pp2);
-                    if (brk > 0.5 && i % 4 === 0 && n < 90 && n > 3) { // an amber light in the barrier
+                    if (brk > 0.5 && t < BR.CITY && i % 4 === 0 && n < 90 && n > 3) { // an amber light in the barrier (none in the city)
                         const xm = lerp(rx1, rx2, 0.45);
                         const xn2 = lerp(rx1, rx2, 0.6);
                         const ym = lerp(y1, y2, 0.45);
@@ -1724,12 +1842,15 @@ const Scene = (() => {
                         xr1, y1 - 1.75 * pp1);
                 }
             }
-            // A lamp post on the left, along the riverside
-            if (d.lamp[t] === 2) {
+            // A lamp post on the left or the right, along the riverside
+            for (const postSide of [-1, 1]) {
+                if (!(postSide < 0 ? d.lamp[t] === 2 || d.lamp[t] === 4 : d.lamp[t] === 3 || d.lamp[t] === 4)) {
+                    continue;
+                }
                 const alpha = Math.max(0, Math.min(1, (D.ahead - n) / 40)) * Math.max(0, Math.min(1, (z1 - 4.8) / 4.4));
                 const dw = 3.4 * pp1;
                 const dh = 7 * pp1;
-                const cx = W / 2 + F * (X(n) - 4.9 - cameraX) / z1;
+                const cx = W / 2 + F * (X(n) + postSide * 4.9 - cameraX) / z1;
                 const top = y1 - dh;
                 if (alpha >= 0.02 && dw >= 1.5 * px) {
                     const [day, dark] = lampSprite();
@@ -2562,6 +2683,29 @@ const Scene = (() => {
         if (scale < 0.5) {
             return;
         }
+        // One cohesive, rounded rider seen from behind: pastel helmet with a dark band, plum jacket with arms out to the
+        // bars, peach hands, dark trousers; the bike's pink rear fairing over a dark purple body, one taillight, one fat
+        // tyre and two exhausts. The rider's own colour tints the helmet, fairing and jacket.
+        const base = hexRgb(color);
+        const pastel = rgb(rgbMix(base, [255, 255, 255], 0.5));
+        const pastelHi = rgb(rgbMix(base, [255, 255, 255], 0.78));
+        const jacket = rgb(rgbMix(base, [44, 22, 66], 0.76));
+        const jacketShade = rgb(rgbMix(base, [34, 16, 52], 0.84));
+        const mid = (p, q) => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
+        const soft = (fill, pts) => { // a closed shape with rounded corners
+            const n = pts.length;
+            const start = mid(pts[n - 1], pts[0]);
+            ctx.fillStyle = fill;
+            ctx.beginPath();
+            ctx.moveTo(start[0], start[1]);
+            for (let k = 0; k < n; k++) {
+                const to = mid(pts[k], pts[(k + 1) % n]);
+                ctx.quadraticCurveTo(pts[k][0], pts[k][1], to[0], to[1]);
+            }
+            ctx.closePath();
+            ctx.fill();
+        };
+        const mirror = pts => pts.map(([px0, py0]) => [-px0, py0]).reverse();
         ctx.save();
         ctx.translate(x, y);
         ctx.scale(scale, scale);
@@ -2569,29 +2713,80 @@ const Scene = (() => {
         blob(`rgba(0,0,0,${0.28 * away})`, 0, 0, 0.42 * away, 0.07 * away);
         ctx.translate(0, -lift / scale);
         ctx.rotate(lean);
-        // Tyre and mudguard
-        shape('#1c1c20', [[-0.11, 0], [-0.13, -0.5], [0.13, -0.5], [0.11, 0]]);
-        // Exhausts
-        shape('#8d929c', [[-0.36, -0.36], [-0.36, -0.5], [-0.2, -0.52], [-0.2, -0.36]]);
-        shape('#8d929c', [[0.36, -0.36], [0.36, -0.5], [0.2, -0.52], [0.2, -0.36]]);
-        // Tail and seat
-        shape(color, [[-0.28, -0.5], [-0.32, -0.72], [-0.12, -0.84], [0.12, -0.84], [0.32, -0.72], [0.28, -0.5]]);
-        shape(braking ? '#ff3b30' : '#a3202a', [[-0.16, -0.6], [-0.16, -0.68], [0.16, -0.68], [0.16, -0.6]]);
-        if (braking) {
-            ctx.save();
-            ctx.globalCompositeOperation = 'lighter';
-            blob(lights > 0.3 ? 'rgba(255,70,60,0.6)' : 'rgba(255,70,60,0.35)', 0, -0.64, 0.4, 0.14);
-            ctx.restore();
+        // Handlebar, behind the rider
+        ctx.strokeStyle = '#352a45';
+        ctx.lineWidth = 0.06;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(-0.58, -1.06);
+        ctx.lineTo(0.58, -1.06);
+        ctx.stroke();
+        // Legs: dark trousers down to the footrests, mostly hidden by the bike's body
+        const leg = [[-0.3, -1.0], [-0.14, -1.0], [-0.14, -0.84], [-0.22, -0.62], [-0.3, -0.45], [-0.44, -0.42], [-0.44, -0.52], [-0.38, -0.8]];
+        soft('#3d2c5a', leg);
+        soft('#3d2c5a', mirror(leg));
+        soft('#2c2040', [[-0.5, -0.4], [-0.3, -0.4], [-0.3, -0.35], [-0.5, -0.35]]);
+        soft('#2c2040', [[0.5, -0.4], [0.3, -0.4], [0.3, -0.35], [0.5, -0.35]]);
+        // The one fat rear tyre
+        soft('#2b2535', [[-0.1, 0], [-0.135, -0.1], [-0.125, -0.5], [0.125, -0.5], [0.135, -0.1], [0.1, 0]]);
+        // Exhausts: light cylinders, a round dark opening facing back, a warm accent where they mount
+        for (const side of [-1, 1]) {
+            const ex = side * 0.255;
+            soft('#c9c3dc', [[side * 0.17, -0.37], [side * 0.34, -0.37], [side * 0.34, -0.23], [side * 0.17, -0.23]]);
+            ctx.fillStyle = '#e4e0f0';
+            ctx.beginPath();
+            ctx.ellipse(ex, -0.3, 0.078, 0.078, 0, 0, 7);
+            ctx.fill();
+            ctx.fillStyle = '#3d2c58';
+            ctx.beginPath();
+            ctx.ellipse(ex, -0.3, 0.05, 0.05, 0, 0, 7);
+            ctx.fill();
+            ctx.fillStyle = '#ff9a4a';
+            ctx.beginPath();
+            ctx.ellipse(side * 0.33, -0.34, 0.025, 0.02, 0, 0, 7);
+            ctx.fill();
         }
-        // Rider: legs, back, arms out to the bars, helmet
-        shape('#2a2b33', [[-0.33, -0.62], [-0.26, -0.98], [-0.1, -0.98], [-0.16, -0.62]]);
-        shape('#2a2b33', [[0.33, -0.62], [0.26, -0.98], [0.1, -0.98], [0.16, -0.62]]);
-        shape(color, [[-0.3, -0.92], [-0.34, -1.3], [-0.2, -1.42], [0.2, -1.42], [0.34, -1.3], [0.3, -0.92]]);
-        shape('rgba(255,255,255,0.28)', [[-0.05, -0.94], [-0.05, -1.4], [0.05, -1.4], [0.05, -0.94]]);
-        shape('#2a2b33', [[-0.34, -1.3], [-0.48, -1.12], [-0.42, -1.06], [-0.28, -1.22]]);
-        shape('#2a2b33', [[0.34, -1.3], [0.48, -1.12], [0.42, -1.06], [0.28, -1.22]]);
-        blob(color, 0, -1.56, 0.2, 0.19);
-        blob('rgba(255,255,255,0.35)', -0.06, -1.62, 0.07, 0.05);
+        // Bike body: deep purple below, the pastel rear fairing over it, the taillight under the fairing
+        soft('#4a2f6e', [[-0.3, -0.72], [-0.33, -0.6], [-0.23, -0.44], [-0.12, -0.4], [0.12, -0.4], [0.23, -0.44], [0.33, -0.6], [0.3, -0.72]]);
+        soft(pastel, [[-0.33, -0.7], [-0.31, -0.82], [-0.17, -0.93], [0.17, -0.93], [0.31, -0.82], [0.33, -0.7], [0, -0.67]]);
+        soft(pastelHi, [[-0.2, -0.82], [-0.12, -0.89], [-0.05, -0.88], [-0.12, -0.8]]);
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        blob(braking ? 'rgba(255,70,60,0.7)' : `rgba(255,60,50,${0.22 + 0.25 * Math.min(1, lights)})`, 0, -0.6, braking ? 0.34 : 0.27, braking ? 0.13 : 0.1);
+        ctx.restore();
+        soft(braking ? '#ff6a50' : '#ff9a5a', [[-0.15, -0.64], [-0.15, -0.58], [0.15, -0.58], [0.15, -0.64]]);
+        soft(braking ? '#fff0d0' : '#ffe6bd', [[-0.08, -0.625], [-0.08, -0.595], [0.08, -0.595], [0.08, -0.625]]);
+        // Torso: broad rounded shoulders, a slight waist
+        soft(jacket, [[-0.24, -0.94], [-0.3, -1.06], [-0.34, -1.22], [-0.26, -1.36], [-0.12, -1.42], [0.12, -1.42], [0.26, -1.36], [0.34, -1.22], [0.3, -1.06], [0.24, -0.94], [0, -0.92]]);
+        // Arms out to the bars, tapering to the wrists, joined at the shoulders
+        const arm = [[-0.24, -1.4], [-0.38, -1.34], [-0.5, -1.2], [-0.52, -1.06], [-0.44, -1.05], [-0.4, -1.15], [-0.3, -1.24]];
+        soft(jacket, arm);
+        soft(jacket, mirror(arm));
+        soft(jacketShade, [[-0.3, -1.24], [-0.4, -1.15], [-0.44, -1.05], [-0.38, -1.1], [-0.29, -1.18]]);
+        soft(jacketShade, mirror([[-0.3, -1.24], [-0.4, -1.15], [-0.44, -1.05], [-0.38, -1.1], [-0.29, -1.18]]));
+        // Small peach hands on the bars
+        for (const side of [-1, 1]) {
+            ctx.fillStyle = '#f6c7a8';
+            ctx.beginPath();
+            ctx.ellipse(side * 0.485, -1.05, 0.05, 0.05, 0, 0, 7);
+            ctx.fill();
+        }
+        // Helmet: a big bubble, a lighter highlight, a dark band round the lower back
+        ctx.fillStyle = pastel;
+        ctx.beginPath();
+        ctx.ellipse(0, -1.6, 0.2, 0.19, 0, 0, 7);
+        ctx.fill();
+        ctx.save();
+        ctx.beginPath();
+        ctx.ellipse(0, -1.6, 0.2, 0.19, 0, 0, 7);
+        ctx.clip();
+        ctx.fillStyle = '#3a2c4c';
+        ctx.fillRect(-0.25, -1.5, 0.5, 0.1);
+        ctx.restore();
+        ctx.fillStyle = pastelHi;
+        ctx.beginPath();
+        ctx.ellipse(-0.07, -1.68, 0.07, 0.045, -0.4, 0, 7);
+        ctx.fill();
         ctx.restore();
         if (name) {
             const size = Math.max(10, Math.min(15, scale * 0.24));

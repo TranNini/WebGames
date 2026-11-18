@@ -166,7 +166,7 @@ that on a wilder road with higher crests, deeper drops and bends to brake for), 
 (up and down the mountain city at night: lit towers on the hills, a river with an arch bridge, houses on stilts, red
 lanterns, big fig trees, and a monorail over the road with its train going by; bamboo baskets of oranges on the road),
 all drawn in code. **Tianmen** is ridden once from start to goal and is exactly the user's test page
-(`tianmen-to-chongqing-course.html`, "real game version", 2026-11-17, which runs the game's own `track.js` and
+(`tianmen-to-chongqing-course.html`, "real game version", the final one of 2026-11-18, which runs the game's own `track.js` and
 `scene.js`): 5.8 km in three stretches. First the mountain: 1.95 km down ten hairpins and about 310 m of drop, the last
 part steep through the third tunnel. A forest slope is on the left, a stone wall over the valley on the right, guardrails
 on both sides, and a river with 16 junks and sampans runs along the valley floor (seen between the tunnel pillars too).
@@ -175,7 +175,7 @@ road goes down, day turns to dusk, the peaks fade, and Chongqing's towers come u
 at night. First comes the old town: 600 m of hillside houses on the left (stilted tiers with warm windows, balconies,
 red paper lanterns and tiled eaves on a lavender retaining wall). Then, 300 m on, a long straight cable-stayed bridge
 over the river far below, with two pale A-frame pylons, red stay cables, a blinking light on top, amber lights in the
-barriers and a yellow line on the left. Then the riverside. Far off, all drawn: violet hills, the city's towers, clouds,
+barriers and a yellow line on the left. Then the riverside, and 700 m after the last red cable the city: dark skyscrapers with lit windows on both sides of the road, taller and denser the further in, and 18 lamp posts on each side, level across the road (no lights in the barriers there). Far off, all drawn: violet hills, the city's towers, clouds,
 and stars as the night deepens; river boats with lit decks, reflections, lamp posts and their glow on the wet road. Its bends push a bike out a third as hard as they look (a fifth on
 easy), and in the hairpins a bike goes up to 40% slower by itself. The bike can't leave the road (rubbing along a rail
 slows it down). On medium and hard, stone sledges (a wooden sledge hauling a cut stone block) stand on the road

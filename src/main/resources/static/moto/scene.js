@@ -83,6 +83,7 @@ const Scene = (() => {
 
     // view: {track, bike (own), others: [{z, x, lean, color, name, braking}], color, braking, turned (the sky's turn this frame)}
     function draw(view) {
+        turboFlame = view.bike.turbo > 0;
         if (canvas.clientWidth !== width || canvas.clientHeight !== height) {
             resize();
         }
@@ -2679,6 +2680,8 @@ const Scene = (() => {
 
     // A motorcycle with its rider, seen from behind. x, y: where its wheel touches the road; scale: pixels per meter; lift:
     // pixels it is above the road (on a ramp or flying), its shadow staying on the road.
+    let turboFlame = false; // the own bike's turbo is on: flames from its exhausts
+
     function drawBike(x, y, scale, color, lean, braking, name, lights = 0, lift = 0) {
         if (scale < 0.5) {
             return;
@@ -2745,6 +2748,15 @@ const Scene = (() => {
             ctx.beginPath();
             ctx.ellipse(side * 0.33, -0.34, 0.025, 0.02, 0, 0, 7);
             ctx.fill();
+            if (turboFlame && name === null) { // a flickering flame out of each opening, towards the camera
+                const flicker = 0.85 + 0.3 * Math.random();
+                ctx.save();
+                ctx.globalCompositeOperation = 'lighter';
+                blob('rgba(255,120,40,0.55)', ex, -0.3, 0.17 * flicker, 0.15 * flicker);
+                blob('rgba(255,190,90,0.8)', ex, -0.3, 0.1 * flicker, 0.09 * flicker);
+                blob('rgba(255,245,210,0.95)', ex, -0.3, 0.045, 0.045);
+                ctx.restore();
+            }
         }
         // Bike body: deep purple below, the pastel rear fairing over it, the taillight under the fairing
         soft('#4a2f6e', [[-0.3, -0.72], [-0.33, -0.6], [-0.23, -0.44], [-0.12, -0.4], [0.12, -0.4], [0.23, -0.44], [0.33, -0.6], [0.3, -0.72]]);

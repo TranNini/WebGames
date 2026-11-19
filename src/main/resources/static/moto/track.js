@@ -19,6 +19,10 @@ const Track = (() => {
     const DRAFT_BOOST = 0.1; // riding right behind another bike: up to this much faster
     const DRAFT_FROM = 2.5;
     const DRAFT_TO = 22;
+    const TURBO_DISTANCE = 50; // turbo: this many m faster,
+    const TURBO_SPEED = 1.3; // up to this much over the top speed (290 km/h),
+    const TURBO_PULL = 40; // speeding up this hard (m/s each second);
+    const TURBO_COOLDOWN = 10; // then this many seconds before it can be used again
     const SCRAPE = 0.75; // riding along something on the road cuts the speed to this share
     const CRASH_SECONDS = 1.4; // after hitting a tree or a rock beside the road: no steering, and carried back onto it
     const GHOST_SECONDS = 1.2; // then: through everything, so it can't be hit again straight away
@@ -478,11 +482,14 @@ const Track = (() => {
             bumped: false,
             hit: null, // what on the road it ran into, until it is past it
             stopped: false, // held behind it
-            power: 1 // the computer riders on hard have a little more
+            power: 1, // the computer riders on hard have a little more
+            turbo: 0, // m left of a turbo
+            turboWait: 0 // seconds before the turbo can be used again
         };
     }
 
-    // One step of riding. input: steer (-1 to 1), brake, gas (false: rolls out, e.g. in the menu).
+    // One step of riding. input: steer (-1 to 1), brake, gas (false: rolls out, e.g. in the menu), turbo (starts one if it
+    // is ready).
     // others: the other bikes, {z, x, speed}. Says what happened: 'crash' (into something beside the road or on it),
     // 'scrape' (along something on the road), 'bump' (into a bike), 'jump' (off a ramp), 'land' or ''.
     function ride(bike, track, input, others, seconds) {
@@ -493,6 +500,9 @@ const Track = (() => {
         const steering = bike.crash > 0 ? 0 : input.steer * (flying ? AIR_STEER : 1);
         bike.steer += (steering - bike.steer) * Math.min(1, seconds * 9);
         const crashed = bike.crash > 0;
+        if (input.turbo && bike.turbo === 0 && bike.turboWait === 0 && !crashed) {
+            bike.turbo = TURBO_DISTANCE;
+        }
         bike.crash = Math.max(0, bike.crash - seconds);
         if (crashed && bike.crash === 0) {
             bike.ghost = GHOST_SECONDS;
@@ -511,7 +521,8 @@ const Track = (() => {
         bike.draft += (draftWanted - bike.draft) * Math.min(1, seconds * 1.5);
         bike.offRoad = Math.abs(bike.x) > ROAD + 0.2;
         const bendSlow = track.bendSlow && segment.slows !== false ? 1 - track.bendSlow * Math.min(1, Math.abs(segment.bend) / 7) : 1;
-        const top = (bike.offRoad ? OFF_ROAD_SPEED : TOP_SPEED) * (bike.power || 1) * (1 + DRAFT_BOOST * bike.draft) * bendSlow;
+        const turbo = bike.turbo > 0 ? TURBO_SPEED : 1;
+        const top = (bike.offRoad ? OFF_ROAD_SPEED : TOP_SPEED) * (bike.power || 1) * (1 + DRAFT_BOOST * bike.draft) * bendSlow * turbo;
         if (flying) {
             // keeps its speed until it lands
         } else if (bike.crash > 0) {
@@ -523,7 +534,7 @@ const Track = (() => {
         } else if (bike.speed > top) {
             bike.speed = Math.max(top, bike.speed - 30 * seconds);
         } else {
-            bike.speed += PULL * (1 - bike.speed / top) * seconds + 0.4 * seconds;
+            bike.speed += (bike.turbo > 0 ? TURBO_PULL : PULL * (1 - bike.speed / top)) * seconds + 0.4 * seconds;
             bike.speed = Math.min(bike.speed, top);
         }
 
@@ -567,6 +578,14 @@ const Track = (() => {
 
         const frontBefore = bike.z + BIKE_LENGTH / 2;
         bike.z += bike.speed * seconds;
+        if (bike.turbo > 0) {
+            bike.turbo = bike.crash > 0 ? 0 : Math.max(0, bike.turbo - bike.speed * seconds); // a crash ends it
+            if (bike.turbo === 0) {
+                bike.turboWait = TURBO_COOLDOWN;
+            }
+        } else {
+            bike.turboWait = Math.max(0, bike.turboWait - seconds);
+        }
 
         // Onto a ramp (on the road), off its lip, and down again
         const ramp = rampBefore(track, bike.z);
@@ -730,7 +749,7 @@ const Track = (() => {
     }
 
     return {
-        SEGMENT, ROAD, EDGE, WALL, TUNNEL_HEIGHT, TOP_SPEED, BEND, RUN_UP, GHOST_SECONDS, TRACKS, COMPUTERS, COMPUTER_LEVELS, COURSE_LEVELS,
+        SEGMENT, ROAD, EDGE, WALL, TUNNEL_HEIGHT, TOP_SPEED, TURBO_COOLDOWN, BEND, RUN_UP, GHOST_SECONDS, TRACKS, COMPUTERS, COMPUTER_LEVELS, COURSE_LEVELS,
         build, segmentAt, heightAt, newBike, ride, cruise, computer, airOf
     };
 })();

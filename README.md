@@ -134,7 +134,9 @@ riders). The one who opened it picks the course, adds computer riders if they li
 up to as many as fit next to the people) and starts; alone, it is **Ride alone**. A countdown, then from the START
 banner to the GOAL, about one and a half minutes; the bar shows how far it still is, and a line under it where everyone
 is. The bike speeds up by itself: hold the left or right half of the screen to steer, both to brake (on a computer: the
-arrow keys, Down or Space to brake). Bends push the bike outwards, the more the faster it goes; off the road it is
+arrow keys, Down or Space to brake). **Turbo** (the round button at the bottom; Up or W) pulls the bike hard up to 290 km/h
+for 50 m, a little flame out of each exhaust; then its ring fills up again over 10 seconds before it can be used again. A
+crash ends it; braking still brakes. The computer riders don't use it. Bends push the bike outwards, the more the faster it goes; off the road it is
 slower, and riding into a tree or a rock beside it is a crash: the bike is carried back onto the road and then rides
 through everything for a moment, blinking. A ramp across the road throws the bike into the air, the further the faster it
 comes (about 80 m at full speed): it keeps its speed, can turn only a little and flies over what is on the road; every phone

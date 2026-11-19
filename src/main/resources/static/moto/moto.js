@@ -32,6 +32,7 @@ let results = null;
 let lastFrame = 0;
 const pointers = new Map(); // finger id: 'left' or 'right'
 const keys = new Set();
+let turboAsked = false; // the turbo button was pressed since the last frame
 
 // --- The connection ---
 
@@ -481,13 +482,17 @@ function frame(now) {
 
     let input = {steer: 0, brake: false, gas: false};
     if (riding && !race.done) {
-        input = state === 'playing' ? steering() : input;
+        input = state === 'playing' ? {...steering(), turbo: turboAsked} : input;
         if (input.steer && !motoSettings.steeredBefore) {
             motoSettings.steeredBefore = true;
             remember('moto-settings', motoSettings);
         }
         const before = Track.segmentAt(track, bike.z);
+        const hadTurbo = bike.turbo > 0;
         const happened = Track.ride(bike, track, input, others, seconds);
+        if (!hadTurbo && bike.turbo > 0) {
+            Sound.zap();
+        }
         if (happened === 'crash') {
             Sound.miss();
             navigator.vibrate?.(150);
@@ -517,6 +522,8 @@ function frame(now) {
         race.turned = 0;
         race.heading = 0;
     }
+    turboAsked = false;
+    showTurbo(bike, riding && !race.done);
     if (!$('steer-hint').hidden && (motoSettings.steeredBefore || now > race.startAt + 6000)) {
         $('steer-hint').hidden = true;
     }
@@ -536,6 +543,17 @@ function frame(now) {
     showStandings(others);
     $('speed-number').textContent = Math.round(bike.speed * 3.6);
     Scene.draw({track, bike, others, color: race.color, braking: input.brake, turned: race.turned || 0, heading: race.heading || 0});
+}
+
+// The turbo button: ready, on (for its 50 m), or filling up again over its cooldown
+function showTurbo(bike, riding) {
+    const button = $('turbo');
+    button.hidden = !riding;
+    const turboState = bike.turbo > 0 ? 'on' : bike.turboWait > 0 ? 'wait' : 'ready';
+    if (button.dataset.state !== turboState) {
+        button.dataset.state = turboState;
+    }
+    button.style.setProperty('--filled', turboState === 'wait' ? (1 - bike.turboWait / Track.TURBO_COOLDOWN).toFixed(3) : '1');
 }
 
 // The computer riders this phone rides: like a bike, with Track.computer steering. Each keeps near the people riding.
@@ -756,6 +774,12 @@ function setUpEvents() {
     $('leave-results').addEventListener('click', leaveRace);
     $('again-race').addEventListener('click', () => send({t: 'again'}));
 
+    // The turbo button doesn't steer: its finger isn't one of the halves
+    $('turbo').addEventListener('pointerdown', event => {
+        event.stopPropagation();
+        Sound.unlock();
+        turboAsked = true;
+    });
     const area = $('race');
     const side = event => (event.clientX < area.clientWidth / 2 ? 'left' : 'right');
     area.addEventListener('pointerdown', event => {
@@ -772,7 +796,10 @@ function setUpEvents() {
     }
     const KEYS = {ArrowLeft: 'left', a: 'left', ArrowRight: 'right', d: 'right', ArrowDown: 'brake', s: 'brake', ' ': 'brake'};
     document.addEventListener('keydown', event => {
-        if (KEYS[event.key] && race) {
+        if ((event.key === 'ArrowUp' || event.key === 'w') && race) {
+            turboAsked = turboAsked || !event.repeat;
+            event.preventDefault();
+        } else if (KEYS[event.key] && race) {
             keys.add(KEYS[event.key]);
             event.preventDefault();
         }

@@ -306,7 +306,6 @@ class RacesTest {
         assertEquals(2, leaderboard.top("moto-forest-hard").size());
         assertEquals(0, leaderboard.top("moto-forest").size());
         assertEquals("moto-canyon", Races.board("canyon", "easy"));
-        assertEquals("moto-chongqing-hard", Races.board("chongqing", "hard"));
         assertEquals("moto-tianmen-medium", Races.board("tianmen", "medium"));
     }
 

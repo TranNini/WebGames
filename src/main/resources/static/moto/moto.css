@@ -158,7 +158,6 @@
 .track-choice.seaside { background: linear-gradient(#8fcdf2, #e9d7a4); }
 .track-choice.canyon { background: linear-gradient(#f6b27a, #d9a066); }
 .track-choice.forest { background: linear-gradient(#a77a9a, #5f9a63); color: #fff; }
-.track-choice.chongqing { background: linear-gradient(#1c2447, #8a5d80); color: #fff; }
 .track-choice.tianmen { background: linear-gradient(#8fbad8, #5c8a4e); color: #fff; }
 
 .track-choice:last-child:nth-child(odd) {

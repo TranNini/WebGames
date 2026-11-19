@@ -23,12 +23,6 @@ const Scene = (() => {
             grass: ['#3e7a45', '#36703d'], road: ['#4b4f58', '#474b54'], rumble: ['#e9e9ee', '#c4433a'], line: '#f1f1e6', sun: '#ffe6b0',
             lights: 0.5
         },
-        // At night: towers lit up on the hills, a river below them, mist
-        chongqing: {
-            sky: ['#121936', '#76587c'], fog: '#5a5476', hills: ['#2b3050', '#232842'], river: '#232c4c',
-            grass: ['#33423e', '#2e3c38'], road: ['#3f4149', '#3b3d45'], rumble: ['#ecebef', '#d33a35'], line: '#f2cf5b', sun: '#f3ecd6',
-            lights: 0.8, city: true
-        },
         // Drawn by drawDescent, as in the html test; its haze, for what stands on the road
         tianmen: {fog: '#d6e4ec', lights: 0}
     };
@@ -1991,95 +1985,11 @@ const Scene = (() => {
         ctx.arc(width * 0.72 - skyShift * 0.15 % width, horizon * (upright ? 0.35 : 0.3), Math.min(width, height) * 0.06, 0, Math.PI * 2);
         ctx.fill();
         hills(look.hills[0], horizon, horizon * 0.22, skyShift * 0.35, 0.011, 3.1);
-        if (look.city) {
-            city(look, horizon, skyShift * 0.55);
-        } else if (look.sea) {
+        if (look.sea) {
             ctx.fillStyle = look.sea; // in front of the far hills, so it is seen
             ctx.fillRect(0, horizon - Math.max(6, horizon * 0.07), width, Math.max(6, horizon * 0.07) + 2);
         } else {
             hills(look.hills[1], horizon, horizon * 0.12, skyShift * 0.7, 0.019, 1.7);
-        }
-    }
-
-    // The same number for the same n, from 0 to 1
-    const hash = n => {
-        const s = Math.sin(n * 127.1 + 311.7) * 43758.5453;
-        return s - Math.floor(s);
-    };
-
-    // Far off: towers on the hills, lit windows, a river below them with the lights in it, and now and then an arch bridge
-    function city(look, horizon, shift) {
-        const unit = Math.max(3, horizon * 0.018);
-        const water = Math.max(6, horizon * 0.08);
-        const slot = unit * 4;
-        const hill = x => horizon - water - unit * (2 + 3 * (Math.sin((x + shift) / slot * 0.21) + 1));
-        ctx.fillStyle = look.hills[1];
-        ctx.beginPath();
-        ctx.moveTo(0, horizon + 2);
-        for (let x = 0; x <= width + 8; x += 8) {
-            ctx.lineTo(x, hill(x));
-        }
-        ctx.lineTo(width, horizon + 2);
-        ctx.closePath();
-        ctx.fill();
-        const first = Math.floor(shift / slot) - 2;
-        const last = Math.ceil((shift + width) / slot) + 1;
-        const lit = Math.max(1, unit * 0.36);
-        for (let k = first; k <= last; k++) {
-            const w = unit * (2.2 + hash(k) * 2.4);
-            const x = k * slot - shift + hash(k + 991) * unit;
-            const top = hill(x + w / 2) - unit * (4 + hash(k + 57) ** 2 * 20);
-            ctx.fillStyle = mix(k % 2 ? '#262d4d' : '#2f3659', look.fog, 0.15);
-            ctx.fillRect(x, top, w, horizon - top);
-            for (let row = 0, y = top + unit * 0.7; y < horizon - water - unit; row++, y += unit * 1.05) {
-                for (let col = 0, wx = x + unit * 0.4; wx < x + w - unit * 0.5; col++, wx += unit * 0.85) {
-                    const on = hash(k * 131 + row * 17 + col * 3);
-                    if (on < 0.4) {
-                        ctx.fillStyle = on < 0.08 ? '#a8d8ff' : '#ffd58a';
-                        ctx.fillRect(wx, y, lit, lit);
-                    }
-                }
-            }
-            if (hash(k + 7) < 0.25) {
-                ctx.fillStyle = '#ff4b4b'; // a warning light on the roof
-                ctx.fillRect(x + w / 2 - lit / 2, top - lit, lit, lit);
-            }
-        }
-        ctx.fillStyle = look.river;
-        ctx.fillRect(0, horizon - water, width, water + 2);
-        for (let k = first; k <= last; k++) {
-            if (hash(k + 3) < 0.6) {
-                ctx.fillStyle = hash(k + 5) < 0.2 ? 'rgba(168,216,255,0.45)' : 'rgba(255,213,138,0.5)';
-                const x = k * slot - shift + hash(k + 11) * slot;
-                ctx.fillRect(x, horizon - water + water * (0.15 + hash(k + 13) * 0.7), unit * (0.8 + hash(k + 17) * 1.6), 1);
-            }
-            if (((k % 29) + 29) % 29 === 0) {
-                bridge(k * slot - shift, slot * 9, horizon - water * 0.72, unit);
-            }
-        }
-    }
-
-    function bridge(x, long, deck, unit) {
-        ctx.strokeStyle = '#8b90a8';
-        ctx.lineWidth = Math.max(1, unit * 0.3);
-        ctx.beginPath();
-        ctx.moveTo(x, deck);
-        ctx.lineTo(x + long, deck);
-        ctx.moveTo(x + long * 0.12, deck);
-        ctx.quadraticCurveTo(x + long / 2, deck - unit * 9, x + long * 0.88, deck);
-        ctx.stroke();
-        ctx.lineWidth = Math.max(0.6, unit * 0.12);
-        ctx.beginPath();
-        for (let i = 1; i < 8; i++) {
-            const at = 0.12 + i * 0.095;
-            const s = (at - 0.12) / 0.76;
-            ctx.moveTo(x + long * at, deck);
-            ctx.lineTo(x + long * at, deck - unit * 4.5 * 4 * s * (1 - s));
-        }
-        ctx.stroke();
-        ctx.fillStyle = '#ffe2a0';
-        for (let i = 0; i <= 12; i++) {
-            ctx.fillRect(x + (long * i) / 12 - 1, deck - 2, 2, 2);
         }
     }
 
@@ -2284,111 +2194,6 @@ const Scene = (() => {
                 shape(tint('#1d1b24'), [[at - 0.1 * way, -1.62], [at + 0.15 * way, -1.4], [at - 0.1 * way, -1.18], [at, -1.4]]);
             }
         },
-        // Chongqing: a tower of flats, its windows lit (the same ones each time, from where it stands)
-        tower(tint, thing, size) {
-            const seed = Math.floor(Math.abs(thing.x) * 1000);
-            const tall = 16 + hash(seed) * 22;
-            const half = 3.4 + hash(seed + 1) * 1.6;
-            shape(tint(hash(seed + 2) < 0.5 ? '#2b3252' : '#343a5a'), [[-half, 0], [-half, -tall], [half, -tall], [half, 0]]);
-            shape(tint('#232944'), [[half * 0.55, 0], [half * 0.55, -tall], [half, -tall], [half, 0]]);
-            if (size > 1.4) {
-                const warm = tint('#ffd27a');
-                const cool = tint('#a8d8ff');
-                let n = 0;
-                for (let y = -tall + 1.2; y < -1.2; y += 1.6) {
-                    for (let x = -half + 0.6; x < half - 0.6; x += 1.3) {
-                        const on = hash(seed + 7 + n++);
-                        if (on < 0.45) {
-                            ctx.fillStyle = on < 0.08 ? cool : warm;
-                            ctx.fillRect(x, y, 0.6, 0.75);
-                        }
-                    }
-                }
-            } else {
-                ctx.fillStyle = tint('#6b6276');
-                ctx.fillRect(-half * 0.7, -tall * 0.9, half * 1.2, tall * 0.8);
-            }
-            glow('rgba(255,70,70,0.8)', 0, -tall - 0.3, 0.35);
-        },
-        // A house on stilts on the hillside, floor over floor, each with its roof turned up at the ends
-        stilt(tint) {
-            ctx.fillStyle = tint('#3a2a22');
-            for (const x of [-1.9, -0.7, 0.7, 1.9]) {
-                ctx.fillRect(x - 0.1, -1.6, 0.2, 1.6);
-            }
-            for (const [half, bottom] of [[2.2, -1.6], [1.95, -3.5], [1.65, -5.4]]) {
-                shape(tint('#6e412b'), [[-half, bottom], [-half, bottom - 1.5], [half, bottom - 1.5], [half, bottom]]);
-                ctx.fillStyle = tint('#ffc46b');
-                for (let x = -half + 0.3; x < half - 0.4; x += 0.7) {
-                    ctx.fillRect(x, bottom - 1.15, 0.45, 0.75);
-                }
-                const eave = bottom - 1.4;
-                shape(tint('#2c2a32'), [[-half - 0.75, eave - 0.3], [-half - 0.3, eave + 0.05], [half + 0.3, eave + 0.05],
-                    [half + 0.75, eave - 0.3], [half - 0.1, eave - 0.6], [-half + 0.1, eave - 0.6]]);
-            }
-            for (const x of [-1.35, 1.35]) {
-                blob(tint('#e0362c'), x, -3.05, 0.22, 0.26);
-                glow('rgba(255,120,60,0.22)', x, -3.05, 0.7);
-            }
-        },
-        // A post with two red lanterns
-        lantern(tint) {
-            ctx.fillStyle = tint('#2b2b31');
-            ctx.fillRect(-0.07, -3.3, 0.14, 3.3);
-            ctx.fillRect(-0.85, -3.3, 1.7, 0.1);
-            for (const x of [-0.62, 0.62]) {
-                ctx.fillRect(x - 0.015, -3.2, 0.03, 0.2);
-                blob(tint('#d8322b'), x, -2.65, 0.3, 0.36);
-                ctx.fillStyle = tint('#e8b04a');
-                ctx.fillRect(x - 0.16, -3.03, 0.32, 0.07);
-                ctx.fillRect(x - 0.16, -2.33, 0.32, 0.07);
-                glow('rgba(255,90,60,0.25)', x, -2.65, 0.85);
-            }
-        },
-        // A big fig tree, wide and round
-        ficus(tint) {
-            shape(tint('#5a4a3c'), [[-0.45, 0], [-0.3, -2.2], [-0.85, -3.2], [-0.6, -3.35], [0, -2.6], [0.55, -3.4], [0.8, -3.2],
-                [0.3, -2.2], [0.45, 0]]);
-            blob(tint('#2c5538'), -1.1, -4, 1.8, 1.3);
-            blob(tint('#326040'), 1.1, -4.2, 1.9, 1.4);
-            blob(tint('#3a6d48'), 0, -4.9, 1.8, 1.25);
-        },
-        pillar(tint) {
-            shape(tint('#8a8c96'), [[-0.5, 0], [-0.42, -7.4], [0.42, -7.4], [0.5, 0]]);
-            shape(tint('#70727c'), [[0.15, 0], [0.12, -7.4], [0.42, -7.4], [0.5, 0]]);
-            ctx.fillStyle = tint('#9a9ca6');
-            ctx.fillRect(-1, -7.75, 2, 0.4);
-        },
-        // The monorail across the road, high on its beam, and its train going by
-        monorail(tint, thing) {
-            ctx.fillStyle = tint('#7c7f8a');
-            for (const x of [-96, -64, -32, 32, 64, 96]) {
-                ctx.fillRect(x - 0.45, -7.4, 0.9, 7.4);
-            }
-            ctx.fillStyle = tint('#a3a5ae');
-            ctx.fillRect(-140, -8.7, 280, 1.1);
-            ctx.fillStyle = tint('#6d707b');
-            ctx.fillRect(-140, -7.8, 280, 0.25);
-            const way = thing.phase < 0.5 ? 1 : -1;
-            const at = way * ((((performance.now() / 1000) * 20 + thing.phase * 150) % 150) - 75);
-            for (let car = -1; car <= 1; car++) {
-                const middle = at + car * 15.4;
-                shape(tint('#eceef2'), [[middle - 7.5, -8.4], [middle - 7.5, -11.4], [middle + 7.5, -11.4], [middle + 7.5, -8.4]]);
-                if (car !== 0) {
-                    // The rounded nose at both ends of the train
-                    const end = middle + car * 7.5;
-                    shape(tint('#eceef2'), [[end, -8.4], [end, -11.4], [end + car * 1.2, -10.6], [end + car * 1.5, -8.4]]);
-                    ctx.fillStyle = tint('#2a3042');
-                    ctx.fillRect(end + (car > 0 ? 0 : -1.1), -10.9, 1.1, 0.9);
-                }
-                ctx.fillStyle = tint('#d23a3a');
-                ctx.fillRect(middle - 7.5, -9.1, 15, 0.35);
-                ctx.fillStyle = tint('#ffe7a8');
-                for (let x = middle - 6.6; x < middle + 6.4; x += 1.6) {
-                    ctx.fillRect(x, -11, 1.1, 1.3);
-                }
-            }
-        }
     };
 
 
@@ -2476,27 +2281,6 @@ const Scene = (() => {
                 ctx.ellipse(0, -0.62, 0.3, 0.09, 0, 0, Math.PI * 2);
                 ctx.ellipse(0, -0.62, 0.14, 0.04, 0, 0, Math.PI * 2);
                 ctx.stroke();
-                break;
-            case 'baskets':
-                // Bamboo baskets, one on two, the top one full of oranges
-                blob('rgba(0,0,0,0.3)', 0, 0, 0.85, 0.1);
-                for (const [x, y] of [[-0.4, 0], [0.4, 0], [0, -0.52]]) {
-                    shape('#b98a4c', [[x - 0.36, y], [x - 0.42, y - 0.52], [x + 0.42, y - 0.52], [x + 0.36, y]]);
-                    ctx.strokeStyle = '#8a6230';
-                    ctx.lineWidth = 0.035;
-                    ctx.beginPath();
-                    for (const s of [-0.26, -0.09, 0.09, 0.26]) {
-                        ctx.moveTo(x + s, y);
-                        ctx.lineTo(x + s * 1.15, y - 0.52);
-                    }
-                    ctx.moveTo(x - 0.39, y - 0.26);
-                    ctx.lineTo(x + 0.39, y - 0.26);
-                    ctx.stroke();
-                    shape('#d6aa66', [[x - 0.44, y - 0.5], [x - 0.44, y - 0.58], [x + 0.44, y - 0.58], [x + 0.44, y - 0.5]]);
-                }
-                for (const [x, y] of [[-0.24, -1.13], [0, -1.17], [0.24, -1.13], [-0.12, -1.28], [0.12, -1.28]]) {
-                    blob('#f28a22', x, y, 0.13, 0.12);
-                }
                 break;
             case 'crabs': {
                 // Three red crabs crossing the road, snapping their claws

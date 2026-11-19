@@ -19,8 +19,7 @@ public class Leaderboard {
     public static final Set<String> LOWEST_FIRST = Set.of("mahjong-easy", "mahjong-medium", "mahjong-hard",
             "mahjong-easy-nohints", "mahjong-medium-nohints", "mahjong-hard-nohints", "solitaire-moves-1", "solitaire-moves-3",
             "moto-seaside", "moto-canyon", "moto-forest", "moto-seaside-medium", "moto-canyon-medium", "moto-forest-medium",
-            "moto-seaside-hard", "moto-canyon-hard", "moto-forest-hard", "moto-chongqing", "moto-chongqing-medium",
-            "moto-chongqing-hard", "moto-tianmen", "moto-tianmen-medium", "moto-tianmen-hard");
+            "moto-seaside-hard", "moto-canyon-hard", "moto-forest-hard", "moto-tianmen", "moto-tianmen-medium", "moto-tianmen-hard");
 
     private final JdbcClient jdbc;
 

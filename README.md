@@ -164,10 +164,7 @@ Levels: the one who opened the race picks **Easy**, **Medium** or **Hard** for t
 The courses: **Seaside** (long bends along the sea and some sharp ones, two ramps a lap, palms, rocks, huts
 and sun umbrellas with a swim ring and a sun chair; crabs crossing the road), **Canyon** (sharp
 turns and steep hills, cacti, boulders and mesas; its medium has as much on the road as hard elsewhere, and its hard is
-that on a wilder road with higher crests, deeper drops and bends to brake for), **Forest** (winding through pines and birches at dusk) and **Chongqing**
-(up and down the mountain city at night: lit towers on the hills, a river with an arch bridge, houses on stilts, red
-lanterns, big fig trees, and a monorail over the road with its train going by; bamboo baskets of oranges on the road),
-all drawn in code. **Tianmen** is ridden once from start to goal and is exactly the user's test page
+that on a wilder road with higher crests, deeper drops and bends to brake for), and **Forest** (winding through pines and birches at dusk), all drawn in code. **Tianmen** is ridden once from start to goal and is exactly the user's test page
 (`tianmen-to-chongqing-course.html`, "real game version", the final one of 2026-11-18, which runs the game's own `track.js` and
 `scene.js`): 5.8 km in three stretches. First the mountain: 1.95 km down ten hairpins and about 310 m of drop, the last
 part steep through the third tunnel. A forest slope is on the left, a stone wall over the valley on the right, guardrails
@@ -181,17 +178,17 @@ barriers and a yellow line on the left. Then the riverside, and 700 m after the 
 and stars as the night deepens; river boats with lit decks, reflections, lamp posts and their glow on the wet road. Its bends push a bike out a third as hard as they look (a fifth on
 easy), and in the hairpins a bike goes up to 40% slower by itself. The bike can't leave the road (rubbing along a rail
 slows it down). On medium and hard, stone sledges (a wooden sledge hauling a cut stone block) stand on the road
-among the trucks, mopeds and rockslides, inside the lit tunnels too (not at their mouths). (Chongqing was briefly, on 2026-11-14, a ride
-from day into night in front of the user's four pictures; the user preferred the drawn city and it came back.)
+among the trucks, mopeds and rockslides, inside the lit tunnels too (not at their mouths).
 The others are each a loop of bends and hills ridden three times over, one after the other, from the start to the goal. (From 2026-11-11 to
 2026-11-13 the courses were Sakura River, Neon City and Mountain Pass, made from the user's pictures; the user took them
-out again. Their times stay in the database, unlisted.)
+out again; on 2026-11-19 the looped Chongqing course, up and down the mountain city at night, went too. Their times stay
+in the database, unlisted.)
 
 The phones talk to the server over a WebSocket (`/api/race`, checked by the access code like everything else). Each phone
 rides its own bike (`track.js`) and sends where it is 15 times a second; the server passes that on to the others with how
 old it is, and each phone draws the others where they should be now. The server counts the start down, keeps the order
 at the goal by its own clock, gives the others a minute after the winner, and puts each finish on the course's
-leaderboard of fastest times (`moto-seaside`, `moto-canyon`, `moto-forest`, `moto-chongqing`, `moto-tianmen`; only the server adds to them). The menu
+leaderboard of fastest times (`moto-seaside`, `moto-canyon`, `moto-forest`, `moto-tianmen`; only the server adds to them). The menu
 doesn't stop the race. Afterwards the one who opened the race can start another with the same riders. It has its own
 music and a soft engine hum that follows the speed.
 

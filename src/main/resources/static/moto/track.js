@@ -103,16 +103,6 @@ const Track = (() => {
             laps: 3,
             obstacles: ['stump', 'stump', 'rock', 'car']
         },
-        chongqing: {
-            name: 'Chongqing',
-            about: 'Up and down the mountain city at night',
-            scenery: ['tower', 'tower', 'stilt', 'lantern', 'ficus'],
-            sections: [[30, 0, 0], [40, -4, 10], [30, 5, 8], [40, -5, 6], [40, 0, -8], [50, 6, -10], [30, 0, 0], [40, -3, -6],
-                [40, 3, 6], [50, -5, -6], [40, 0, 0], [40, 4, 0]],
-            laps: 3,
-            obstacles: ['car', 'cones', 'baskets', 'car'],
-            monorail: 110 // a monorail over the road, on a straight, at most every this many segments
-        },
         tianmen: {
             name: 'Tianmen',
             about: 'Down the mountain and on into Chongqing at night',
@@ -133,11 +123,9 @@ const Track = (() => {
         }
     };
     // How wide what stands beside the road is, to ride into (half, in m)
-    const SOLID = {palm: 0.5, rock: 0.9, hut: 1.8, cactus: 0.5, boulder: 1.1, mesa: 0, pine: 0.6, birch: 0.4, log: 1.2, sign: 0.4, beach: 1.3,
-        tower: 0, stilt: 2, lantern: 0.3, ficus: 0.7, pillar: 0.6, monorail: 0};
+    const SOLID = {palm: 0.5, rock: 0.9, hut: 1.8, cactus: 0.5, boulder: 1.1, mesa: 0, pine: 0.6, birch: 0.4, log: 1.2, sign: 0.4, beach: 1.3};
     // What stands further off: at least this far from the road's edge, and up to this much further
-    const FAR = {mesa: [30, 30], tower: [20, 34]};
-    const PILLAR = ROAD + 2.8; // the monorail's pillars, both sides
+    const FAR = {mesa: [30, 30]};
     const WALL = ROAD * 1.13; // mountain roads: the cliff and the parapet stand at the outer edge of the kerb
     const TUNNEL_HEIGHT = 5.5;
 
@@ -157,8 +145,7 @@ const Track = (() => {
         truck: {half: 1.2, length: 6},
         moped: {half: 0.5, length: 1.8},
         rockslide: {half: 1.3, length: 2},
-        sledge: {half: 1.05, length: 2.4},
-        baskets: {half: 0.9, length: 0.9}
+        sledge: {half: 1.05, length: 2.4}
     };
     const LANES = [-2.3, 0, 2.3];
 
@@ -245,14 +232,7 @@ const Track = (() => {
         }
 
         const random = seeded(name.length * 7919 + name.charCodeAt(0) * 104729);
-        let lastRail = RUN_UP;
         segments.forEach((segment, i) => {
-            if (spec.monorail && i - lastRail >= spec.monorail && i > RUN_UP + 20 && i < goal - 12 && Math.abs(segment.bend) < 1) {
-                // Pillars first, so the beam is drawn over them
-                segment.things.push({kind: 'pillar', x: -PILLAR, base: 0, size: 1}, {kind: 'pillar', x: PILLAR, base: 0, size: 1},
-                    {kind: 'monorail', x: 0, base: 0, size: 1, phase: (i * 0.618) % 1});
-                lastRail = i;
-            }
             // Signs on the outside of a sharp bend, so it can be seen coming
             if (Math.abs(segment.bend) >= 3.5 && i % 5 === 0 && !segment.walls) {
                 segment.things.push({kind: 'sign', x: Math.sign(segment.bend) * (ROAD + 1.6), base: 0, size: 1, left: segment.bend > 0});

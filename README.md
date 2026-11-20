@@ -164,7 +164,7 @@ Levels: the one who opened the race picks **Easy**, **Medium** or **Hard** for t
 The courses: **Seaside** (long bends along the sea and some sharp ones, two ramps a lap, palms, rocks, huts
 and sun umbrellas with a swim ring and a sun chair; crabs crossing the road), **Canyon** (sharp
 turns and steep hills, cacti, boulders and mesas; its medium has as much on the road as hard elsewhere, and its hard is
-that on a wilder road with higher crests, deeper drops and bends to brake for), and **Forest** (winding through pines and birches at dusk), all drawn in code. **Tianmen** is ridden once from start to goal and is exactly the user's test page
+that on a wilder road with higher crests, deeper drops and bends to brake for), and **Forest** (winding through pines and birches at dusk), all drawn in code. **Heaven's Gate** (Tianmen to Chongqing; named as in the test page, 2026-11-20) is ridden once from start to goal and is exactly the user's test page
 (`tianmen-to-chongqing-course.html`, "real game version", the final one of 2026-11-18, which runs the game's own `track.js` and
 `scene.js`): 5.8 km in three stretches. First the mountain: 1.95 km down ten hairpins and about 310 m of drop, the last
 part steep through the third tunnel. A forest slope is on the left, a stone wall over the valley on the right, guardrails

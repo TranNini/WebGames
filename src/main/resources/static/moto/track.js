@@ -104,7 +104,7 @@ const Track = (() => {
             obstacles: ['stump', 'stump', 'rock', 'car']
         },
         tianmen: {
-            name: 'Tianmen',
+            name: "Heaven's Gate", // the name in the user's test page (its key stays tianmen: boards, saved choices)
             about: 'Down the mountain and on into Chongqing at night',
             // Built from the test's course (descend()): the mountain between a forest slope and a stone wall over the
             // valley, then the city's bridge and riverside between rails (drawn by scene.js), nothing beside the road. Its

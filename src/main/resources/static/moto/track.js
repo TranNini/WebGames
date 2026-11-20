@@ -23,6 +23,7 @@ const Track = (() => {
     const TURBO_SPEED = 1.3; // up to this much over the top speed (290 km/h),
     const TURBO_PULL = 40; // speeding up this hard (m/s each second);
     const TURBO_COOLDOWN = 10; // then this many seconds before it can be used again
+    const SEPARATE = 2.5; // m/s: how quickly two bikes that touch ease apart
     const SCRAPE = 0.75; // riding along something on the road cuts the speed to this share
     const CRASH_SECONDS = 1.4; // after hitting a tree or a rock beside the road: no steering, and carried back onto it
     const GHOST_SECONDS = 1.2; // then: through everything, so it can't be hit again straight away
@@ -623,17 +624,23 @@ const Track = (() => {
         }
         bike.stopped = stopped;
 
-        // Into another bike: the one behind slows down, both are pushed apart
+        // Into another bike: the one behind is knocked back a little when they first touch, then held at the other's
+        // speed; each eases its half of the overlap away, steadily, so two bikes side by side ride on together without
+        // shaking (the other bike's phone, or its computer rider, moves the other half)
+        const wasTouching = bike.bumped;
         bike.bumped = false;
         for (const other of bike.crash > 0 || bike.ghost > 0 || high ? [] : others) {
             const ahead = other.z - bike.z;
             const apart = bike.x - other.x;
             if (Math.abs(ahead) < BIKE_LENGTH && Math.abs(apart) < BIKE_HALF_WIDTH * 2 && !((other.air || 0) > 0.6)) {
                 if (ahead > 0 && bike.speed > other.speed) {
-                    bike.speed = Math.max(0, other.speed * 0.92);
-                    happened = happened || 'bump';
+                    bike.speed = wasTouching ? other.speed : Math.max(0, other.speed * 0.92);
+                    happened = happened || (wasTouching ? '' : 'bump');
                 }
-                bike.x += (apart >= 0 ? 1 : -1) * 3 * seconds + (apart >= 0 ? 0.05 : -0.05);
+                // Right on top of each other: the one behind goes left, the one ahead right
+                const away = apart > 0 || (apart === 0 && ahead < 0) ? 1 : -1;
+                const overlap = BIKE_HALF_WIDTH * 2 - Math.abs(apart);
+                bike.x += away * Math.min(overlap / 2, SEPARATE * seconds);
                 bike.bumped = true;
             }
         }
@@ -688,11 +695,24 @@ const Track = (() => {
         // Where on the road
         let target = rider.lane * (1 - Math.min(1, Math.abs(near) / 4)) + Math.sign(near) * Math.min(2.4, Math.abs(near) * 0.6);
         target += Math.sin(rider.time * 0.55 + rider.lane * 3) * rider.wobble;
+        // Round a slower bike ahead: on one side, chosen once (the side it is already on, if there is room) and kept until
+        // it is past, so it doesn't swerve from side to side
+        const lane = target;
+        let passing = false;
         for (const other of others) {
             const gap = other.z - bike.z;
-            if (gap > 0 && gap < 14 && other.speed < bike.speed + 1 && Math.abs(other.x - target) < 1.3) {
-                target = other.x + (other.x > 0 ? -1.8 : 1.8);
+            const keep = rider.passSide && gap > -BIKE_LENGTH * 1.5 && gap < 14 && Math.abs(other.x - lane) < 2.2;
+            if (keep || (gap > 0 && gap < 14 && other.speed < bike.speed + 1 && Math.abs(other.x - lane) < 1.3)) {
+                if (!rider.passSide) {
+                    const side = bike.x >= other.x ? 1 : -1;
+                    rider.passSide = Math.abs(other.x + side * 1.8) <= ROAD - 0.6 ? side : -side;
+                }
+                target = other.x + rider.passSide * 1.8;
+                passing = true;
             }
+        }
+        if (!passing) {
+            rider.passSide = 0;
         }
         target = Math.max(-ROAD + 0.6, Math.min(ROAD - 0.6, target));
         let dodging = false;

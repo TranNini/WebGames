@@ -136,7 +136,8 @@ banner to the GOAL, about one and a half minutes; the bar shows how far it still
 is. The bike speeds up by itself: hold the left or right half of the screen to steer, both to brake (on a computer: the
 arrow keys, Down or Space to brake). **Turbo** (the round button at the bottom; Up or W) pulls the bike hard up to 290 km/h
 for 50 m, a little flame out of each exhaust; then its ring fills up again over 10 seconds before it can be used again. A
-crash ends it; braking still brakes. The computer riders don't use it. Bends push the bike outwards, the more the faster it goes; off the road it is
+crash ends it; braking still brakes. The computer riders don't use it. Two bikes that touch ease apart steadily, side by side, the one behind held at the other's speed after a first knock;
+bends push the bike outwards, the more the faster it goes; off the road it is
 slower, and riding into a tree or a rock beside it is a crash: the bike is carried back onto the road and then rides
 through everything for a moment, blinking. A ramp across the road throws the bike into the air, the further the faster it
 comes (about 80 m at full speed): it keeps its speed, can turn only a little and flies over what is on the road; every phone
@@ -145,7 +146,7 @@ right behind another bike gives up to 10% more speed; running into one
 slows you down.
 
 Computer riders (Aiko, Kenji, Mika, Ren, Sora) are ridden by the phone that opened the race (`Track.computer`: they keep a
-line, cut to the inside of bends, slow for the sharpest ones and ride round slower bikes) and sent on with its own bike, so
+line, cut to the inside of bends, slow for the sharpest ones and ride round slower bikes, on one side, kept until they are past) and sent on with its own bike, so
 everyone sees them. Each has its own top speed, and they ease off when far ahead of the people and push when far behind,
 so a race stays close. Their times aren't on the leaderboard; when the people are all in, a computer rider still on the way
 gets its time at the speed it has. A person joining a full race takes a computer rider's place. If the one who opened it

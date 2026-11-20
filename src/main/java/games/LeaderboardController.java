@@ -19,7 +19,8 @@ public class LeaderboardController {
             "solitaire-moves-1", "solitaire-moves-3", "mahjong-easy", "mahjong-medium", "mahjong-hard",
             "mahjong-easy-nohints", "mahjong-medium-nohints", "mahjong-hard-nohints",
             "moto-seaside", "moto-canyon", "moto-forest", "moto-seaside-medium", "moto-canyon-medium", "moto-forest-medium",
-            "moto-seaside-hard", "moto-canyon-hard", "moto-forest-hard", "moto-tianmen", "moto-tianmen-medium", "moto-tianmen-hard");
+            "moto-seaside-hard", "moto-canyon-hard", "moto-forest-hard", "moto-tianmen", "moto-tianmen-medium", "moto-tianmen-hard",
+            "moto-countryside", "moto-countryside-medium", "moto-countryside-hard");
     private static final int MAX_NAME_LENGTH = 16;
     private static final int MAX_SCORE = 1_000_000;
 

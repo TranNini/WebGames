@@ -180,6 +180,13 @@ and stars as the night deepens; river boats with lit decks, reflections, lamp po
 easy), and in the hairpins a bike goes up to 40% slower by itself. The bike can't leave the road (rubbing along a rail
 slows it down). On medium and hard, stone sledges (a wooden sledge hauling a cut stone block) stand on the road
 among the trucks, mopeds and rockslides, inside the lit tunnels too (not at their mouths).
+**Mountain Passage** (key `countryside`, added 2026-11-20) is ridden once too and is exactly the user's test page
+`mountain-passage.html` (it runs the game's own `track.js` and `scene.js`): 5.1 km on a bright day. Rice fields with
+farmers on the left, a village with houses, hens, baskets and lamps, an elevated railway wall with cherry trees on the
+right and a bullet train coming up from behind and overtaking (one, 50 m into the race); then the road climbs away from
+the railway, through dips and sharp bends, into a mountain valley with a river and pines, under layered blue mountains.
+The road ends at a viewpoint 92 m after the goal, where the bikes roll to a stop. On medium and hard, cars and cones
+stand on the road. With it, every course took Heaven's Gate's camera (6.5 m behind the bike, horizon lower, 920 m drawn).
 The others are each a loop of bends and hills ridden three times over, one after the other, from the start to the goal. (From 2026-11-11 to
 2026-11-13 the courses were Sakura River, Neon City and Mountain Pass, made from the user's pictures; the user took them
 out again; on 2026-11-19 the looped Chongqing course, up and down the mountain city at night, went too. Their times stay
@@ -189,7 +196,7 @@ The phones talk to the server over a WebSocket (`/api/race`, checked by the acce
 rides its own bike (`track.js`) and sends where it is 15 times a second; the server passes that on to the others with how
 old it is, and each phone draws the others where they should be now. The server counts the start down, keeps the order
 at the goal by its own clock, gives the others a minute after the winner, and puts each finish on the course's
-leaderboard of fastest times (`moto-seaside`, `moto-canyon`, `moto-forest`, `moto-tianmen`; only the server adds to them). The menu
+leaderboard of fastest times (`moto-seaside`, `moto-canyon`, `moto-forest`, `moto-tianmen`, `moto-countryside`; only the server adds to them). The menu
 doesn't stop the race. Afterwards the one who opened the race can start another with the same riders. It has its own
 music and a soft engine hum that follows the speed.
 

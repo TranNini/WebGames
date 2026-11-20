@@ -2,8 +2,8 @@
 // bikes on it. All drawn in code. The road is drawn from near to far, each segment only where nearer hills don't hide it; then what
 // stands on it from far to near, cut off where a hill in front covers it.
 const Scene = (() => {
-    const DRAW_SEGMENTS = 170; // 680 m ahead
-    const CAMERA_BACK = 5; // the camera is this far behind the bike
+    const DRAW_SEGMENTS = 230; // 920 m ahead (the haze still works over the first 680 m)
+    const CAMERA_BACK = 6.5; // the camera is this far behind the bike
     const BIKE_SCALE = 1.7; // bikes are drawn bigger than they are, to be seen well on a phone
     const RIDER_COLORS = ['#e5484d', '#3e7bfa', '#f5c400', '#2fb36d', '#9b5de5', '#f7782b'];
 
@@ -24,6 +24,11 @@ const Scene = (() => {
             lights: 0.5
         },
         // Drawn by drawDescent, as in the html test; its haze, for what stands on the road
+        // Bright day in the Japanese countryside: layered blue mountains, rice fields and a railway wall (drawCountry)
+        countryside: {
+            sky: ['#3f9fe8', '#cfe9f8'], fog: '#d8edf7', hills: ['#bcd5ee', '#8db3e3', '#5f8acf'], grass: ['#78c050', '#78c050'],
+            road: ['#6e6a7c', '#6a6678'], rumble: ['#f6f6f2', '#f6f6f2'], line: '#fbfbf6', sun: '#ffffff', lights: 0, country: true
+        },
         tianmen: {fog: '#d6e4ec', lights: 0}
     };
 
@@ -32,6 +37,12 @@ const Scene = (() => {
     let width = 0;
     let height = 0;
     let skyShift = 0;
+    let currentTrains = []; // the bullet trains on the railway: {head, len}: where its nose is, in m along the road, and how long it is (it travels the way the road does)
+    let shownNow = null; // the segments in view, and the camera's height, for the line-of-sight test of far valley things
+    let cameraYNow = 0;
+    let currentTrack = null; // the track being drawn (the valley's ground is worked out from it)
+    let finale = 0; // 0 to 1: how far into the final viewpoint (more far ranges, mist and clouds below the ridges)
+    let farness = 0; // 0 to 1: how much of the Sa Pa valley the rider has come to (the far mountains rise with it)
 
     function setUp(element) {
         canvas = element;
@@ -82,34 +93,90 @@ const Scene = (() => {
             resize();
         }
         const {track, bike} = view;
+        currentTrains = view.trains || [];
+        currentTrack = track;
+        finale = track.country ? (t => t * t * (3 - 2 * t))(Math.max(0, Math.min(1, (Track.layoutOf(bike.z / Track.SEGMENT) - 1230) / 170))) : 0;
+        farness = track.country ? Math.max(0, Math.min(1, (Track.mapA(bike.z / Track.SEGMENT) - 560) / 440)) : 0;
         if (track.descent) {
             drawDescent(view);
             return;
         }
         const look = LOOKS[track.key];
+        const isFar = segment => Track.mapA(segment.index - Track.RUN_UP) >= 425; // where the railway leaves the road
         const upright = height > width;
         // Sideways, the camera comes closer: the road and the bikes fill more of the wide screen, with less sky
-        const horizon = height * (upright ? 0.3 : 0.33);
-        const bikeY = height * (upright ? 0.86 : 0.9);
+        const horizon = height * (upright ? 0.42 : 0.45); // Heaven's Gate camera
+        
         // The road at the bike takes most of the width; the camera's height follows from where the bike is on screen
-        const focal = (upright ? width * 0.74 : Math.min(width * 0.86, height * 2.2)) * CAMERA_BACK / (2 * Track.ROAD);
-        const cameraHeight = (bikeY - horizon) * CAMERA_BACK / focal;
+        const focal = upright ? width * 0.66 : Math.max(width * 0.5 / Math.tan(40 * Math.PI / 180), height * 0.42);
+        const bikeGround = Track.heightAt(track, bike.z);
+        const camGround = Track.heightAt(track, bike.z - CAMERA_BACK);
+        const bikeY = horizon + focal * (2 + camGround - bikeGround) / CAMERA_BACK; // exactly as in Heaven's Gate // as in Heaven's Gate: the camera follows the ground under it, the bike moves on the screen over rises and dips
+        const cameraHeight = 2;
         const cameraZ = bike.z - CAMERA_BACK;
         // In the air the camera goes up with the bike, a little less, so the bike is seen rising and the road dropping away
-        const cameraY = Track.heightAt(track, bike.z) + cameraHeight + bike.air * 0.6;
+        const cameraY = camGround + cameraHeight; // as in Heaven's Gate: the ground under the camera, 2 m up
         const cameraX = bike.x;
         // Bikes are drawn bigger than they are, to be seen well, but the own one no taller than a fifth of the screen
         // (a phone sideways, where the screen is low: a third; a tablet sideways: a quarter)
         const tallest = upright ? 0.21 : height < 500 ? 0.32 : 0.24;
-        const bikeScale = Math.min(BIKE_SCALE, height * tallest / 1.8 / (focal / CAMERA_BACK));
+        const bikeScale = 0.81;
 
         // The far view turns with the road
         skyShift += view.turned;
         drawSky(look, horizon, upright);
         // The land far off, in the haze: seen under the horizon where the road beyond a crest is hidden (left unpainted,
         // it kept what was drawn there before, and things left trails)
-        ctx.fillStyle = look.fog;
+        ctx.fillStyle = look.country ? mix('#b9e38c', look.fog, 0.25) : look.fog; // the far land of the countryside: light green
         ctx.fillRect(0, horizon + 2, width, height - horizon - 2);
+        if (look.country) {
+            // the far land in bands of different greens (fields and hedges in the haze), wider the nearer: not one flat sheet
+            const farGreens = ['#a6dc78', '#c4e88c', '#94d26e', '#b5e281', '#9ed874'];
+            let by = horizon + 2;
+            for (let k = 0; k < 14 && by < height; k++) {
+                const bh = (2 + k * k * 0.9) * (height / 390);
+                let bandColor = hexMix(farGreens[(k * 3) % 5], look.fog, 0.2);
+                if (finale > 0.001) {
+                    // the viewpoint: the valley far below is forest, hazy and pale far off, darker nearer, with rounded tree tops
+                    const dt = Math.min(1, k / 9);
+                    bandColor = hexMix(bandColor, hexMix(hexMix('#a9cfae', '#5d9c6a', dt), '#2f7a46', Math.max(0, dt - 0.4)), finale);
+                }
+                ctx.fillStyle = bandColor;
+                ctx.fillRect(0, by, width, Math.min(bh, height - by));
+                if (finale > 0.001 && k < 11) {
+                    const r = Math.max(2.5, bh * 0.55);
+                    for (let x = -((skyShift * 0.05) % r); x < width + r; x += r * 1.5) {
+                        ctx.beginPath();
+                        ctx.arc(x, by + 0.5, r * (0.8 + 0.4 * hash(Math.floor((x + skyShift * 0.05) / r) + k * 17)) * finale, Math.PI, 0);
+                        ctx.fill();
+                    }
+                }
+                by += bh;
+            }
+        }
+
+        if (look.country && finale > 0.001) {
+            // white clouds lying over the forest, far below
+            const cu = Math.max(8, horizon * 0.09);
+            const cspan = width + cu * 24;
+            for (const [k, dy, size] of [[0, 0.035, 1.6], [1, 0.07, 2.2], [2, 0.05, 1.3], [3, 0.095, 2.6]]) {
+                const cx = (((k * 0.27 * cspan - skyShift * 0.4) % cspan) + cspan) % cspan - cu * 10;
+                const cy = horizon + height * dy;
+                ctx.fillStyle = 'rgba(255,255,255,' + (0.85 * finale) + ')';
+                ctx.beginPath();
+                ctx.ellipse(cx, cy, cu * 3.6 * size, cu * 0.5 * size, 0, 0, Math.PI * 2);
+                ctx.ellipse(cx - cu * 1.9 * size, cy + cu * 0.12, cu * 2 * size, cu * 0.45 * size, 0, 0, Math.PI * 2);
+                ctx.ellipse(cx + cu * 2.1 * size, cy + cu * 0.1, cu * 2.2 * size, cu * 0.42 * size, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        if (look.country && finale > 0.001) {
+            const haze2 = ctx.createLinearGradient(0, horizon, 0, horizon + height * 0.12);
+            haze2.addColorStop(0, 'rgba(255,255,255,' + (0.55 * finale) + ')');
+            haze2.addColorStop(1, 'rgba(255,255,255,0)');
+            ctx.fillStyle = haze2;
+            ctx.fillRect(0, horizon + 2, width, height * 0.12);
+        }
 
         const first = Track.RUN_UP + Math.floor(cameraZ / Track.SEGMENT);
         const into = cameraZ / Track.SEGMENT - Math.floor(cameraZ / Track.SEGMENT);
@@ -117,6 +184,8 @@ const Scene = (() => {
         let x = 0;
         let dx = -track.segments[first].bend * bendStep * into;
         let lowest = height; // nearer road already covers what is below this
+        let lowestX = null; // where that crest is across the screen, and how big a metre is there
+        let lowestS = 0;
         const shown = [];
 
         for (let n = 0; n < DRAW_SEGMENTS && first + n < track.segments.length; n++) {
@@ -131,11 +200,35 @@ const Scene = (() => {
             const y1 = horizon - (segment.y1 - cameraY) * scale1;
             const y2 = horizon - (segment.y2 - cameraY) * scale2;
             const visible = z2 > 0.5 && y2 < lowest;
-            shown.push({segment, n, z1, z2, x1, x2, y1, y2, scale1, scale2, roadX: x, roadDx: dx, clip: lowest, visible});
+            shown.push({segment, n, z1, z2, x1, x2, y1, y2, scale1, scale2, roadX: x, roadDx: dx, clip: lowest, clipX: lowestX, clipS: lowestS, visible});
             x += dx;
             dx += segment.bend * bendStep;
             if (visible) {
                 lowest = y2;
+                lowestX = x2;
+                lowestS = scale2;
+            }
+        }
+        // how far into a hidden stretch (behind a crest) each segment lies: its first few still show their railway wall and trees
+        {
+            let run = 0;
+            for (const entry of shown) {
+                run = entry.visible ? 0 : run + 1;
+                entry.hr = run;
+            }
+        }
+        shownNow = shown;
+        cameraYNow = cameraY;
+        if (look.country && currentTrack) {
+            // the tallest hill between the camera and each segment: what lies lower beyond a taller hill is hidden by it
+            let tallest = 0;
+            for (const entry of shown) {
+                const tp = Track.terrain(currentTrack.segments, entry.segment.index - Track.RUN_UP);
+                const hc = tp.Hc * (1 - tp.g); // where the way to the valley is open there is no hill
+                entry.hc = hc;
+                entry.tp = tp;
+                entry.nearHc = tallest;
+                tallest = Math.max(tallest, hc);
             }
         }
 
@@ -146,12 +239,42 @@ const Scene = (() => {
             if (visible) {
                 const top = Math.max(y2 - 0.7, 0);
                 ctx.fillStyle = mix(look.grass[Math.floor(segment.index / 3) % 2], look.fog, haze(n));
-                ctx.fillRect(0, top, width, Math.min(y1, height) - top);
+                // The countryside: no ground beyond the railway wall (seen over it from high up, it was a green strip)
+                // (where the ground falls away to the valley beside the road, the flat fill stops at its edge: the slopes and the far
+                // land are drawn there, not one flat green sheet at the road's level)
+                const open = look.country && currentTrack && Track.terrain(currentTrack.segments, segment.index - Track.RUN_UP).floor < -0.3;
+                const side = open ? Track.SLOPE_AT + 0.5 : Track.ROAD + 8.5 + 9;
+                const reach = look.country ? Math.max(0, Math.min(width, shown[i].x1 + side * shown[i].scale1)) : width;
+                if (look.country) {
+                    // the outer edge follows the segment (near end to far end) instead of a square step, so a hill's edge is a smooth line
+                    const reachFar = Math.max(0, Math.min(width, shown[i].x2 + side * shown[i].scale2));
+                    const bottom = Math.min(y1, height);
+                    const k = bottom > y2 ? Math.max(0, Math.min(1, (top - y2) / (bottom - y2))) : 0;
+                    const reachTop = reachFar + (reach - reachFar) * k;
+                    ctx.beginPath();
+                    ctx.moveTo(0, top);
+                    ctx.lineTo(reachTop, top);
+                    ctx.lineTo(reach, bottom);
+                    ctx.lineTo(0, bottom);
+                    ctx.closePath();
+                    ctx.fill();
+                } else {
+                    ctx.fillRect(0, top, reach, Math.min(y1, height) - top);
+                }
             }
         }
         for (let i = shown.length - 1; i >= 0; i--) {
             const {segment, n, x2, scale1, scale2, clip, visible} = shown[i];
             if (!visible) {
+                if (look.country && shown[i].z1 >= 1 && isFar(segment)) {
+                    // the valley beside a hidden stretch of road is still seen from the road's side
+                    drawCountry(shown[i], look, n, 'ground');
+                }
+                if (look.country && shown[i].z1 >= 1 && !isFar(segment)) {
+                    // Behind a crest the road is hidden, but the railway wall stands higher than it: drawn here, in turn with the
+                    // road, so what is nearer covers it
+                    drawCountry(shown[i], look, n, true);
+                }
                 continue;
             }
             let {x1, y1} = shown[i];
@@ -164,12 +287,34 @@ const Scene = (() => {
                 w1 = w2 + (w1 - w2) * t;
                 y1 = clip;
             }
+            if (look.country) {
+                // Beyond segment 425 the railway, its masts, the hills and what stands on them are drawn here, a segment at a
+                // time with the road: what is nearer then hides what is behind (a hill hides the railway)
+                if (isFar(segment)) {
+                    drawCountry(shown[i], look, n, true);
+                    if (shown[i].z1 >= 1) {
+                        for (const thing of segment.things) {
+                            if (thing.kind === 'pole') {
+                                drawThing(thing, shown[i], look, cameraX, n);
+                            }
+                        }
+                    }
+                }
+                drawCountry(shown[i], look, n, 'ground');
+                if (isFar(segment) && shown[i].z1 >= 1) {
+                    for (const thing of segment.things) {
+                        if (thing.kind !== 'pole' && farRight(thing, n)) {
+                            drawThing(thing, shown[i], look, cameraX, n);
+                        }
+                    }
+                }
+            }
             const fade = haze(n);
             const stripe = Math.floor(segment.index / 3) % 2;
             quad(mix(look.rumble[stripe], look.fog, fade), x1, y1, w1 * 1.13, x2, y2, w2 * 1.13);
             const gate = segment.index - Track.RUN_UP;
             const goal = track.length / Track.SEGMENT;
-            const startLine = gate === 0 || gate === 1 || gate === goal || gate === goal + 1;
+            const startLine = gate === 0 || gate === goal;
             quad(mix(startLine ? '#f2f2f2' : look.road[stripe], look.fog, fade), x1, y1, w1, x2, y2, w2);
             if (startLine) {
                 drawChecks(x1, y1, w1, x2, y2, w2, segment.index);
@@ -187,7 +332,7 @@ const Scene = (() => {
         for (const other of [...view.others, own]) {
             const ahead = other.own ? CAMERA_BACK : other.z - cameraZ;
             const n = Math.floor((ahead + into * Track.SEGMENT) / Track.SEGMENT);
-            if (ahead > 1 && n < shown.length - 2) {
+            if ((other.own ? ahead > 1 : ahead >= 4.6) && n < shown.length - 2) { // (a bike right in front of the camera is not drawn, as in Heaven's Gate)
                 if (!bikesIn.has(n)) {
                     bikesIn.set(n, []);
                 }
@@ -199,9 +344,26 @@ const Scene = (() => {
         }
         for (let n = shown.length - 1; n >= 0; n--) {
             const entry = shown[n];
+            if (look.country && entry.visible) {
+                drawCountry(entry, look, n);
+                if (!isFar(entry.segment)) {
+                    drawCountry(entry, look, n, true);
+                }
+            }
+            if (look.country && n + 1 < shown.length && shown[n + 1].z1 >= 1) {
+                // The cherry trees stand against the wall: drawn once the wall's next segment is, so a crown reaching over the
+                // wall is not cut by it
+                for (const thing of shown[n + 1].segment.things) {
+                    if (thing.kind === 'cherry' && (shown[n + 1].visible || !isFar(shown[n + 1].segment))) {
+                        drawThing(thing, shown[n + 1], look, cameraX, n + 1);
+                    }
+                }
+            }
             if (entry.z1 >= 1) {
                 for (const thing of entry.segment.things) {
-                    drawThing(thing, entry, look, cameraX, n);
+                    if (!(look.country && thing.kind === 'cherry') && !(look.country && !entry.visible && thing.kind === 'pole') && !(look.country && isFar(entry.segment) && entry.visible && (thing.kind === 'pole' || farRight(thing, n)))) {
+                        drawThing(thing, entry, look, cameraX, n);
+                    }
                 }
             }
             for (const other of bikesIn.get(n) || []) {
@@ -212,7 +374,7 @@ const Scene = (() => {
                         continue;
                     }
                     const perMeter = focal / CAMERA_BACK;
-                    drawBike(width / 2, bikeY + bike.air * 0.6 * perMeter, perMeter * bikeScale, RIDER_COLORS[view.color], lean,
+                    drawBike(width / 2, bikeY - (look.country ? terrainDrop(bike.x) * 0.4 * perMeter : 0), perMeter * bikeScale, RIDER_COLORS[view.color], lean,
                         view.braking, null, look.lights, bike.air * perMeter);
                     continue;
                 }
@@ -223,14 +385,679 @@ const Scene = (() => {
                 const roadX = entry.roadX + entry.roadDx * t;
                 const ground = entry.segment.y1 + (entry.segment.y2 - entry.segment.y1) * t;
                 const sx = width / 2 + (roadX + other.x - cameraX) * scale;
-                const sy = horizon - (ground - cameraY) * scale;
-                clipped(entry.clip, () => drawBike(sx, sy, scale * bikeScale, other.color, other.lean, other.braking, other.name,
+                const sy = horizon - (ground - cameraY) * scale - (look.country ? terrainDrop(other.x) * 0.4 * scale : 0);
+                clipped(look.country ? Math.min(height, entry.clip + 2) : entry.clip, () => drawBike(sx, sy, scale * bikeScale, other.color, other.lean, other.braking, other.name,
                     look.lights, (other.air || 0) * scale));
+            }
+        }
+        // The bullet trains, over the trees: they run above the wall, higher than the crowns
+        if (false) {
+            for (let n = shown.length - 1; n >= 0; n--) {
+                if (shown[n].visible) {
+                    drawCountry(shown[n], look, n, 'train');
+                }
             }
         }
     }
 
-    const haze = n => Math.min(1, (n / DRAW_SEGMENTS) ** 1.6);
+    // The countryside beside one segment: on the left the rice fields in strips and patches, on the right the guardrail, the
+    // railway wall with its railing and the wires over it (the masts and trees are things)
+    const FIELD_DROP = -0.8; // the fields lie this far below the road, the meadow between sloping down to them
+    // How far the ground lies below the road at lateral x (m, negative: left): level to 5.4 m out, then easing down to the fields
+    const terrainDrop = x => {
+        const from = Track.ROAD * 1.13;
+        const s = Math.max(0, Math.min(1, (-x - from) / (-FIELD_EDGES[0] - from)));
+        return FIELD_DROP * s * s * (3 - 2 * s);
+    };
+    const FIELD_EDGES = [-12, -27, -45, -69, -102, -147, -227, -407]; // the fields start 7 m from the road's edge
+    const FIELD_RUNS = [5, 6, 8, 10, 12, 16, 20];
+    const FIELD_COLORS = ['#a8de4c', '#74c157', '#c8dc5c', '#62b64f', '#92d9ea', '#a9e2ef'];
+    function drawCountry(entry, look, n, wallOnly) {
+        const {segment, x1, y1, x2, scale1, scale2} = entry;
+        const y2 = entry.y2 - 0.7;
+        const fade = Math.min(1, haze(n) * 0.6);
+        const tint = color => mix(color, look.fog, fade);
+        const at = (off, h, t = 0) => [x1 + (x2 - x1) * t + off * (scale1 + (scale2 - scale1) * t),
+            y1 + (y2 - y1) * t - h * (scale1 + (scale2 - scale1) * t)];
+        // A ribbon from (offA, hA) to (offB, hB), from the segment's near end (t0) to its far end (t1)
+        const ribbon = (color, offA, hA, offB, hB, t0 = 0, t1 = 1) => {
+            const [ax, ay] = at(offA, hA, t0);
+            const [bx, by] = at(offB, hB, t0);
+            const [cx, cy] = at(offB, hB, t1);
+            const [dx, dy] = at(offA, hA, t1);
+            four(color, ax, ay, bx, by, cx, cy, dx, dy);
+        };
+        const realIndex = segment.index;
+        const index = Track.patternIndex(realIndex); // (patterns of fields and walls go on as if nothing was taken out)
+        // The valley's ground at this segment's near and far end (from segment 410 on; before that it is the plain countryside)
+        const rawA = realIndex - Track.RUN_UP;
+        const a = Track.mapA(rawA); // where in the scenery this segment is (the cut stretches are left out)
+        const val = a >= 410 && currentTrack !== null;
+        const P0 = val ? Track.terrain(currentTrack.segments, rawA) : null;
+        const P1 = val ? Track.terrain(currentTrack.segments, rawA + 1) : null;
+        // A slab of ground from offset oa to ob at the near end (0) and the far end (1), each with its own height
+        const slab = (color, oa0, ha0, ob0, hb0, oa1, ha1, ob1, hb1) => {
+            const [ax, ay] = at(oa0, ha0, 0);
+            const [bx, by] = at(ob0, hb0, 0);
+            const [cx, cy] = at(ob1, hb1, 1);
+            const [dx, dy] = at(oa1, ha1, 1);
+            four(color, ax, ay, bx, by, cx, cy, dx, dy);
+            // the same colour round the edge: no thin light seams between the pieces
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1.2;
+            ctx.lineJoin = 'round';
+            ctx.stroke();
+        };
+        // Where small houses stand within a few segments of this one (offsets from the road's middle, left and right): the
+        // terrace under one is left as plain, flat grass
+        const houses = {left: [], right: []};
+        if (val) {
+            for (let d = -5; d <= 5; d++) {
+                const near = currentTrack.segments[realIndex + d];
+                for (const thing of near ? near.things : []) {
+                    if (thing.kind === 'vhut') {
+                        (thing.x < 0 ? houses.left : houses.right).push(Math.abs(thing.x));
+                    }
+                }
+            }
+        }
+        const LAWN = '#a6dc66';
+        const TERRACES = ['#a9de52', '#8ed15b', '#bfe064', '#76c458', '#b6e269'];
+        // Left: broad terraces of rice climbing the hillside, each a step higher than the one before, their edges winding
+        const drawLeftTerraces = () => {
+            const w = 15;
+            const K = n < 40 ? 27 : n < 90 ? 20 : 15;
+            const edge = (idx, k) => 12 + w * k + (k ? 3.2 * Math.sin(idx * 0.12 + k * 2.1) : 0);
+            const topH = (P, k) => -1.6 + P.left * 1.8 * (1 + k);
+            // Far off two or three terraces are drawn as one
+            const dk = n < 40 ? 1 : n < 90 ? 2 : 3;
+            for (let k = Math.floor((K - 1) / dk) * dk; k >= 0; k -= dk) {
+                const kh = k + ((dk - 1) >> 1);
+                const kp = Math.max(-1, k - dk + ((dk - 1) >> 1));
+                const a0 = edge(index, k);
+                const b0 = edge(index, k + dk);
+                const a1 = edge(index + 1, k);
+                const b1 = edge(index + 1, k + dk);
+                const h0 = topH(P0, kh);
+                const h1 = topH(P1, kh);
+                const hh = hash(kh * 31.7 + Math.floor((index + kh * 5) / (6 + kh % 4)) * 7.3);
+                const lawn = houses.left.some(o => o > a0 - 1 && o < b0 + 1);
+                const water = hh > 0.45 && !lawn && kh < 3; // water only on the three lowest terraces
+                const wild = P0.Fo; // the final mountain: forest and rock instead of rice
+                let color = lawn ? LAWN : water && wild < 0.3 ? '#a5dded' : TERRACES[Math.floor(hh / 0.45 * 5) % 5];
+                if (wild > 0.01) {
+                    color = hexMix(hexMix(color, '#2f7a46', wild * 0.8), '#8f9188', wild * Math.max(0, Math.min(1, (kh - 3) / 9)) * (0.35 + 0.45 * hh));
+                }
+                slab(tint(color), -a0, h0, -b0, h0, -a1, h1, -b1, h1);
+                const lerp = (p, q, t) => p + (q - p) * t;
+                const pt = (off, t) => at(-lerp(off[0], off[1], t), lerp(h0, h1, t), t);
+                if (lawn || wild > 0.5) {
+                    // flat green space around the house: no rice, no border
+                } else if (!water) {
+                    // Grown rice, as in the lower fields: rows along the terrace and, near by, a clump of blades at every step
+                    const row = tint(hexMix(color, '#2f8a3a', 0.45));
+                    const rowList = k >= 3 ? [] : n < 50 ? [1, 2, 3, 4, 5] : n < 154 ? [2, 4] : []; // only the three lowest terraces have the detail
+                    {
+                        for (const r of rowList) {
+                            const m0 = a0 + (b0 - a0) * r / 6;
+                            const m1 = a1 + (b1 - a1) * r / 6;
+                            slab(row, -(m0 - 0.2), h0, -(m0 + 0.2), h0, -(m1 - 0.2), h1, -(m1 + 0.2), h1);
+                        }
+                    }
+                    if (n < 48 && k < 3) {
+                        const tall = Math.max(2, scale1 * 0.55);
+                        for (let r = 1; r < 6; r++) {
+                            for (let m = 0; m < 3; m++) {
+                                const hh2 = hash(index * 11 + r * 7 + m * 3 + k * 53);
+                                const t = (m + 0.15 + hh2 * 0.6) / 3;
+                                const [px, py] = pt([a0 + (b0 - a0) * r / 6 + (hh2 - 0.5) * 0.3, a1 + (b1 - a1) * r / 6 + (hh2 - 0.5) * 0.3], t);
+                                const sz = tall * (0.8 + hh2 * 0.4);
+                                ctx.fillStyle = tint(hh2 > 0.5 ? '#43a53f' : '#378f36');
+                                ctx.beginPath();
+                                ctx.moveTo(px - sz * 0.22, py);
+                                ctx.lineTo(px - sz * 0.34, py - sz * 0.8);
+                                ctx.lineTo(px - sz * 0.1, py - sz * 0.3);
+                                ctx.lineTo(px - sz * 0.02, py - sz * 1.05);
+                                ctx.lineTo(px + sz * 0.08, py - sz * 0.32);
+                                ctx.lineTo(px + sz * 0.3, py - sz * 0.85);
+                                ctx.lineTo(px + sz * 0.22, py);
+                                ctx.closePath();
+                                ctx.fill();
+                                ctx.fillStyle = tint('#79d255');
+                                ctx.beginPath();
+                                ctx.moveTo(px - sz * 0.02, py - sz * 1.05);
+                                ctx.lineTo(px + sz * 0.08, py - sz * 0.32);
+                                ctx.lineTo(px - sz * 0.1, py - sz * 0.3);
+                                ctx.closePath();
+                                ctx.fill();
+                            }
+                        }
+                    }
+                } else if (n < 28 && k < 3) {
+                    // Sparse seedlings standing in the water
+                    ctx.fillStyle = tint('#4aa84a');
+                    const blade = Math.max(1.3, scale1 * 0.09);
+                    for (let m = 0; m < 3; m++) {
+                        const hh2 = hash(index * 7 + m * 13 + k * 29);
+                        const [px, py] = pt([lerp(a0, b0, 0.15 + 0.7 * hash(index + m * 5 + k)), lerp(a1, b1, 0.15 + 0.7 * hash(index + m * 5 + k))], hh2);
+                        ctx.beginPath();
+                        ctx.moveTo(px - blade * 0.6, py);
+                        ctx.lineTo(px - blade * 0.2, py - blade * 1.6);
+                        ctx.lineTo(px + blade * 0.05, py);
+                        ctx.lineTo(px + blade * 0.35, py - blade * 1.9);
+                        ctx.lineTo(px + blade * 0.7, py);
+                        ctx.closePath();
+                        ctx.fill();
+                    }
+                }
+                // The border across the terrace where a new paddy begins: its top and the face towards the road
+                if (!lawn && wild < 0.5 && (index + k * 3) % (6 + k % 4) === 0 && n < 154 && k < 3) {
+                    const top = h0 + 0.26;
+                    if (n < 80) {
+                        const [fx, fy] = at(-a0, h0, 0);
+                        const [gx, gy] = at(-b0, h0, 0);
+                        const [ix, iy] = at(-b0, top, 0);
+                        const [jx, jy] = at(-a0, top, 0);
+                        four(tint('#4f9b41'), fx, fy, gx, gy, ix, iy, jx, jy);
+                    }
+                    const [tx, ty] = at(-a0, top, 0);
+                    const [ux, uy] = at(-b0, top, 0);
+                    const [vx, vy] = at(-b0, top, 0.2);
+                    const [wx, wy] = at(-a0, top, 0.2);
+                    four(tint('#b9e56a'), tx, ty, ux, uy, vx, vy, wx, wy);
+                }
+                // The step up from the terrace below, facing the road, with a bright lip
+                slab(tint(hexMix(k % 2 ? '#4f9b41' : '#468f3c', '#2a5f3a', wild * 0.7)), -a0, topH(P0, kp), -a0, h0, -a1, topH(P1, kp), -a1, h1);
+                if (n < 60 && k < 3) {
+                    slab(tint(hexMix('#c4ea6c', '#4b8a4a', wild * 0.85)), -a0, h0, -(a0 + 0.6), h0, -a1, h1, -(a1 + 0.6), h1);
+                }
+            }
+        };
+        // Right: the hillside between the road and the railway, the ground falling away beyond it to the valley floor and the
+        // river, and the far side rising in terraces
+        const h0r = off => Track.rightHeight(P0, off);
+        const h1r = off => Track.rightHeight(P1, off);
+        const drawRightTerrain = () => {
+            const e = Track.SLOPE_AT;
+            const h0 = off => Track.rightHeight(P0, off);
+            const h1 = off => Track.rightHeight(P1, off);
+            if (P0.floor < -0.3 || P0.A > 0.3) {
+                // Beyond the last terrace a far hillside in the haze, so no gap of bare sky shows (only where the ground falls away: it
+                // showed as a pale patch beside the wall before)
+                const o0 = 210 + 41 * 11;
+                const b0 = h0(o0 + 5.5);
+                const b1 = h1(o0 + 5.5);
+                slab(tint('#86c96a'), o0, b0, 3000, b0 + 0.03 * (3000 - o0), o0, b1, 3000, b1 + 0.03 * (3000 - o0));
+            }
+            if (P0.A > 0.3) {
+                // Far off the terraces are drawn two or four to a piece
+                const dj = n < 50 ? 1 : n < 100 ? 2 : 4;
+                for (let j = n < 80 ? 40 : 32; j >= 0; j -= dj) {
+                    const oa = 210 + j * 11;
+                    const ob = oa + 11 * dj;
+                    const mid = oa + 5.5;
+                    const top0 = h0(mid);
+                    const top1 = h1(mid);
+                    const hh = hash(j * 29.1 + Math.floor((index + j * 3) / (7 + j % 5)) * 5.3);
+                    const lawn = houses.right.some(o => o > oa - 1 && o < ob + 1);
+                    const water = hh > 0.7 && !lawn;
+                    const color = lawn ? LAWN : water ? '#a5dded' : TERRACES[Math.floor(hh / 0.7 * 5) % 5];
+                    slab(tint(color), oa, top0, ob, top0, oa, top1, ob, top1);
+                    slab(tint('#4f9b41'), ob, top0, ob, h0(ob + 5.5), ob, top1, ob, h1(ob + 5.5));
+                }
+            }
+            if (P0.floor < -0.3) {
+                const f0 = P0.floor;
+                const f1 = P1.floor;
+                const edges = [110, 122, 135, 149, 163, 178, 193, 210];
+                for (let i = edges.length - 2; i >= 0; i--) {
+                    const hh = hash(i * 17.3 + Math.floor(index / 4) * 3.1);
+                    slab(tint(TERRACES[Math.floor(hh * 5) % 5]), edges[i], f0, edges[i + 1], f0, edges[i], f1, edges[i + 1], f1);
+                }
+                if (P0.river > 0.3) {
+                    const c0 = P0.riverAt;
+                    const c1 = P1.riverAt;
+                    const r0 = P0.river / 2;
+                    const r1 = P1.river / 2;
+                    const water = hexMix('#9fdcec', '#2fc0bd', Math.max(0, Math.min(1, (a - 740) / 260)));
+                    slab(tint('#e8dfb4'), c0 - r0 - 1.3, f0, c0 + r0 + 1.3, f0, c1 - r1 - 1.3, f1, c1 + r1 + 1.3, f1);
+                    slab(tint(water), c0 - r0, f0, c0 + r0, f0, c1 - r1, f1, c1 + r1, f1);
+                    if (n < 60 && P0.river > 6) {
+                        slab(tint(hexMix(water, '#ffffff', 0.45)), c0 - r0 * 0.35, f0, c0 - r0 * 0.2, f0, c1 - r1 * 0.35, f1, c1 - r1 * 0.2, f1);
+                    }
+                }
+            }
+            const nodes = n < 60 ? [e, e + 2, e + 5, e + 9, e + 15, e + 23, e + 33, e + 46, e + 62, e + 80, 110] : [e, e + 5, e + 15, e + 33, e + 62, 110];
+            for (let i = nodes.length - 2; i >= 0; i--) {
+                const oa = nodes[i];
+                const ob = nodes[i + 1];
+                const ha0 = h0(oa);
+                const hb0 = h0(ob);
+                const lit = Math.max(0.15, Math.min(1, 0.55 + (hb0 - ha0) / (ob - oa) * 2.2));
+                // more shades: lit and shaded faces, lighter and yellower higher up, a faint band along the road every few segments
+                const band = (Math.floor(index / 4) % 3) * 0.05;
+                const high = Math.max(0, Math.min(1, ha0 / 14));
+                const base = hexMix(hexMix('#4d9a47', '#86cc5e', lit), '#b6dd6c', high * 0.45);
+                // the slope in strips whose green follows the height: lighter and warmer where it is high and catches the sun, cooler
+                // and darker down in the hollow, with only a gentle patchiness, so it blends and reads as rounded ground
+                const pieces = 6;
+                for (let s = 0; s < pieces; s++) {
+                    const pa = oa + (ob - oa) * s / pieces;
+                    const pb = oa + (ob - oa) * (s + 1) / pieces;
+                    const hm = (h0(pa) + h0(pb)) / 2;
+                    const tilt = (h0(pb) - h0(pa)) / Math.max(0.1, pb - pa); // facing up (+) or down (-) away from the road
+                    const sun = Math.max(0, Math.min(1, 0.68 + tilt * 1.4));
+                    const depth = Math.max(0, Math.min(1, -hm / 12)); // how far below the road
+                    const patch = (hash(i * 7.7 + s * 3.1 + Math.floor(index / 4) * 1.37) - 0.5) * 0.16;
+                    let col = hexMix('#58a84a', '#a4d866', Math.max(0, Math.min(1, sun * 0.75 + patch + (hm > 0 ? 0.2 : 0))));
+                    col = hexMix(col, '#2f7f4f', depth * 0.2);
+                    if (P0.Fo > 0.01) {
+                        // the final mountain: dark forest green, grey rock high up and in streaks
+                        const rk = P0.Fo * Math.max(0, Math.min(1, (hm - 7) / 14)) * (0.45 + 0.4 * hash(i * 5.3 + s * 1.7 + Math.floor(index / 6) * 2.9));
+                        col = hexMix(hexMix(col, '#2f7a46', P0.Fo * 0.8), '#8f9188', rk);
+                    }
+                    slab(tint(hexMix(col, '#3f8a46', band * 0.6)), pa, h0(pa), pb, h0(pb), pa, h1(pa), pb, h1(pb));
+                }
+            }
+        };
+        // A bullet train on the railway, in 1 m pieces: white with one blue stripe, a row of dark windows, a long pointed nose
+        // with a dark windshield; the side towards the road is drawn (after the trees, so it is seen over them)
+        const drawTrainSlices = () => {
+            const W = Track.ROAD + 8.5;
+            const H = 9;
+            if (val && !P0.rail) {
+                return; // the railway has gone behind the hills
+            }
+            if (val && 9 - (P0.rise + P1.rise) / 2 - Track.rightHeight(P0, Track.WALL_AT + (P0.sep + P1.sep) / 2) < 0.5) {
+                return; // where the wall has gone (the railway is no higher than the ground), so has the train
+            }
+                const seg = Track.SEGMENT;
+                const Z0 = (realIndex - Track.RUN_UP) * seg;
+                const Lcz = z => W + 3.4 + Track.railSep(z / seg);
+                for (const tr of currentTrains) {
+                    const tail = tr.head - tr.len;
+                    if (tr.head <= Z0 || tail >= Z0 + seg) {
+                        continue;
+                    }
+                    for (let k = 0; k < seg; k++) {
+                        const za = Math.max(Z0 + k, tail);
+                        const zb = Math.min(Z0 + k + 1, tr.head);
+                        if (zb <= za) {
+                            continue;
+                        }
+                        const t0 = (za - Z0) / seg;
+                        const t1 = (zb - Z0) / seg;
+                        // The railway keeps its own level while the road climbs: its height from the road here
+                        const Hs = val ? H - (segment.y1 + (segment.y2 - segment.y1) * (t0 + t1) / 2) : H; // before the valley the wall (and the railway on it) follows the road
+                        const sepA = Track.railSep(za / seg);
+                        const sepB = Track.railSep(zb / seg);
+                        const shape = z => {
+                            const u = tr.head - z;
+                            const tailEnd = u > tr.len / 2;
+                            const f = Math.max(0, Math.min(1, Math.min(u, tr.len - u) / (tailEnd ? 5 : 14))); // the rear end is 5 m, the nose 14 m
+                            if (tailEnd) {
+                                // The rear: rounded like a capsule, the roof curving down and the walls in, not cut off flat
+                                return {u, f, tailEnd, lat: Lcz(z) - 1.7 * (0.5 + 0.5 * Math.pow(f, 0.7)), top: Hs + 2.95 + 1.25 * Math.pow(f, 0.55)};
+                            }
+                            return {u, f, tailEnd, lat: Lcz(z) - 1.7 * (0.22 + 0.78 * Math.pow(f, 0.6)), top: Hs + 1.8 + 2.4 * Math.pow(f, 0.5)};
+                        };
+                        const A = shape(za);
+                        const B = shape(zb);
+                        const part = (color, lowA, highA, lowB, highB) => {
+                            const [ax, ay] = at(A.lat, lowA, t0);
+                            const [bx, by] = at(A.lat, highA, t0);
+                            const [cx, cy] = at(B.lat, highB, t1);
+                            const [dx, dy] = at(B.lat, lowB, t1);
+                            four(tint(color), ax, ay, bx, by, cx, cy, dx, dy);
+                        };
+                        // Depth: a soft shadow of the train on the railway bed, the skirt in shade, a darker belt under the roof,
+                        // a recessed window band, and a joint between the carriages
+                        {
+                            const [sax, say] = at(A.lat, Hs, t0);
+                            const [sbx, sby] = at(W + 1.8 + sepA, Hs, t0);
+                            const [scx, scy] = at(W + 1.8 + sepB, Hs, t1);
+                            const [sdx, sdy] = at(B.lat, Hs, t1);
+                            four(tint('#6f6a86'), sax, say, sbx, sby, scx, scy, sdx, sdy);
+                        }
+                        part('#9aa4b8', Hs + 0.35, Hs + 0.9, Hs + 0.35, Hs + 0.9);
+                        // curving away at the rear: the white turns a little grey, so the rounded end reads as round
+                        const white = A.tailEnd ? hexMix('#f7f9fc', '#c9d1e1', 0.55 * (1 - A.f)) : '#f7f9fc';
+                        part(white, Hs + 0.9, Hs + 1.75, Hs + 0.9, Hs + 1.75);
+                        part('#1d4fc4', Hs + 1.75, Hs + 2.35, Hs + 1.75, Hs + 2.35);
+                        part(white, Hs + 2.35, Math.max(Hs + 2.4, A.top - 0.6), Hs + 2.35, Math.max(Hs + 2.4, B.top - 0.6));
+                        part('#d3dae6', Math.max(Hs + 2.4, A.top - 0.6), A.top, Math.max(Hs + 2.4, B.top - 0.6), B.top);
+                        part('#c3cbda', Math.max(Hs + 2.4, A.top - 0.75), Math.max(Hs + 2.4, A.top - 0.6), Math.max(Hs + 2.4, B.top - 0.75), Math.max(Hs + 2.4, B.top - 0.6));
+                        part('#ccd4e2', Hs + 2.35, Hs + 2.6, Hs + 2.35, Hs + 2.6);
+                        part('#164aa8', Hs + 1.75, Hs + 1.9, Hs + 1.75, Hs + 1.9);
+                        const mid = (A.u + B.u) / 2;
+                        const body = Math.min(mid, tr.len - mid + 9); // (the rear end is shorter: windows run up to 5 m from it)
+                        if (body < 10 && !A.tailEnd) {
+                            // The windshield, one dark shape in the nose
+                            part('#1b2552', A.top - 1.4, A.top - 0.35, B.top - 1.4, B.top - 0.35);
+                        } else if (body >= 14) {
+                            const c = (mid - 14) % 25;
+                            if (c > 1.2 && c < 23.8 && c % 4.2 < 3) {
+                                part('#e9eef6', Hs + 2.6, Hs + 3.6, Hs + 2.6, Hs + 3.6);
+                                part('#1b2552', Hs + 2.7, Hs + 3.5, Hs + 2.7, Hs + 3.5);
+                                part('#34417a', Hs + 3.25, Hs + 3.5, Hs + 3.25, Hs + 3.5);
+                            } else if (c <= 1.2 || c >= 23.8) {
+                                part('#aab3c6', Hs + 0.9, Hs + 2.6, Hs + 0.9, Hs + 2.6);
+                            }
+                        }
+                    }
+                    // The back of the train, seen from behind: a soft white capsule end with one dark rounded window and two red lights
+                    if (tail >= Z0 && tail < Z0 + seg) {
+                        const tt = (tail - Z0) / seg;
+                        const Hc0 = val ? H - (segment.y1 + (segment.y2 - segment.y1) * tt) : H;
+                        const cx = Lcz(tail);
+                        const wcap = 1.7 * 0.5;
+                        const hc = Hc0 + 1.95;
+                        const hh = 1.0;
+                        const poly = (color, pts) => {
+                            ctx.fillStyle = tint(color);
+                            ctx.beginPath();
+                            pts.forEach(([px, py], i) => (i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)));
+                            ctx.closePath();
+                            ctx.fill();
+                        };
+                        const ell = (rx, ry, ox, oy, steps = 28) => Array.from({length: steps}, (_, i) => {
+                            const th = i / steps * Math.PI * 2;
+                            return at(cx + ox + rx * Math.cos(th), hc + oy + ry * Math.sin(th), tt);
+                        });
+                        poly('#c9d1e1', ell(wcap, hh, 0, 0)); // the curved edge, in a light shade
+                        poly('#f7f9fc', ell(wcap * 0.9, hh * 0.93, -0.03, 0.02));
+                        // a soft shadow following the upper curve
+                        poly('#dfe5ee', Array.from({length: 20}, (_, i) => {
+                            const th = Math.PI * (0.12 + 0.76 * i / 19);
+                            return at(cx + wcap * 0.9 * Math.cos(th), hc + hh * 0.93 * Math.sin(th), tt);
+                        }).concat(Array.from({length: 20}, (_, i) => {
+                            const th = Math.PI * (0.88 - 0.76 * i / 19);
+                            return at(cx + wcap * 0.9 * Math.cos(th), hc + 0.02 + (hh * 0.93 - 0.2) * Math.sin(th), tt);
+                        })));
+                        // the blue stripe, following the body round the back
+                        {
+                            const chord = h => wcap * 0.9 * Math.sqrt(Math.max(0, 1 - Math.pow((h - hc) / (hh * 0.93), 2)));
+                            const h0b = Hc0 + 1.75;
+                            const h1b = Hc0 + 2.0;
+                            poly('#1d4fc4', [at(cx - chord(h0b), h0b, tt), at(cx + chord(h0b), h0b, tt), at(cx + chord(h1b), h1b, tt), at(cx - chord(h1b), h1b, tt)]);
+                        }
+                        // the one dark window, wide with soft corners, near the top; a darker edge on one side
+                        const win = (ox, oy, rx, ry) => Array.from({length: 32}, (_, i) => {
+                            const th = i / 32 * Math.PI * 2;
+                            const c = Math.cos(th);
+                            const sn = Math.sin(th);
+                            return at(cx + ox + rx * Math.sign(c) * Math.pow(Math.abs(c), 0.35), hc + oy + ry * Math.sign(sn) * Math.pow(Math.abs(sn), 0.35), tt);
+                        });
+                        poly('#1b2552', win(0, 0.5, 0.5, 0.2));
+                        poly('#141c42', win(0.3, 0.5, 0.2, 0.17));
+                        // two small red lights below it, with a lighter spot
+                        for (const side of [-1, 1]) {
+                            poly('#e03232', ell(0.1, 0.1, side * 0.3, -0.38, 14));
+                            poly('#ff9a9a', ell(0.04, 0.04, side * 0.3 - 0.03, -0.35, 10));
+                        }
+                    }
+                }
+        };
+        // What lies beyond a crest is hidden below it. The fields, wall and guardrail lie lower than the road, so they
+        // are let through by that much (3.2 m); on a flat road clip is the segment's own start and nothing is lost
+        const holdY = wallOnly === 'ground' || wallOnly === 'train' || a >= 425 ? height : // (far segments are drawn with the road: it hides them)
+             Math.min(height, entry.clip + 1.0 * entry.scale1 + 2);
+        clipped(holdY, () => {
+            if (wallOnly === 'ground') {
+                // The valley's ground, drawn with the road (before it, segment by segment) so a hill hides the road behind it
+                // and the road hides what is far behind it
+                if (val) {
+                    if (a >= 520) {
+                        drawLeftTerraces();
+                    }
+                    if (P0.Hc > 0.05 || P0.A > 0.05 || P0.g > 0 || P0.floor < -0.05) {
+                        drawRightTerrain();
+                    }
+                    if (P0.V > 0.6) {
+                        // the viewpoint's small wooden safety railing along the edge of the shelf: posts and two rails
+                        const rail = 14;
+                        const rh0 = h0r(rail);
+                        const rh1 = h1r(rail);
+                        ribbon(tint('#a87a47'), rail, rh0 + 0.42, rail, rh0 + 0.52, 0, 1);
+                        ribbon(tint('#b98a55'), rail, rh0 + 0.86, rail, rh0 + 0.98, 0, 1);
+                        const [px, py] = at(rail, rh0, 0);
+                        const pw = Math.max(1.2, scale1 * 0.1);
+                        const ph = scale1 * 1.05;
+                        ctx.fillStyle = tint('#8a5f33');
+                        ctx.fillRect(px - pw / 2, py - ph, pw, ph);
+                    }
+                }
+                return;
+            }
+            if (wallOnly === 'train') {
+                if (a < 520) {
+                    drawTrainSlices();
+                }
+                return;
+            }
+            if (!wallOnly) {
+            // Left: the fields, further out in bigger patches, each with its own colour; a grass bank between them
+            // Paddies at slightly different heights (the village's strip and the far ones level), each with its own colour,
+            // raised earth borders between them (light on top, darker on the side, a soft shadow at their foot), a channel or
+            // two, and a border where the embankment meets the first. Far to near, so the nearer borders cover what is behind.
+            const terraced = val && a >= 520;
+            if (!terraced) {
+            const bands = 7;
+            const SIDE = '#4f9b41';
+            const TOP = '#b9e56a';
+            const SHADE = 'rgba(25,70,35,0.16)';
+            const patchOf = b => Math.floor((index + b * 3) / FIELD_RUNS[b]);
+            const heightOf = (b, p) => (b >= 5 ? FIELD_DROP : FIELD_DROP + (hash(b * 57.1 + p * 11.3) - 0.5) * 0.5);
+            const wet = (b, p) => b < 5 && b !== 5 && hash(b * 97.3 + p * 13.7) > 0.8;
+            for (let b = bands - 1; b >= 0; b--) {
+                const run = FIELD_RUNS[b];
+                const p = patchOf(b);
+                const e = heightOf(b, p);
+                const pick = hash(b * 97.3 + p * 13.7);
+                const water = wet(b, p);
+                // The band the village stands on is plain grass: no paddies, no water
+                const color = b === 5 ? (p & 1 ? '#8ccb57' : '#97d05e')
+                    : FIELD_COLORS[water ? 4 + (p & 1) : Math.floor(pick / 0.8 * 4) % 4];
+                const near = FIELD_EDGES[b];
+                const far = FIELD_EDGES[b + 1];
+                ribbon(tint(water ? hexMix(color, '#7fcbe0', 0.12) : color), near, e, far, e);
+                if (!water && b < 3 && n < 154) {
+                    // Grown rice: rows along the paddy, near by with a clump of blades at every step
+                    const span = far - near;
+                    const row = tint(hexMix(color, '#2f8a3a', 0.45));
+                    for (let k = 1; k < 6; k++) {
+                        const off = near + span * k / 6;
+                        ribbon(row, off - 0.2, e, off + 0.2, e);
+                    }
+                    if (n < 48) {
+                        const tall = Math.max(2, scale1 * 0.55);
+                        for (let k = 1; k < 6; k++) {
+                            for (let m = 0; m < 3; m++) {
+                                const h = hash(index * 11 + k * 7 + m * 3 + b * 53);
+                                const [px, py] = at(near + span * k / 6 + (h - 0.5) * 0.3, e, (m + 0.15 + h * 0.6) / 3);
+                                const s = tall * (0.8 + h * 0.4);
+                                ctx.fillStyle = tint(h > 0.5 ? '#43a53f' : '#378f36');
+                                ctx.beginPath();
+                                ctx.moveTo(px - s * 0.22, py);
+                                ctx.lineTo(px - s * 0.34, py - s * 0.8);
+                                ctx.lineTo(px - s * 0.1, py - s * 0.3);
+                                ctx.lineTo(px - s * 0.02, py - s * 1.05);
+                                ctx.lineTo(px + s * 0.08, py - s * 0.32);
+                                ctx.lineTo(px + s * 0.3, py - s * 0.85);
+                                ctx.lineTo(px + s * 0.22, py);
+                                ctx.closePath();
+                                ctx.fill();
+                                ctx.fillStyle = tint('#79d255');
+                                ctx.beginPath();
+                                ctx.moveTo(px - s * 0.02, py - s * 1.05);
+                                ctx.lineTo(px + s * 0.08, py - s * 0.32);
+                                ctx.lineTo(px - s * 0.1, py - s * 0.3);
+                                ctx.closePath();
+                                ctx.fill();
+                            }
+                        }
+                    }
+                }
+                if (water && b < 3 && n < 28) {
+                    // Sparse seedlings standing in the water
+                    ctx.fillStyle = tint('#4aa84a');
+                    const blade = Math.max(1.3, scale1 * 0.09);
+                    for (let m = 0; m < 3; m++) {
+                        const h = hash(index * 7 + m * 13 + b * 29);
+                        const [px, py] = at(near + (far - near) * (0.15 + 0.7 * hash(index + m * 5 + b)), e, h);
+                        ctx.beginPath();
+                        ctx.moveTo(px - blade * 0.6, py);
+                        ctx.lineTo(px - blade * 0.2, py - blade * 1.6);
+                        ctx.lineTo(px + blade * 0.05, py);
+                        ctx.lineTo(px + blade * 0.35, py - blade * 1.9);
+                        ctx.lineTo(px + blade * 0.7, py);
+                        ctx.closePath();
+                        ctx.fill();
+                    }
+                }
+                // The border across the paddy where a new one begins: its top and the face towards the road
+                if ((index + b * 3) % run === 0 && b < 3 && n < 154) {
+                    const eNear = heightOf(b, p - 1);
+                    const top = Math.max(e, eNear) + 0.26;
+                    if (n < 80) {
+                        const [ax, ay] = at(near, eNear, 0);
+                        const [bx, by] = at(far, eNear, 0);
+                        const [cx, cy] = at(far, top, 0);
+                        const [dx, dy] = at(near, top, 0);
+                        four(tint(SIDE), ax, ay, bx, by, cx, cy, dx, dy);
+                    }
+                    ribbon(tint(TOP), near, top, far, top, 0, 0.2);
+                }
+                // The border along the paddy's far edge (and the channel, where there is one): the face towards the road
+                // with a shadow at its foot, then its top
+                const k = b + 1;
+                if (k <= 3 && n < 168) {
+                    const pFar = patchOf(b + 1);
+                    const eFar = heightOf(b + 1, pFar);
+                    const top = Math.max(e, eFar) + 0.28;
+                    if (k === 2 || k === 4) {
+                        // An irrigation channel between the two borders
+                        const bed = Math.min(e, eFar) - 0.3;
+                        ribbon(tint('#7bbfd8'), far + 0.7, bed, far - 0.7, bed);
+                        ribbon(tint('#a7dcee'), far + 0.55, bed, far - 0.55, bed);
+                        if (n < 80) {
+                            ribbon(tint(SIDE), far - 0.7, bed, far - 0.7, top);
+                            ribbon(SHADE, far + 0.7, e, far + 1.2, e);
+                        }
+                        ribbon(tint(TOP), far + 1.05, top, far + 0.7, top);
+                        ribbon(tint(TOP), far - 0.7, top, far - 1.05, top);
+                    } else {
+                        if (n < 80) {
+                            ribbon(SHADE, far + 0.35, e, far + 1.1, e);
+                            ribbon(tint(SIDE), far + 0.35, e, far + 0.35, top);
+                        }
+                        ribbon(tint(TOP), far + 0.35, top, far - 0.35, top);
+                    }
+                }
+            }
+            // At the embankment's foot a border runs along the first paddy
+            if (n < 168) {
+                const e0 = heightOf(0, patchOf(0));
+                const top = Math.max(FIELD_DROP, e0) + 0.3;
+                if (n < 80) {
+                    ribbon(tint(SIDE), FIELD_EDGES[0] + 0.35, FIELD_DROP, FIELD_EDGES[0] + 0.35, top);
+                }
+                ribbon(tint(TOP), FIELD_EDGES[0] + 0.35, top, FIELD_EDGES[0] - 0.35, top);
+            }
+            }
+            for (let k = 0; k < 8; k++) {
+                const from = Track.ROAD * 1.13;
+                const a = from + (-FIELD_EDGES[0] - from) * k / 8;
+                const b = from + (-FIELD_EDGES[0] - from) * (k + 1) / 8;
+                ribbon(tint(hexMix('#92d25f', '#6cb445', k / 7)), -a, terrainDrop(-a), -b, terrainDrop(-b));
+            }
+            }
+            if (!wallOnly) {
+            // (no guardrails)
+            }
+            // Right: the railway wall in large sections, its top ledge, railing and the wires over it
+            if (!wallOnly) {
+            // A few cherry petals on the road, near
+            if (false && n < 40) { // off: no petals on the road
+                ctx.fillStyle = 'rgba(250,170,200,0.9)';
+                for (let k = 0; k < 3; k++) {
+                    if (hash(index * 7 + k) < 0.5) {
+                        const [px, py] = at((hash(index * 3 + k * 11) - 0.5) * 7, 0, hash(index + k) );
+                        ctx.beginPath();
+                        ctx.ellipse(px, py, Math.min(9, Math.max(0.8, scale1 * 0.05)), Math.min(4, Math.max(0.4, scale1 * 0.02)), 0.4, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+            }
+                return;
+            }
+            // The hillside and valley (only once the ground is no longer flat), the railway on its own route over it
+            let sep = 0;
+            let base0 = 0;
+            let kH = 1;
+            if (val) {
+                if (!P0.rail) {
+                    return;
+                }
+                sep = (P0.sep + P1.sep) / 2;
+                base0 = Track.rightHeight(P0, Track.WALL_AT + sep);
+                const Hw = 9 - (P0.rise + P1.rise) / 2 - base0;
+                if (Hw < 0.5) {
+                    return;
+                }
+                kH = Hw / 9;
+            }
+            const W = Track.ROAD + 8.5 + sep;
+            const H = 9;
+            // The wall's heights run from the ground at its foot to the railway's level (kH); what stands on it keeps its size
+            const mh = h => (h <= H ? base0 + h * kH : base0 + H * kH + (h - H));
+            const atL = (off, h, t = 0) => at(off, mh(h), t);
+            const ribbonL = (color, offA, hA, offB, hB, t0 = 0, t1 = 1) => ribbon(color, offA, mh(hA), offB, mh(hB), t0, t1);
+            const section = Math.floor(index / 5) % 2;
+            // The wall's face with a sunk panel in each section, a shadow under the cornice, a plinth at its foot, a pilaster
+            // standing out of it every fifth segment and a cornice over it, jutting out
+            ribbonL(tint(section ? '#a9a3bd' : '#b4aec8'), W, 0, W, H);
+            ribbonL(tint(section ? '#9f99b6' : '#aaa4be'), W, 2.2, W, 8, 0.1, 0.9);
+            ribbonL(tint(section ? '#b9b3cc' : '#c3bdd5'), W, 8, W, 8.15, 0.1, 0.9);
+            ribbonL(tint('#9791ad'), W, H - 1.3, W, H - 0.55);
+            ribbonL(tint('#8f89a4'), W - 0.5, 0, W - 0.5, 0.7);
+            ribbonL(tint('#c7c2d8'), W - 0.5, 0.7, W, 0.7);
+            if (index % 5 === 0) {
+                const [ax, ay] = atL(W - 0.9, 0, 0);
+                const [bx, by] = atL(W, 0, 0);
+                const [cx, cy] = atL(W, H, 0);
+                const [dx, dy] = atL(W - 0.9, H, 0);
+                four(tint('#c4bed7'), ax, ay, bx, by, cx, cy, dx, dy);
+                ribbonL(tint('#a39db9'), W - 0.9, 0, W - 0.9, H, 0, 0.25);
+                ribbonL(tint('#cfcadf'), W - 0.9, H - 0.2, W - 0.9, H, 0, 0.25);
+            }
+            ribbonL(tint('#847e9a'), W - 0.8, H - 0.6, W, H - 0.6);
+            ribbonL(tint('#bdb7d0'), W - 0.8, H - 0.6, W - 0.8, H);
+            ribbonL(tint('#c7c2d8'), W - 0.8, H, W + 1.7, H);
+            // The railway bed behind the cornice: ballast with two rails
+            ribbonL(tint('#9d99b0'), W + 1.7, H, W + 5.1, H);
+            ribbonL(tint('#555468'), W + 2.5, H, W + 2.65, H);
+            ribbonL(tint('#555468'), W + 4.15, H, W + 4.3, H);
+            ribbonL(tint('#8f89a4'), W + 0.2, H + 0.9, W + 0.2, H + 1.05);
+            if (index % 2 === 0) {
+                ribbonL(tint('#8f89a4'), W + 0.14, H, W + 0.26, H + 1.05, 0, 0.12);
+            }
+            ctx.strokeStyle = tint('#3a3a46');
+            ctx.lineWidth = Math.max(0.5, scale1 * 0.035);
+            for (const h of [H + 7.2, H + 6]) {
+                const [ax, ay] = atL(W + 1, h);
+                const [bx, by] = atL(W + 1, h, 1);
+                ctx.beginPath();
+                ctx.moveTo(ax, ay);
+                ctx.lineTo(bx, by);
+                ctx.stroke();
+            }
+            // The train is drawn here, with the wall, a segment at a time: trees nearer than it hide it
+            drawTrainSlices();
+        });
+    }
+
+    const haze = n => Math.min(1, (n / DRAW_SEGMENTS) ** 1.7);
 
     // Tianmen to Chongqing, drawn as the html test draws it (tianmen-to-chongqing-course.html), 1:1: its camera, its 2 m
     // steps, its colors, its light. The mountain: on the left a forest slope 22 m high, darker forest above it; on the right
@@ -1159,7 +1986,7 @@ const Scene = (() => {
                             ctx.fillRect(lerp(xd, xa1, 0.1 + c * 0.3), yz, lerp(xd, xa1, 0.32 + c * 0.3) - lerp(xd, xa1, 0.1 + c * 0.3), ya - yz);
                         }
                     }
-                    if (n < 110 && city.section[i] % 3 !== 0) {
+                    if (n < 154 && city.section[i] % 3 !== 0) {
                         const lx = lerp(xd, xa1, 0.5);
                         lampGlow(lx, yt + pp1 * 1.1, pp1 * 3.8, 0.95 * lanternFade(city, i));
                         redLantern(lx, yt, pp1, f);
@@ -1172,7 +1999,7 @@ const Scene = (() => {
                 four(hazed([50, 30, 46], f), xa1, by1, x, lerp(by1, by2, 0.1), x, lerp(ty1, ty2, 0.1), xa1, ty1);
             }
             // Rows of warm windows and long wooden balconies
-            if (n < 120 && pp1 > 2.2 * px) {
+            if (n < 168 && pp1 > 2.2 * px) {
                 const floor = 3.2;
                 for (let q = Math.max(0, Math.ceil((under - foot - 0.9) / floor)); q < 40; q++) {
                     const hb = foot + q * floor + 0.9;
@@ -1201,7 +2028,7 @@ const Scene = (() => {
                 }
             }
             // Paper lanterns under the eaves, on the lowest three tiers
-            if (i % 3 === 0 && n < 110 && k < 3 && lanternFade(city, i) > 0 && lanternKept(city, i) && !(k === 2 && i === lastLantern(city))) {
+            if (i % 3 === 0 && n < 154 && k < 3 && lanternFade(city, i) > 0 && lanternKept(city, i) && !(k === 2 && i === lastLantern(city))) {
                 const lx = lerp(xa1, xa2, 0.1) + (sx1 - (o - 0.38) * w1 - xa1) * 0.9;
                 const ly = yAt(top - 0.3, n);
                 if (pp1 > 3 * px) {
@@ -1209,7 +2036,7 @@ const Scene = (() => {
                 }
                 redLantern(lx, ly, pp1, f);
             }
-            if (k === 0 && n < 120 && into % 2 === 0) {
+            if (k === 0 && n < 168 && into % 2 === 0) {
                 ctx.save();
                 ctx.globalCompositeOperation = 'lighter';
                 four('rgba(255,170,90,.12)', xa1, by1, xa2 + ex, by2, xa2 + ex, yAt(foot + (top - foot) * 0.55, n + 1), xa1, yAt(foot + (top - foot) * 0.55, n));
@@ -1258,7 +2085,7 @@ const Scene = (() => {
             four(hazed([86, 74, 134], f), xw1, y1, xs, lerp(y1, y2, 0.1), xs, lerp(by1, by2, 0.1), xw1, by1);
         }
         // Rounded bushes along the wall's top, and a tree where a section begins
-        if (n < 110 && n > 3 && wall > 0.35 && testHash(i * 17 + 3) < 0.5) {
+        if (n < 154 && n > 3 && wall > 0.35 && testHash(i * 17 + 3) < 0.5) {
             const cx = (sx1 + sx2) / 2 - 1.45 * (w1 + w2) / 2;
             const cy = (by1 + by2) / 2;
             const r = (0.38 + testHash(i * 5 + 1) * 0.42) * (pp1 + pp2) / 2;
@@ -1667,7 +2494,7 @@ const Scene = (() => {
                 four(above, -4, yAt(60, n), xt1, t1, xt2, t2, -4, yAt(60, n + 1));
                 four(hazed(forest, f2), -4, y1, xl1, y1, xl2, y2, -4, y2);
                 four(hazed(face, f2), xl1, y1, xt1, t1, xt2, t2, xl2, y2);
-                if (n < 110 && hv2 < 0.85) {
+                if (n < 154 && hv2 < 0.85) {
                     for (const u of [0.45, 0.9]) {
                         ctx.fillStyle = hazed(rgbMix([28, 88, 56], [46, 118, 70], hv2), f2);
                         ctx.beginPath();
@@ -1744,7 +2571,7 @@ const Scene = (() => {
             // The road; the start and the goal across it in checks
             const brk = !onMountain ? smoothStep(BR.BR0 - 30, BR.BR0 + 20, t) : 0; // 0 before the bridge, 1 on it
             const gate = Math.floor(t * SEG / Track.SEGMENT) - Track.RUN_UP;
-            const startLine = gate === 0 || gate === 1 || gate === goal || gate === goal + 1;
+            const startLine = gate === 0 || gate === goal;
             const o = 1.2 * px; // a little over the next, so no seams show
             four(startLine ? '#f2f2f2' : hazed(inTunnel ? rgbMix(colors.asph2, [34, 22, 44], 0.4) : brk > 0 ? rgbMix(colors.asph2, [70, 54, 124], 0.5 * brk) : colors.asph2, f),
                 sx1 - w1, y1 + o, sx1 + w1, y1 + o, sx2 + w2, y2 - o, sx2 - w2, y2 - o);
@@ -1760,7 +2587,7 @@ const Scene = (() => {
             const kerb = hazed(colors.kerb, f);
             four(kerb, xl1, y1 + o, sx1 - w1, y1 + o, sx2 - w2, y2 - o, xl2, y2 - o);
             four(kerb, sx1 + w1, y1 + o, xr1, y1 + o, xr2, y2 - o, sx2 + w2, y2 - o);
-            if (n < 110 && !startLine) {
+            if (n < 154 && !startLine) {
                 const line = hazed(rgbMix(colors.line, colors.asph, 0.35), f);
                 const lineL = brk > 0 ? hazed([255, 206, 70], f) : line; // on the bridge: yellow on the left, white on the right
                 const lineR = brk > 0 ? hazed([246, 246, 255], f) : line;
@@ -1824,7 +2651,7 @@ const Scene = (() => {
                         const a = y1 - 0.64 * pp1;
                         const b = y1 - 0.98 * pp1;
                         four(night > 0.5 ? '#ffe9b8' : '#fff3dc', rx1, a, rx1, b, rx2, y2 - 0.98 * pp2, rx2, y2 - 0.64 * pp2);
-                        if (n < 120) {
+                        if (n < 168) {
                             lampGlow((rx1 + rx2) / 2, (a + b) / 2, pp1 * 3.2, 0.75);
                         }
                     }
@@ -1979,6 +2806,10 @@ const Scene = (() => {
         sky.addColorStop(1, look.sky[1]);
         ctx.fillStyle = sky;
         ctx.fillRect(0, 0, width, horizon + 2);
+        if (look.country) {
+            drawCountrySky(look, horizon);
+            return;
+        }
         // The sun stays, the hills turn with the road
         ctx.fillStyle = look.sun;
         ctx.beginPath();
@@ -1992,6 +2823,57 @@ const Scene = (() => {
             hills(look.hills[1], horizon, horizon * 0.12, skyShift * 0.7, 0.019, 1.7);
         }
     }
+
+    // Soft white clouds with a pale blue underside, then three layers of blue mountains, the nearest the darkest
+    function drawCountrySky(look, horizon) {
+        const unit = Math.max(8, horizon * 0.09);
+        const span = width + unit * 20;
+        for (const [k, rise, size] of [[0, 0.62, 1.2], [1, 0.34, 0.9], [2, 0.74, 1.05], [3, 0.2, 0.7]]) {
+            const cx = (((k * 0.31 * span - skyShift * 0.12) % span) + span) % span - unit * 8;
+            const cy = horizon * rise;
+            for (const [color, dy] of [['#dbe9f7', 0.22], ['#ffffff', 0]]) {
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.ellipse(cx, cy + dy * unit * size, unit * 3.2 * size, unit * 0.8 * size, 0, 0, Math.PI * 2);
+                ctx.ellipse(cx - unit * 1.6 * size, cy + dy * unit * size - unit * 0.3, unit * 1.5 * size, unit * 1.0 * size, 0, 0, Math.PI * 2);
+                ctx.ellipse(cx + unit * 0.6 * size, cy + dy * unit * size - unit * 0.7 * size, unit * 1.8 * size, unit * 1.2 * size, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        const f = farness * farness * (3 - 2 * farness);
+        if (finale > 0.001) {
+            // the viewpoint: one more, paler range far behind the others
+            hills(mix(look.hills[0], '#ffffff', 0.4), horizon, horizon * 0.5 * finale, skyShift * 0.15, 0.005, 5.7);
+        }
+        hills(look.hills[0], horizon, horizon * 0.3 * (1 + 0.9 * f), skyShift * 0.25, 0.007, 1.3);
+        hills(look.hills[1], horizon, horizon * 0.22 * (1 + 0.8 * f), skyShift * 0.45, 0.011, 4.1);
+        hills(look.hills[2], horizon, horizon * 0.13 * (1 + 0.5 * f), skyShift * 0.7, 0.017, 2.2);
+        if (finale > 0.001) {
+            // light mist and a few white clouds lying below the distant ridges, in the valley
+            const mist = ctx.createLinearGradient(0, horizon - horizon * 0.2, 0, horizon + 2);
+            mist.addColorStop(0, 'rgba(255,255,255,0)');
+            mist.addColorStop(1, 'rgba(255,255,255,' + (0.62 * finale) + ')');
+            ctx.fillStyle = mist;
+            ctx.fillRect(0, horizon - horizon * 0.2, width, horizon * 0.2 + 2);
+            const span2 = width + unit * 24;
+            for (const [k, rise, size] of [[0, 0.93, 1.5], [1, 0.9, 1.1], [2, 0.95, 1.7], [3, 0.88, 1.2], [4, 0.94, 1.4]]) {
+                const cx = (((k * 0.23 * span2 - skyShift * 0.3) % span2) + span2) % span2 - unit * 10;
+                const cy = horizon * rise;
+                ctx.fillStyle = 'rgba(255,255,255,' + (0.8 * finale) + ')';
+                ctx.beginPath();
+                ctx.ellipse(cx, cy, unit * 3.4 * size, unit * 0.55 * size, 0, 0, Math.PI * 2);
+                ctx.ellipse(cx - unit * 1.8 * size, cy + unit * 0.1, unit * 1.9 * size, unit * 0.5 * size, 0, 0, Math.PI * 2);
+                ctx.ellipse(cx + unit * 2 * size, cy + unit * 0.1, unit * 2.1 * size, unit * 0.45 * size, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+    }
+
+    // The same number for the same n, from 0 to 1
+    const hash = n => {
+        const s = Math.sin(n * 127.1 + 311.7) * 43758.5453;
+        return s - Math.floor(s);
+    };
 
     function hills(color, horizon, tall, shift, waves, seed) {
         ctx.fillStyle = color;
@@ -2007,17 +2889,253 @@ const Scene = (() => {
         ctx.fill();
     }
 
+    // A farm cart seen at an angle (up is negative, meters): the near end towards the viewer, its side towards the road (left)
+    function drawCartAngled(tint, front) {
+        const light = tint('#c98a4b');
+        const body = tint('#a1764a');
+        const dark = tint('#7a5632');
+        const rim = tint('#5b3a22');
+        const spoke = tint('#8c6439');
+        const dx = -1.0; // how far the far end is drawn to the left and up
+        const dy = -0.3;
+        const x0 = -0.95;
+        const x1 = 0.95; // the near end, left and right
+        const yt = -1.12; // platform top at the near end
+        const yb = -0.86; // its underside
+        const P = (x, y, k) => [x + dx * k, y + dy * k]; // k: 0 near end, 1 far end
+        const quad = (color, pts) => shape(color, pts);
+        // far wheel, edge-on, on the right (behind the near end)
+        blob(rim, x1 + 0.25, -0.78 + dy * 0.5, 0.17, 0.74);
+        blob(spoke, x1 + 0.25, -0.78 + dy * 0.5, 0.07, 0.6);
+        // axle under the platform
+        quad(dark, [[x0 - 0.1, -0.84 + dy * 0.5 - 0.06], [x1 + 0.3, -0.84 + dy * 0.5 - 0.06], [x1 + 0.3, -0.7 + dy * 0.5], [x0 - 0.1, -0.7 + dy * 0.5]]);
+        // shafts on the far end, reaching out to the left behind; or, from the front, the near end's two shafts to the ground
+        if (front) {
+            quad(dark, [[-0.7, yb], [-0.5, yb], [-0.85, 0.05], [-1.07, 0.05]]);
+            quad(dark, [[0.5, yb], [0.7, yb], [1.07, 0.05], [0.85, 0.05]]);
+            quad(light, [[-0.72, yb - 0.1], [-0.54, yb - 0.1], [-0.89, 0], [-1.07, 0]]);
+            quad(light, [[0.54, yb - 0.1], [0.72, yb - 0.1], [1.07, 0], [0.89, 0]]);
+        }
+        // platform: side (towards the road), top, and the near end
+        quad(dark, [[x0, yt], [x0, yb], P(x0, yb, 1), P(x0, yt, 1)]);
+        quad(light, [[x0, yt], [x1, yt], P(x1, yt, 1), P(x0, yt, 1)]);
+        quad(body, [[x0, yt], [x1, yt], [x1, yb], [x0, yb]]);
+        // cargo on the platform: a sack, a basket, a crate
+        blob(tint('#e8dcb8'), 0.35 + dx * 0.45, yt - 0.35 + dy * 0.45, 0.5, 0.42);
+        quad(tint('#b98a4e'), [[x0 + 0.2, yt - 0.02 + dy * 0.3], [x0 + 0.75, yt - 0.02 + dy * 0.3], [x0 + 0.8, yt - 0.5 + dy * 0.3], [x0 + 0.15, yt - 0.5 + dy * 0.3]]);
+        quad(tint('#8c6439'), [[x0 + 0.15, yt - 0.5 + dy * 0.3], [x0 + 0.8, yt - 0.5 + dy * 0.3], [x0 + 0.8, yt - 0.57 + dy * 0.3], [x0 + 0.15, yt - 0.57 + dy * 0.3]]);
+        // railing on the side towards the road (two posts and two beams) and at the near end
+        const post = (x, k) => { const [px, py] = P(x, yt, k); quad(body, [[px - 0.06, py], [px - 0.06, py - 0.75], [px + 0.06, py - 0.75], [px + 0.06, py]]); };
+        const rail = (xa, ka, xb, kb, h, th) => { const [ax, ay] = P(xa, yt - h, ka); const [bx, by] = P(xb, yt - h, kb); quad(light, [[ax, ay], [bx, by], [bx, by + th], [ax, ay + th]]); };
+        post(x0, 1);
+        rail(x0, 0, x0, 1, 0.75, 0.1);
+        rail(x0, 0, x0, 1, 0.38, 0.09);
+        post(x0, 0);
+        post(x1, 0);
+        if (!front) {
+            quad(body, [[x0, yt], [x0, yt - 0.7], [x1, yt - 0.7], [x1, yt]]);
+            quad(light, [[x0 - 0.04, yt - 0.7], [x1 + 0.04, yt - 0.7], [x1 + 0.04, yt - 0.82], [x0 - 0.04, yt - 0.82]]);
+            quad(light, [[x0, yt - 0.35], [x1, yt - 0.35], [x1, yt - 0.44], [x0, yt - 0.44]]);
+        } else {
+            rail(x0, 0, x1, 0, 0.75, 0.1);
+            rail(x0, 0, x1, 0, 0.38, 0.09);
+        }
+        // near wheel, on the side towards the road, seen at an angle: an ellipse with six spokes
+        const cx = x0 + dx * 0.5 - 0.1;
+        const cy = -0.78 + dy * 0.5;
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = spoke;
+        ctx.lineWidth = 0.09;
+        for (let k = 0; k < 6; k++) {
+            const t = k * Math.PI / 3 + 0.3;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(cx + Math.cos(t) * 0.32, cy + Math.sin(t) * 0.72);
+            ctx.stroke();
+        }
+        ctx.strokeStyle = rim;
+        ctx.lineWidth = 0.16;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, 0.34, 0.74, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        blob(rim, cx, cy, 0.09, 0.12);
+    }
+
+    // Houses, people, oxen and palms far off: they are left out until they are tall enough on the screen to read as
+    // themselves (appear: px), and are drawn as plain shapes until they are larger still (plain: px)
+    const SMALL = {
+        farmhouse: {h: 4.5, appear: 2.2, plain: 7},
+        vhut: {h: 4.2, appear: 2.2, plain: 7},
+        farmerBend: {h: 1.9, appear: 2.2, plain: 7},
+        farmerStand: {h: 2.1, appear: 2.2, plain: 7},
+        ox: {h: 1.9, appear: 2.2, plain: 7},
+        buffalo: {h: 2.1, appear: 2.2, plain: 7},
+        palm: {h: 8, appear: 2.2, plain: 7},
+        banana: {h: 4, appear: 2.2, plain: 7},
+        bamboo: {h: 6.5, appear: 2.2, plain: 7},
+        cart: {h: 1.9, appear: 2.2, plain: 7},
+        cartRear: {h: 1.9, appear: 2.2, plain: 7},
+        cartFront: {h: 1.9, appear: 2.2, plain: 7}
+    };
+    const PLAIN_THINGS = {
+        // the carts keep their full drawing at any distance, so the way one faces never seems to change
+        cart(tint, thing, size) { THINGS.cart(tint, thing, size); },
+        cartRear(tint, thing, size) { THINGS.cartRear(tint, thing, size); },
+        cartFront(tint, thing, size) { THINGS.cartFront(tint, thing, size); },
+        farmhouse(tint) {
+            shape(tint('#f4ecd7'), [[-4, 0], [-4, -2.6], [4, -2.6], [4, 0]]);
+            shape(tint('#47546d'), [[-5.1, -2.45], [-3.3, -4.5], [3.3, -4.5], [5.1, -2.45]]);
+        },
+        vhut(tint) {
+            shape(tint('#a1764a'), [[-2.4, 0], [-2.4, -2.0], [2.4, -2.0], [2.4, 0]]);
+            shape(tint('#5e4b47'), [[-3.3, -1.85], [-1.7, -4.2], [1.7, -4.2], [3.3, -1.85]]);
+        },
+        farmerBend(tint) {
+            shape(tint('#3d6fd0'), [[0.1, 0], [-0.9, -1.1], [-0.2, -1.4], [0.5, 0]]);
+            shape(tint('#f2dc8a'), [[-1.6, -1.26], [-1.0, -1.82], [-0.4, -1.26]]);
+        },
+        farmerStand(tint) {
+            shape(tint('#3d6fd0'), [[-0.34, 0], [-0.26, -1.5], [0.26, -1.5], [0.34, 0]]);
+            shape(tint('#f2dc8a'), [[-0.5, -1.7], [0, -2.15], [0.5, -1.7]]);
+        },
+        ox(tint) {
+            blob(tint('#8a5a36'), 0, -1.1, 1.5, 0.9);
+            blob(tint('#8a5a36'), -1.85, -0.9, 0.5, 0.45);
+        },
+        buffalo(tint) {
+            blob(tint('#55555f'), 0, -1.1, 1.6, 0.95);
+            blob(tint('#55555f'), -2.0, -0.9, 0.55, 0.45);
+        },
+        palm(tint) {
+            ctx.strokeStyle = tint('#8a6440');
+            ctx.lineWidth = 0.6;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(1.1, -7);
+            ctx.stroke();
+            blob(tint('#3aa65a'), 1.1, -7, 2.8, 1.1);
+        },
+        banana(tint) {
+            shape(tint('#86a64c'), [[-0.16, 0], [-0.12, -2.0], [0.12, -2.0], [0.16, 0]]);
+            blob(tint('#4db35a'), 0, -2.3, 2.0, 0.9);
+        },
+        bamboo(tint) {
+            ctx.strokeStyle = tint('#7aa83a');
+            ctx.lineWidth = 0.4;
+            ctx.beginPath();
+            ctx.moveTo(-0.2, 0);
+            ctx.lineTo(0, -6);
+            ctx.moveTo(0.4, 0);
+            ctx.lineTo(0.5, -5.2);
+            ctx.stroke();
+            blob(tint('#4aa14a'), 0.2, -6, 1.2, 0.6);
+        }
+    };
+
+    // Things on the right far off are drawn with their segment (nearer ground and houses then cover them). The farm yard things
+    // (thing.late) are drawn with the rest, in the near stretch, so what is far off on the left cannot be drawn over them
+    function farRight(thing, n) {
+        return thing.x > Track.WALL_AT && !(thing.late && n < 90);
+    }
+
+    // Countryside things drawn smaller, to sit right beside the riders (1.4 m tall): a chicken, a cart, a basket, a pot, the rest a little
+    const THING_SCALE = {chicken: 0.5, cart: 0.55, cartRear: 0.55, cartFront: 0.55, basket: 0.42, claypot: 0.8, sign: 0.9, endrail: 1, moped: 1.15};
     function drawThing(thing, entry, look, cameraX, n) {
         const scale = entry.scale1;
         const sx = width / 2 + (entry.roadX + thing.x - cameraX) * scale;
-        const sy = entry.y1 - (thing.base || 0) * scale; // on a cliff, or below the road
-        const size = (thing.size || 1) * scale;
+        const sy = entry.y1 - ((thing.base || 0) + (look.country && thing.x < 0 && (thing.kind === 'ox' || thing.kind === 'buffalo') ? 0.55 : 0)) * scale; // on a cliff, or below the road (cattle in the fields stand on the bunds, so the fields in front do not hide their legs)
+        const shrink = look.country ? (THING_SCALE[thing.kind] || 0.75) : 1;
+        const size = (thing.size || 1) * shrink * scale;
         if (size < 0.6 || sx < -size * 20 || sx > width + size * 20) {
+            return;
+        }
+        const small = look.country ? SMALL[thing.kind] : null;
+        if (small && size / shrink * small.h < small.appear * (thing.x > Track.WALL_AT ? 0.55 : 1)) {
             return;
         }
         const tint = color => mix(color, look.fog, haze(n) * 0.85);
         if (entry.clip <= 0) {
             return;
+        }
+        if (look.country && thing.x > Track.WALL_AT && thing.kind !== 'pole' && thing.kind !== 'cherry' && entry.nearHc >= 1.5 && entry.nearHc > entry.hc + 0.5 && thing.x > 46 && (thing.base || 0) + 2 < entry.nearHc) { // (only what lies beyond the hill's crest, not the hillside's own houses)
+            return; // beyond a taller hill (the valley houses, cattle and trees)
+        }
+        if (look.country && Math.abs(thing.x) > Track.ROAD + 3 && !['pole', 'cherry', 'sign', 'start', 'goal', 'lamp'].includes(thing.kind) && entry.tp && shownNow) {
+            // On the right, down in the valley: the ground between the camera and the thing, nearer, hides it where it rises above
+            // the line of sight (the road's own dips and rises included)
+            const topY = entry.segment.y1 + (thing.base || 0) + 0.5;
+            for (let k = 1; k <= 30; k++) {
+                const t = k / 34; // (not right up to the thing: the ground it stands on is no cover for it)
+                const z = entry.z1 * t;
+                const j = Math.max(0, Math.min(shownNow.length - 1, entry.n + Math.floor((z - entry.z1) / Track.SEGMENT)));
+                const near = shownNow[j];
+                if (!near || !near.tp) {
+                    continue;
+                }
+                // the thing's place sideways of the camera, and the road's middle there (the road bends, so not the same)
+                const lateral = (entry.roadX + thing.x - cameraX) * t - (near.roadX - cameraX);
+                // (a road that bends puts the right-hand hill in front of what lies on the left, and the other way round)
+                const ground = near.segment.y1 + (lateral >= 0 ? Track.rightHeight(near.tp, lateral) : Track.leftHeight(near.tp, -lateral));
+                if (ground > cameraYNow + (topY - cameraYNow) * t + 1.2) {
+                    return;
+                }
+            }
+        }
+        if (look.country && thing.final && !thing.village && entry.tp) {
+            // Nothing of the final stretch hangs in the air: what the ground drawn under it (the coarse slopes far off, the terraces
+            // grouped) is lower than where it stands is left out
+            const P = entry.tp;
+            const off = Math.abs(thing.x);
+            let drawn;
+            if (thing.x > 0) {
+                const e = Track.SLOPE_AT;
+                const nodes = entry.n < 60 ? [e, e + 2, e + 5, e + 9, e + 15, e + 23, e + 33, e + 46, e + 62, e + 80, 110] : [e, e + 5, e + 15, e + 33, e + 62, 110];
+                drawn = 0;
+                for (let q = 0; q + 1 < nodes.length; q++) {
+                    if (off >= nodes[q] && off <= nodes[q + 1]) {
+                        const ha = Track.rightHeight(P, nodes[q]);
+                        const hb = Track.rightHeight(P, nodes[q + 1]);
+                        drawn = ha + (hb - ha) * (off - nodes[q]) / (nodes[q + 1] - nodes[q]);
+                        break;
+                    }
+                }
+            } else if (off <= 12) {
+                drawn = Track.leftHeight(P, off);
+            } else {
+                const idx = Track.patternIndex(entry.segment.index);
+                const dk = entry.n < 40 ? 1 : entry.n < 90 ? 2 : 3;
+                const K = entry.n < 40 ? 27 : entry.n < 90 ? 20 : 15;
+                const edge = (i, k) => 12 + 15 * k + (k ? 3.2 * Math.sin(i * 0.12 + k * 2.1) : 0);
+                drawn = Track.leftHeight(P, off);
+                for (let k = Math.floor((K - 1) / dk) * dk; k >= 0; k -= dk) {
+                    if (off >= edge(idx, k) && off < edge(idx, k + dk)) {
+                        drawn = -1.6 + P.left * 1.8 * (1 + k + ((dk - 1) >> 1));
+                        break;
+                    }
+                }
+            }
+            if ((thing.base || 0) - drawn > 0.35) {
+                return;
+            }
+        }
+        if (look.country && thing.kind === 'pole' && entry.nearHc >= 3) {
+            return; // a railway mast behind a hill: covered by it
+        }
+        if (look.country && thing.x > Track.WALL_AT && (thing.base || 0) < -1 && shownNow && thing.kind !== 'pole' && thing.kind !== 'cherry') {
+            // Down in the valley on the right: what lies to the road's side of the road's right edge on the screen is behind the road
+            // (or the lip of the slope beside it), not beside it
+            for (let j = 0; j < entry.n; j++) {
+                const e = shownNow[j];
+                if (!e.visible || sy > e.y1 || sy < e.y2) {
+                    continue;
+                }
+                const t = e.y1 > e.y2 ? (sy - e.y2) / (e.y1 - e.y2) : 0;
+                const edge = e.x2 + Track.ROAD * 1.13 * e.scale2 + (e.x1 + Track.ROAD * 1.13 * e.scale1 - e.x2 - Track.ROAD * 1.13 * e.scale2) * t;
+                if (sx < edge + 6) {
+                    return;
+                }
+                break;
+            }
         }
         if (thing.obstacle) {
             clipped(entry.clip, () => drawObstacle(thing, {x: sx, y: sy}, size * OBSTACLE_SCALE, look));
@@ -2027,14 +3145,22 @@ const Scene = (() => {
             clipped(entry.clip, () => drawGate(thing.kind === 'start' ? 'START' : 'GOAL', entry, sy, size, cameraX));
             return;
         }
-        clipped(entry.clip, () => {
+        // beyond a crest only what stands above it shows; things on lower ground on the left (the fields) are let through by that depth, on the right (the valley beyond the hill) they are not
+        // beyond a crest only what stands above it shows; things on lower ground (the fields on the left, the valley on the right
+        // beyond a low hill) are let through by that depth, but not where they would stand on the road itself across the screen
+        let overRoad = false;
+        if (entry.clipX !== null) {
+            const edge = (Track.ROAD + 2.5) * entry.clipS + size * 2.5;
+            overRoad = Math.abs(sx - entry.clipX) < edge;
+        }
+        clipped(look.country ? Math.min(height, entry.clip + (!overRoad && !(thing.final && thing.kind === 'bush') && (thing.x < 0 || (thing.base < 0 && currentTrack && entry.hc < 4)) ? Math.max(0, -(thing.base || 0)) * scale : 0) + (thing.village ? 60 : 2)) : entry.clip, () => {
             ctx.save();
             ctx.translate(sx, sy);
             if (thing.flip) {
                 ctx.scale(-1, 1);
             }
             ctx.scale(size, size); // from here on in meters, up is negative
-            THINGS[thing.kind](tint, thing, size);
+            (small && size / shrink * small.h < small.plain * 0.45 ? PLAIN_THINGS : THINGS)[thing.kind](tint, thing, size);
             ctx.restore();
         });
     }
@@ -2064,6 +3190,340 @@ const Scene = (() => {
 
     // What stands beside the road, in meters from where it stands. size: pixels per meter.
     const THINGS = {
+        // The countryside: a cherry tree (dark trunk, soft pink clouds), a curved lamp post, a railway mast, a village house, an ox
+        // grazing (seen from the side, facing left) and two farmers
+        cherry(tint) {
+            // Trunk with a flared foot and a darker side, branches up into the crown
+            shape(tint('#5a3b2a'), [[-0.34, 0], [-0.2, -0.5], [-0.15, -2.5], [0.15, -2.5], [0.2, -0.5], [0.36, 0]]);
+            shape(tint('#47301f'), [[0.02, 0], [0.04, -2.5], [0.15, -2.5], [0.2, -0.5], [0.36, 0]]);
+            ctx.strokeStyle = tint('#5a3b2a');
+            ctx.lineCap = 'round';
+            ctx.lineWidth = 0.17;
+            ctx.beginPath();
+            ctx.moveTo(0, -2.0);
+            ctx.lineTo(-1.3, -3.4);
+            ctx.moveTo(0, -2.3);
+            ctx.lineTo(1.2, -3.5);
+            ctx.moveTo(0, -2.5);
+            ctx.lineTo(-0.3, -4.0);
+            ctx.moveTo(0, -2.4);
+            ctx.lineTo(0.5, -4.1);
+            ctx.stroke();
+            ctx.lineWidth = 0.1;
+            ctx.beginPath();
+            ctx.moveTo(-1.0, -3.1);
+            ctx.lineTo(-1.9, -3.5);
+            ctx.moveTo(0.95, -3.2);
+            ctx.lineTo(1.9, -3.7);
+            ctx.stroke();
+            // The crown: darker pink underneath, clouds of blossom over it, lighter on top
+            blob(tint('#ee93b5'), 0, -3.9, 2.55, 1.35);
+            blob(tint('#ee93b5'), -1.9, -3.5, 1.5, 0.9);
+            blob(tint('#ee93b5'), 2.0, -3.6, 1.5, 0.95);
+            blob(tint('#f4a3c2'), 0, -4.4, 2.4, 1.55);
+            blob(tint('#f7b5cd'), -1.7, -3.9, 1.5, 1.05);
+            blob(tint('#f7b5cd'), 1.8, -4.0, 1.55, 1.1);
+            blob(tint('#f9bfd5'), -0.9, -5.0, 1.25, 0.8);
+            blob(tint('#fbcddf'), 0.5, -5.2, 1.5, 0.95);
+            blob(tint('#fde0ec'), -0.1, -5.5, 0.8, 0.45);
+            // Clusters of deeper blossom and pale highlights, and a few petals drifting under it
+            for (const [x, y, r] of [[-1.5, -4.3, 0.2], [0.9, -4.0, 0.22], [-0.3, -3.8, 0.18], [1.7, -4.4, 0.18], [-2.1, -3.7, 0.16], [0.2, -4.9, 0.17]]) {
+                blob(tint('#e97fa6'), x, y, r, r * 0.85);
+            }
+            for (const [x, y, r] of [[-1.1, -5.0, 0.2], [1.2, -4.8, 0.22], [-0.2, -5.4, 0.15], [0.8, -4.45, 0.14], [-1.9, -4.2, 0.14]]) {
+                blob(tint('#fff0f6'), x, y, r, r * 0.8);
+            }
+            for (const [x, y] of [[-1.3, -2.3], [0.9, -1.7], [1.7, -2.6], [-0.5, -1.2], [-2.0, -1.6]]) {
+                blob(tint('#f9bfd5'), x, y, 0.1, 0.06);
+            }
+        },
+        lamp(tint) {
+            ctx.strokeStyle = tint('#9aa0ab');
+            ctx.lineWidth = 0.17;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(0, -6.8);
+            ctx.quadraticCurveTo(0, -8, 1.7, -7.9);
+            ctx.stroke();
+            shape(tint('#c7ccd5'), [[1.5, -8.05], [3.3, -8.05], [3.4, -7.8], [3.3, -7.6], [1.5, -7.6]]);
+            shape(tint('#fff3c4'), [[1.9, -7.62], [3.0, -7.62], [3.0, -7.52], [1.9, -7.52]]);
+        },
+        pole(tint) {
+            ctx.strokeStyle = tint('#5d6070');
+            ctx.lineWidth = 0.24;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(0, -6);
+            ctx.moveTo(-1.3, -5.2);
+            ctx.lineTo(1.3, -5.2);
+            ctx.stroke();
+            blob(tint('#cfd3dd'), -1.2, -4.95, 0.13, 0.22);
+            blob(tint('#cfd3dd'), 1.2, -4.95, 0.13, 0.22);
+        },
+        farmhouse(tint) {
+            shape(tint('#f4ecd7'), [[-4, 0], [-4, -2.6], [4, -2.6], [4, 0]]);
+            shape(tint('#e6dcc0'), [[-4, -0.25], [4, -0.25], [4, 0], [-4, 0]]);
+            shape(tint('#47546d'), [[-5.1, -2.45], [-3.3, -4.5], [3.3, -4.5], [5.1, -2.45]]);
+            shape(tint('#38445b'), [[-5.1, -2.45], [5.1, -2.45], [5.0, -2.75], [-5.0, -2.75]]);
+            for (const x of [-3, -1.7, 2.1]) {
+                shape(tint('#46557a'), [[x - 0.45, -1.1], [x - 0.45, -1.95], [x + 0.45, -1.95], [x + 0.45, -1.1]]);
+            }
+            shape(tint('#8b6a49'), [[0.1, 0], [0.1, -1.7], [1.1, -1.7], [1.1, 0]]);
+        },
+        ox(tint) {
+            const body = tint('#8a5a36');
+            const dark = tint('#6e4528');
+            for (const x of [-1.05, -0.65, 0.75, 1.1]) {
+                shape(dark, [[x - 0.15, -1], [x - 0.13, 0], [x + 0.13, 0], [x + 0.15, -1]]);
+            }
+            blob(body, 0, -1.45, 1.5, 0.78);
+            ctx.strokeStyle = dark;
+            ctx.lineWidth = 0.12;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(1.45, -1.7);
+            ctx.quadraticCurveTo(1.75, -1.2, 1.6, -0.6);
+            ctx.stroke();
+            shape(body, [[-1.1, -1.9], [-1.9, -1.0], [-1.85, -0.6], [-1.3, -0.7], [-0.9, -1.2]]);
+            blob(body, -1.85, -0.72, 0.42, 0.34);
+            shape(tint('#efe6cc'), [[-1.75, -1.0], [-1.95, -1.3], [-1.6, -1.15]]);
+            shape(tint('#efe6cc'), [[-1.5, -0.98], [-1.5, -1.3], [-1.3, -1.05]]);
+        },
+        farmerBend(tint) {
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = tint('#26356b');
+            ctx.lineWidth = 0.24;
+            ctx.beginPath();
+            ctx.moveTo(0.1, 0);
+            ctx.lineTo(0.15, -0.85);
+            ctx.moveTo(-0.25, 0);
+            ctx.lineTo(0, -0.85);
+            ctx.stroke();
+            ctx.strokeStyle = tint('#3d6fd0');
+            ctx.lineWidth = 0.55;
+            ctx.beginPath();
+            ctx.moveTo(0.1, -0.85);
+            ctx.lineTo(-0.7, -1.2);
+            ctx.stroke();
+            ctx.lineWidth = 0.15;
+            ctx.beginPath();
+            ctx.moveTo(-0.55, -1.15);
+            ctx.lineTo(-0.9, -0.5);
+            ctx.stroke();
+            blob(tint('#f1c9a0'), -1.0, -1.18, 0.17, 0.17);
+            shape(tint('#f2dc8a'), [[-1.6, -1.26], [-1.0, -1.82], [-0.4, -1.26]]);
+            blob(tint('#bfe6f2'), -0.2, 0.02, 0.9, 0.12);
+        },
+        farmerStand(tint) {
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = tint('#26356b');
+            ctx.lineWidth = 0.24;
+            ctx.beginPath();
+            ctx.moveTo(-0.15, 0);
+            ctx.lineTo(-0.12, -0.85);
+            ctx.moveTo(0.15, 0);
+            ctx.lineTo(0.12, -0.85);
+            ctx.stroke();
+            shape(tint('#3d6fd0'), [[-0.34, -0.85], [-0.26, -1.5], [0.26, -1.5], [0.34, -0.85]]);
+            ctx.strokeStyle = tint('#3d6fd0');
+            ctx.lineWidth = 0.13;
+            ctx.beginPath();
+            ctx.moveTo(-0.28, -1.42);
+            ctx.lineTo(-0.58, -0.82);
+            ctx.moveTo(0.28, -1.42);
+            ctx.lineTo(0.58, -0.82);
+            ctx.stroke();
+            blob(tint('#a8794a'), -0.62, -0.62, 0.2, 0.17);
+            blob(tint('#a8794a'), 0.62, -0.62, 0.2, 0.17);
+            blob(tint('#f1c9a0'), 0, -1.65, 0.16, 0.16);
+            shape(tint('#f2dc8a'), [[-0.5, -1.7], [0, -2.15], [0.5, -1.7]]);
+        },
+        // The Sa Pa valley: a buffalo (dark, with swept-back horns), a small timber house, a banana plant and bamboo
+        // A traditional wooden farm cart, seen from the side: a low platform above the axle, short railings, two big spoked
+        // wheels (the far one a little behind), long shafts out in front, and a sack, a basket and a crate on it
+        cart(tint) {
+            const body = tint('#a1764a');
+            const beam = tint('#c98a4b');
+            const rim = tint('#5b3a22');
+            const spoke = tint('#8c6439');
+            const under = tint('#7a5632');
+            // shafts (far one first, a little higher)
+            shape(under, [[-1.2, -1.0], [-3.6, -0.45], [-3.6, -0.33], [-1.2, -0.88]]);
+            shape(beam, [[-1.2, -0.92], [-3.6, -0.3], [-3.6, -0.18], [-1.2, -0.8]]);
+            // far wheel
+            const wheel = (cx, cy, rimColor, spokeColor) => {
+                ctx.strokeStyle = spokeColor;
+                ctx.lineWidth = 0.09;
+                ctx.lineCap = 'round';
+                for (let k = 0; k < 6; k++) {
+                    const t = k * Math.PI / 3 + 0.3;
+                    ctx.beginPath();
+                    ctx.moveTo(cx, cy);
+                    ctx.lineTo(cx + Math.cos(t) * 0.72, cy + Math.sin(t) * 0.72);
+                    ctx.stroke();
+                }
+                ctx.strokeStyle = rimColor;
+                ctx.lineWidth = 0.17;
+                ctx.beginPath();
+                ctx.arc(cx, cy, 0.72, 0, Math.PI * 2);
+                ctx.stroke();
+                blob(rimColor, cx, cy, 0.14, 0.14);
+            };
+            wheel(0.38, -0.78, under, under);
+            // axle and platform
+            shape(under, [[-0.7, -0.82], [-0.7, -0.7], [0.9, -0.7], [0.9, -0.82]]);
+            shape(under, [[-1.4, -0.85], [1.4, -0.85], [1.3, -0.78], [-1.3, -0.78]]);
+            shape(body, [[-1.4, -1.12], [-1.4, -0.85], [1.4, -0.85], [1.4, -1.12]]);
+            // cargo behind the railings
+            shape(tint('#c9a36b'), [[0.55, -1.12], [1.25, -1.12], [1.25, -1.55], [0.55, -1.55]]);
+            blob(tint('#e8dcb8'), 0.9, -1.55, 0.42, 0.42);
+            shape(tint('#b98a4e'), [[-0.25, -1.12], [0.3, -1.12], [0.4, -1.5], [-0.35, -1.5]]);
+            shape(tint('#8c6439'), [[-0.35, -1.5], [0.4, -1.5], [0.4, -1.57], [-0.35, -1.57]]);
+            shape(tint('#9a6e3f'), [[-1.2, -1.12], [-0.55, -1.12], [-0.55, -1.55], [-1.2, -1.55]]);
+            // railings
+            for (const x of [-1.4, -0.45, 0.5, 1.4]) {
+                shape(body, [[x - 0.06, -1.12], [x - 0.06, -1.9], [x + 0.06, -1.9], [x + 0.06, -1.12]]);
+            }
+            shape(beam, [[-1.46, -1.9], [1.46, -1.9], [1.46, -1.78], [-1.46, -1.78]]);
+            shape(beam, [[-1.4, -1.5], [1.4, -1.5], [1.4, -1.4], [-1.4, -1.4]]);
+            // near wheel
+            wheel(-0.25, -0.75, rim, spoke);
+        },
+        // The same farm cart in three-quarter view, from behind (the road side of it) and from the front: the near end, the top
+        // of the platform and the side facing the road are all seen, with the near wheel's spokes and the far wheel edge-on
+        cartRear(tint, thing) { drawCartAngled(tint, false); },
+        cartFront(tint, thing) { drawCartAngled(tint, true); },
+        // A Vietnamese round woven basket (thung): a wide shallow bowl of bamboo weave with a darker rim
+        basket(tint) {
+            // deeper and rounder: a bowl as tall as it is wide, woven bands across it, a dark rim and a visible opening
+            const weave = tint('#c9a063');
+            const light = tint('#d9b574');
+            const dark = tint('#9a7040');
+            const rim = tint('#7a5632');
+            shape(weave, [[-0.75, -1.05], [-0.62, -0.28], [-0.4, -0.04], [0.4, -0.04], [0.62, -0.28], [0.75, -1.05]]);
+            shape(light, [[-0.75, -1.05], [-0.7, -0.8], [0.7, -0.8], [0.75, -1.05]]);
+            shape(dark, [[-0.66, -0.6], [0.66, -0.6], [0.63, -0.5], [-0.63, -0.5]]);
+            shape(dark, [[-0.56, -0.3], [0.56, -0.3], [0.52, -0.2], [-0.52, -0.2]]);
+            ctx.strokeStyle = dark;
+            ctx.lineWidth = 0.05;
+            ctx.lineCap = 'round';
+            for (const x of [-0.45, -0.15, 0.15, 0.45]) {
+                ctx.beginPath();
+                ctx.moveTo(x * 1.1, -1.0);
+                ctx.lineTo(x * 0.8, -0.06);
+                ctx.stroke();
+            }
+            blob(rim, 0, -1.05, 0.8, 0.14);
+            blob(tint('#5a3d22'), 0, -1.06, 0.66, 0.09);
+        },
+        // A chicken, side view, facing left: a round body, a tail, a head with a red comb and an orange beak, thin legs
+        chicken(tint, thing) {
+            const hen = thing && thing.tone ? '#b5683c' : '#f1ead8';
+            const wing = thing && thing.tone ? '#8f4a26' : '#d9cfb4';
+            ctx.strokeStyle = tint('#d9953a');
+            ctx.lineWidth = 0.05;
+            ctx.lineCap = 'round';
+            for (const x of [-0.08, 0.1]) {
+                ctx.beginPath();
+                ctx.moveTo(x, -0.28);
+                ctx.lineTo(x, 0);
+                ctx.stroke();
+            }
+            shape(tint(wing), [[0.2, -0.5], [0.55, -0.88], [0.48, -0.42]]);
+            blob(tint(hen), 0, -0.44, 0.33, 0.24);
+            blob(tint(wing), 0.06, -0.42, 0.18, 0.1);
+            shape(tint(hen), [[-0.2, -0.55], [-0.3, -0.85], [-0.16, -0.86], [-0.08, -0.58]]);
+            blob(tint(hen), -0.3, -0.84, 0.13, 0.12);
+            blob(tint('#d93b3b'), -0.3, -0.98, 0.07, 0.06);
+            shape(tint('#f0a030'), [[-0.42, -0.84], [-0.56, -0.8], [-0.42, -0.77]]);
+            blob(tint('#d93b3b'), -0.4, -0.72, 0.035, 0.05);
+            blob('#222', -0.34, -0.86, 0.015, 0.015);
+        },
+        // A Vietnamese fermentation jar (vai / chum): a dark brown glazed clay pot with a round belly, a short neck, a flared rim
+        // and a flat clay lid
+        claypot(tint, thing) {
+            const body = tint(thing && thing.tone ? '#8a4b2a' : '#a3592f');
+            const dark = tint('#5e3119');
+            const light = tint('#c47a45');
+            shape(dark, [[-0.3, -0.02], [0.3, -0.02], [0.34, -0.12], [-0.34, -0.12]]);
+            blob(body, 0, -0.62, 0.56, 0.58);
+            shape(body, [[-0.46, -1.02], [-0.42, -1.32], [0.42, -1.32], [0.46, -1.02]]);
+            shape(dark, [[-0.54, -1.32], [0.54, -1.32], [0.5, -1.42], [-0.5, -1.42]]);
+            shape(light, [[-0.42, -1.42], [0.42, -1.42], [0.32, -1.56], [-0.32, -1.56]]);
+            blob(light, -0.2, -0.78, 0.1, 0.22);
+            shape(dark, [[-0.5, -0.5], [0.5, -0.5], [0.52, -0.4], [-0.52, -0.4]]);
+        },
+        buffalo(tint) {
+            const body = tint('#55555f');
+            const dark = tint('#3b3b44');
+            const horn = tint('#d9d2bd');
+            for (const x of [-1.05, -0.6, 0.75, 1.1]) {
+                shape(dark, [[x - 0.17, -1], [x - 0.15, 0], [x + 0.15, 0], [x + 0.17, -1]]);
+            }
+            blob(body, 0.05, -1.45, 1.6, 0.82);
+            blob(body, -0.7, -1.95, 0.75, 0.42);
+            shape(body, [[-1.2, -1.9], [-2.05, -1.0], [-2.0, -0.55], [-1.4, -0.65], [-0.95, -1.2]]);
+            blob(body, -2.0, -0.7, 0.45, 0.34);
+            blob(tint('#8a8a92'), -2.28, -0.62, 0.2, 0.16);
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = horn;
+            ctx.lineWidth = 0.14;
+            ctx.beginPath();
+            ctx.moveTo(-1.7, -1.05);
+            ctx.quadraticCurveTo(-2.5, -1.45, -1.75, -1.9);
+            ctx.stroke();
+            ctx.strokeStyle = dark;
+            ctx.lineWidth = 0.12;
+            ctx.beginPath();
+            ctx.moveTo(1.55, -1.75);
+            ctx.quadraticCurveTo(1.95, -1.2, 1.75, -0.55);
+            ctx.stroke();
+        },
+        vhut(tint) {
+            shape(tint('#a1764a'), [[-2.4, 0], [-2.4, -2.0], [2.4, -2.0], [2.4, 0]]);
+            for (const x of [-1.2, 0, 1.2]) {
+                shape(tint('#8c6439'), [[x - 0.04, 0], [x - 0.04, -2.0], [x + 0.04, -2.0], [x + 0.04, 0]]);
+            }
+            shape(tint('#8c6439'), [[-2.4, -0.3], [2.4, -0.3], [2.4, 0], [-2.4, 0]]);
+            shape(tint('#5e4b47'), [[-3.3, -1.85], [-1.7, -4.2], [1.7, -4.2], [3.3, -1.85]]);
+            shape(tint('#4a3a38'), [[-3.3, -1.85], [3.3, -1.85], [3.2, -2.2], [-3.2, -2.2]]);
+            shape(tint('#6d5a55'), [[-1.7, -4.2], [1.7, -4.2], [1.2, -3.4], [-1.2, -3.4]]);
+            shape(tint('#3c2f2a'), [[-1.5, 0], [-1.5, -1.5], [-0.5, -1.5], [-0.5, 0]]);
+            shape(tint('#3c2f2a'), [[0.7, -0.9], [0.7, -1.6], [1.7, -1.6], [1.7, -0.9]]);
+        },
+        banana(tint) {
+            shape(tint('#86a64c'), [[-0.16, 0], [-0.12, -2.0], [0.12, -2.0], [0.16, 0]]);
+            for (const [angle, length, color] of [[-0.25, 2.1, '#3f9f4a'], [-0.85, 2.3, '#4db35a'], [-1.57, 2.1, '#5cc063'], [-2.3, 2.3, '#4db35a'], [-2.9, 2.1, '#3f9f4a']]) {
+                ctx.save();
+                ctx.translate(0, -2.0);
+                ctx.rotate(angle);
+                blob(tint(color), length / 2, 0, length / 2, 0.4);
+                ctx.restore();
+            }
+            blob(tint('#c8d65a'), 0.12, -1.75, 0.16, 0.26);
+        },
+        bamboo(tint) {
+            ctx.lineCap = 'round';
+            for (const [x, h, lean] of [[-0.55, 5.4, 0.5], [-0.15, 6.4, -0.2], [0.3, 5.9, 0.1], [0.65, 5.0, -0.5]]) {
+                ctx.strokeStyle = tint('#7aa83a');
+                ctx.lineWidth = 0.17;
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x + lean, -h);
+                ctx.stroke();
+                ctx.strokeStyle = tint('#5f8a2c');
+                ctx.lineWidth = 0.2;
+                for (let k = 1; k < 5; k++) {
+                    ctx.beginPath();
+                    ctx.moveTo(x + lean * k / 5 - 0.1, -h * k / 5);
+                    ctx.lineTo(x + lean * k / 5 + 0.1, -h * k / 5);
+                    ctx.stroke();
+                }
+                blob(tint('#4aa14a'), x + lean, -h, 1.0, 0.4);
+                blob(tint('#5db85a'), x + lean + 0.4, -h + 0.5, 0.8, 0.3);
+            }
+        },
         palm(tint) {
             ctx.strokeStyle = tint('#8a6440');
             ctx.lineWidth = 0.38;
@@ -2112,6 +3572,151 @@ const Scene = (() => {
         mesa(tint) {
             shape(tint('#b9653f'), [[-9, 0], [-7, -9], [-6, -10], [5, -10], [6.5, -8.5], [9, 0]]);
             shape(tint('#a3552f'), [[-7, -9], [-6, -10], [5, -10], [6.5, -8.5]]);
+        },
+        moped(tint, thing) {
+            // A parked moped seen from behind and a little above, like the riders: rounded overlapping panels in three tones
+            // (light top, warm body, darker sides), a dark seat, one taillight, a thick rear tire, a small exhaust, wide handlebars
+            const palettes = [
+                ['#fff3a8', '#f6c944', '#d79f2b'], // pastel yellow
+                ['#ffb7b0', '#e84a40', '#b9322f'], // red
+                ['#ffffff', '#eef0f6', '#c2c7d6']  // white
+            ];
+            const [top, main, side] = palettes[(thing.variant || 0) % palettes.length];
+            const dark = tint('#4a3f5e');
+            const charcoal = tint('#38324a');
+            const curve = (color, points) => {
+                // a closed shape through the points with rounded corners
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                const n = points.length;
+                ctx.moveTo((points[0][0] + points[n - 1][0]) / 2, (points[0][1] + points[n - 1][1]) / 2);
+                for (let i = 0; i < n; i++) {
+                    const p = points[i];
+                    const q = points[(i + 1) % n];
+                    ctx.quadraticCurveTo(p[0], p[1], (p[0] + q[0]) / 2, (p[1] + q[1]) / 2);
+                }
+                ctx.closePath();
+                ctx.fill();
+            };
+            const view = Math.floor((thing.variant || 0) / 3) % 4; // 0 from behind, 1 from the front, 2 and 3 side on (facing left, facing right)
+            if (view >= 2) {
+                ctx.save();
+                if (view === 3) {
+                    ctx.scale(-1, 1);
+                }
+                ctx.fillStyle = 'rgba(20,20,40,0.2)';
+                ctx.beginPath();
+                ctx.ellipse(0, -0.02, 1.0, 0.16, 0, 0, Math.PI * 2);
+                ctx.fill();
+                // the exhaust at the rear, low
+                curve(tint('#a3a6b3'), [[0.45, -0.3], [0.5, -0.4], [0.95, -0.38], [0.98, -0.3], [0.9, -0.24], [0.5, -0.24]]);
+                // the rear body, the front shield and the floor between them
+                curve(tint(side), [[-0.05, -0.34], [0.2, -0.36], [0.85, -0.42], [0.95, -0.7], [0.85, -0.92], [0.1, -0.88], [-0.1, -0.6]]);
+                curve(tint(main), [[-0.1, -0.4], [0.2, -0.42], [0.8, -0.5], [0.88, -0.7], [0.78, -0.88], [0.15, -0.85], [-0.05, -0.62]]);
+                curve(tint(main), [[-0.62, -0.34], [-0.3, -0.3], [-0.1, -0.34], [-0.1, -0.5], [-0.3, -0.7], [-0.55, -1.15], [-0.64, -1.1], [-0.68, -0.7]]);
+                curve(tint(top), [[0.1, -0.8], [0.8, -0.85], [0.78, -0.9], [0.1, -0.88]]);
+                // the seat
+                curve(tint('#34284a'), [[-0.12, -0.9], [0.0, -1.0], [0.8, -1.0], [0.9, -0.94], [0.8, -0.86], [0.0, -0.86]]);
+                curve(tint('#6a5890'), [[-0.05, -0.96], [0.02, -1.02], [0.7, -1.02], [0.76, -0.97]]);
+                // the taillight at the very back
+                curve(tint('#ff6a5c'), [[0.9, -0.84], [0.96, -0.8], [0.95, -0.7], [0.9, -0.7]]);
+                // the front fork, wheel, fender and handlebar with the headlight
+                ctx.strokeStyle = charcoal;
+                ctx.lineWidth = 0.07;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(-0.6, -1.1);
+                ctx.lineTo(-0.72, -0.26);
+                ctx.moveTo(-0.58, -1.12);
+                ctx.lineTo(-0.5, -1.38);
+                ctx.lineTo(-0.7, -1.4);
+                ctx.stroke();
+                curve(tint(main), [[-0.97, -0.5], [-0.82, -0.58], [-0.6, -0.5], [-0.62, -0.46], [-0.95, -0.44]]);
+                blob(tint('#25202f'), -0.72, -1.4, 0.07, 0.07);
+                blob(tint('#fff6c8'), -0.68, -1.12, 0.1, 0.1);
+                // the wheels, tires round a grey hub
+                for (const wx of [-0.72, 0.62]) {
+                    blob(charcoal, wx, -0.26, 0.27, 0.27);
+                    blob(tint('#a3a6b3'), wx, -0.26, 0.12, 0.12);
+                    blob(tint('#38324a'), wx, -0.26, 0.04, 0.04);
+                }
+                ctx.restore();
+                return;
+            }
+            const front = view === 1;
+            // the soft shadow on the ground
+            ctx.fillStyle = 'rgba(20,20,40,0.2)';
+            ctx.beginPath();
+            ctx.ellipse(0, -0.02, 0.58, 0.15, 0, 0, Math.PI * 2);
+            ctx.fill();
+            // the rear tire, thick and a little tucked in, with a darker middle
+            curve(charcoal, [[-0.11, 0], [-0.12, -0.3], [-0.1, -0.62], [0.1, -0.62], [0.12, -0.3], [0.11, 0]]);
+            curve(tint('#26212f'), [[-0.04, -0.05], [-0.05, -0.3], [-0.04, -0.58], [0.04, -0.58], [0.05, -0.3], [0.04, -0.05]]);
+            // the exhaust, low on the right: a grey cylinder with a dark opening
+            curve(tint('#a3a6b3'), [[0.2, -0.2], [0.22, -0.36], [0.36, -0.36], [0.38, -0.2], [0.3, -0.12]]);
+            blob(tint('#2e2a38'), 0.3, -0.27, 0.06, 0.07);
+            if (front) {
+                ctx.fillStyle = main; // (the exhaust hides behind the wheel seen from the front)
+                curve(charcoal, [[-0.11, 0], [-0.12, -0.3], [-0.1, -0.62], [0.1, -0.62], [0.12, -0.3], [0.11, 0]]);
+            }
+            // the lower body in dark purple joins the wheel, the side panels and the seat
+            curve(dark, [[-0.2, -0.3], [-0.26, -0.55], [0.26, -0.55], [0.2, -0.3]]);
+            // the darker side panels, wider, curving in to the wheel
+            curve(tint(side), [[-0.14, -0.34], [-0.37, -0.56], [-0.41, -0.84], [-0.3, -1.0], [0.3, -1.0], [0.41, -0.84], [0.37, -0.56], [0.14, -0.34]]);
+            // the main body over them
+            curve(tint(main), [[-0.13, -0.38], [-0.3, -0.58], [-0.33, -0.86], [-0.24, -0.98], [0.24, -0.98], [0.33, -0.86], [0.3, -0.58], [0.13, -0.38]]);
+            // the top surface, the lightest, and one soft highlight across the upper rear
+            curve(tint(top), [[-0.31, -0.9], [-0.25, -1.0], [-0.12, -1.06], [0.12, -1.06], [0.25, -1.0], [0.31, -0.9], [0, -0.94]]);
+            ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+            ctx.lineWidth = 0.05;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(-0.22, -0.84);
+            ctx.quadraticCurveTo(0, -0.94, 0.22, -0.84);
+            ctx.stroke();
+            // the taillight under the seat: a dark red housing round a bright coral light
+            curve(tint(front ? '#c9c2a0' : '#a52f3a'), [[-0.19, -0.82], [-0.2, -0.7], [0.2, -0.7], [0.19, -0.82], [0, -0.85]]);
+            curve(tint(front ? '#fff6c8' : '#ff6a5c'), [[-0.15, -0.79], [-0.16, -0.72], [0.16, -0.72], [0.15, -0.79], [0, -0.81]]);
+            ctx.fillStyle = front ? 'rgba(255,240,170,0.3)' : 'rgba(255,120,100,0.25)';
+            ctx.beginPath();
+            ctx.ellipse(0, -0.74, 0.27, 0.1, 0, 0, Math.PI * 2);
+            ctx.fill();
+            // the dark seat: a lighter top, darker sides, wider at the front than the rear, with a dark seam under it
+            curve(tint('#34284a'), [[-0.22, -0.98], [-0.24, -1.06], [0.24, -1.06], [0.22, -0.98]]);
+            curve(tint('#6a5890'), [[-0.2, -1.06], [-0.27, -1.2], [-0.2, -1.26], [0.2, -1.26], [0.27, -1.2], [0.2, -1.06]]);
+            // the handlebars, wider than the body, short and slightly curved, with round grips
+            curve(charcoal, [[-0.06, -1.24], [-0.06, -1.34], [0.06, -1.34], [0.06, -1.24]]);
+            ctx.strokeStyle = charcoal;
+            ctx.lineWidth = 0.07;
+            ctx.beginPath();
+            ctx.moveTo(-0.44, -1.4);
+            ctx.quadraticCurveTo(0, -1.28, 0.44, -1.4);
+            ctx.stroke();
+            blob(tint('#25202f'), -0.45, -1.41, 0.065, 0.07);
+            blob(tint('#25202f'), 0.45, -1.41, 0.065, 0.07);
+            if (front) {
+                ctx.lineWidth = 0.04;
+                ctx.beginPath();
+                ctx.moveTo(-0.4, -1.4);
+                ctx.lineTo(-0.5, -1.62);
+                ctx.moveTo(0.4, -1.4);
+                ctx.lineTo(0.5, -1.62);
+                ctx.stroke();
+                blob(tint('#cfd3e0'), -0.5, -1.64, 0.09, 0.06);
+                blob(tint('#cfd3e0'), 0.5, -1.64, 0.09, 0.06);
+            }
+        },
+        endrail(tint) {
+            for (let x = -5; x <= 5.01; x += 1.25) {
+                shape(tint('#8a5f33'), [[x - 0.09, 0], [x - 0.09, -1.1], [x + 0.09, -1.1], [x + 0.09, 0]]);
+            }
+            shape(tint('#b98a55'), [[-5.1, -0.5], [-5.1, -0.62], [5.1, -0.62], [5.1, -0.5]]);
+            shape(tint('#c79862'), [[-5.1, -0.95], [-5.1, -1.12], [5.1, -1.12], [5.1, -0.95]]);
+        },
+        bush(tint) {
+            blob(tint('#3b7d46'), -0.9, -0.55, 1.1, 0.7);
+            blob(tint('#4a9150'), 0.7, -0.6, 1.2, 0.75);
+            blob(tint('#5aa55a'), 0, -1.05, 1.1, 0.7);
         },
         pine(tint) {
             shape(tint('#5b3d26'), [[-0.25, 0], [-0.25, -1.4], [0.25, -1.4], [0.25, 0]]);
@@ -2183,15 +3788,15 @@ const Scene = (() => {
         },
         // A bend sign: black and yellow arrows pointing the way the road goes
         sign(tint, thing) {
+            // a slim post and a small yellow plate with two dark chevrons
             ctx.fillStyle = tint('#45474d');
-            ctx.fillRect(-0.06, -1.1, 0.12, 1.1);
+            ctx.fillRect(-0.04, -1.7, 0.08, 1.7);
             ctx.fillStyle = tint('#f5c400');
-            ctx.fillRect(-0.6, -1.7, 1.2, 0.6);
-            ctx.fillStyle = tint('#1d1b24');
+            ctx.fillRect(-0.38, -1.95, 0.76, 0.4);
             const way = thing.left ? -1 : 1;
-            for (const offset of [-0.32, 0.08]) {
+            for (const offset of [-0.2, 0.05]) {
                 const at = offset * way;
-                shape(tint('#1d1b24'), [[at - 0.1 * way, -1.62], [at + 0.15 * way, -1.4], [at - 0.1 * way, -1.18], [at, -1.4]]);
+                shape(tint('#1d1b24'), [[at - 0.06 * way, -1.9], [at + 0.1 * way, -1.75], [at - 0.06 * way, -1.6], [at, -1.75]]);
             }
         },
     };
@@ -2599,3 +4204,4 @@ const Scene = (() => {
 
     return {setUp, resize, draw, RIDER_COLORS, LOOKS};
 })();
+

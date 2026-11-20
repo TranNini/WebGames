@@ -20,6 +20,10 @@ const COURSE_ABOUT = {
 // The leaderboard of a course at a level (the easy one has the course's own name)
 const boardOf = (track, level) => 'moto-' + track + (level && level !== 'easy' ? '-' + level : '');
 const MAX_RIDERS = 6;
+// Mountain Passage's bullet train on the railway (as in the user's test page): one, 50 m into the race, coming up from
+// 300 m behind faster than the bikes; gone once it is 700 m ahead
+const TRAIN_LENGTH = 150;
+const TRAIN_SPEED = 80;
 
 let socket = null;
 let me = 0;
@@ -542,7 +546,25 @@ function frame(now) {
     showTrip(others);
     showStandings(others);
     $('speed-number').textContent = Math.round(bike.speed * 3.6);
-    Scene.draw({track, bike, others, color: race.color, braking: input.brake, turned: race.turned || 0, heading: race.heading || 0});
+    if (track.country) {
+        moveTrains(race, bike.z, seconds);
+    }
+    Scene.draw({track, bike, others, color: race.color, braking: input.brake, turned: race.turned || 0, heading: race.heading || 0,
+        trains: race.trains});
+}
+
+function moveTrains(race, z, seconds) {
+    race.trains ??= [];
+    if (!race.trainSent && z >= 50) {
+        race.trainSent = true;
+        race.trains.push({head: z - 300, len: TRAIN_LENGTH});
+    }
+    for (const train of race.trains) {
+        train.head += TRAIN_SPEED * seconds;
+    }
+    while (race.trains.length && race.trains[0].head - race.trains[0].len > z + 700) {
+        race.trains.shift();
+    }
 }
 
 // The turbo button: ready, on (for its 50 m), or filling up again over its cooldown

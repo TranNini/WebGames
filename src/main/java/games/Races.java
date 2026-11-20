@@ -27,7 +27,7 @@ import java.util.function.LongSupplier;
 public class Races {
     public static final int MAX_RIDERS = 6;
     // The courses, from a start to a goal (track.js has their roads)
-    public static final Set<String> TRACKS = Set.of("seaside", "canyon", "forest", "tianmen");
+    public static final Set<String> TRACKS = Set.of("seaside", "canyon", "forest", "tianmen", "countryside");
     // Easy: a clear road; medium and hard: things on it (track.js). For the computer riders: how good they are.
     public static final List<String> LEVELS = List.of("easy", "medium", "hard");
     static final long COUNTDOWN_MS = 4000;
